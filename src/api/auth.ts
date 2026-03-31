@@ -6,3 +6,8 @@ export const login = (data: LoginRequest) =>
 
 export const register = (data: RegisterRequest) =>
   client.post<AuthResponse>('/api/auth/register', data).then((r) => r.data)
+
+export const googleLogin = async (credential: string) => {
+  const { data } = await client.post<AuthResponse>('/auth/google/verify', { credential })
+  return data
+}

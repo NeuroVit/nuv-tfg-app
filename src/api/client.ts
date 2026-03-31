@@ -27,4 +27,6 @@ client.interceptors.response.use(
   }
 )
 
+client.defaults.headers.common['ngrok-skip-browser-warning'] = 'true'
+
 export default client
