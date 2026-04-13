@@ -6,6 +6,8 @@ import { GoogleLogin, type CredentialResponse } from '@react-oauth/google'
 import { login, googleLogin } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
 
+const isTauri = () => '__TAURI_INTERNALS__' in window
+
 const schema = z.object({
   username: z.string().min(1, 'Requerido'),
   password: z.string().min(1, 'Requerido'),
@@ -89,30 +91,32 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* Divider */}
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-200" />
-          </div>
-          <div className="relative flex justify-center text-xs">
-            <span className="bg-white px-3 text-gray-400 uppercase tracking-wide">
-              O continúa con
-            </span>
-          </div>
-        </div>
+        {!isTauri() && (
+          <>
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200" />
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="bg-white px-3 text-gray-400 uppercase tracking-wide">
+                  O continúa con
+                </span>
+              </div>
+            </div>
 
-        {/* Google button — fills container width */}
-        <div className="flex justify-center">
-          <GoogleLogin
-            onSuccess={handleGoogleSuccess}
-            onError={() =>
-              setError('root', { message: 'Error al iniciar sesión con Google' })
-            }
-            theme="outline"
-            shape="rectangular"
-            width="368"
-          />
-        </div>
+            <div className="flex justify-center">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() =>
+                  setError('root', { message: 'Error al iniciar sesión con Google' })
+                }
+                theme="outline"
+                shape="rectangular"
+                width="368"
+              />
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

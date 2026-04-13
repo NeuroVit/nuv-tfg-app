@@ -1,5 +1,6 @@
 import { createBrowserRouter } from 'react-router'
 import ProtectedRoute from './ProtectedRoute'
+import AppLayout from '../components/AppLayout'
 import LoginPage from '../pages/LoginPage'
 import DashboardPage from '../pages/DashboardPage'
 import ProductosPage from '../pages/ProductosPage'
@@ -13,9 +14,14 @@ export const router = createBrowserRouter([
   {
     element: <ProtectedRoute />,
     children: [
-      { path: '/', element: <DashboardPage /> },
-      { path: '/dashboard', element: <DashboardPage /> },
-      { path: '/productos', element: <ProductosPage /> },
+      {
+        element: <AppLayout />,
+        children: [
+          { path: '/', element: <DashboardPage /> },
+          { path: '/dashboard', element: <DashboardPage /> },
+          { path: '/productos', element: <ProductosPage /> },
+        ],
+      },
     ],
   },
   {
