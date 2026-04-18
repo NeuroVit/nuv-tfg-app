@@ -97,7 +97,17 @@ const handleGoogleSuccess = async (response: CredentialResponse) => {
   return (
     <div className="min-h-screen flex">
 
-      {/* Left — form */}
+        {/* Left — dark image panel */}
+      <div
+        className="hidden lg:block w-1/2"
+        style={{
+          backgroundImage: `url('/public/moon-texture-registrar.jpg')`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      />
+
+      {/* Right — form */}
       <div className="flex-1 flex flex-col items-center justify-center px-8 bg-white">
         <div className="w-full max-w-md space-y-8">
 
@@ -238,16 +248,6 @@ const handleGoogleSuccess = async (response: CredentialResponse) => {
           </p>
         </div>
       </div>
-
-      {/* Right — dark image panel */}
-      <div
-        className="hidden lg:block w-1/2"
-        style={{
-          backgroundImage: `url('https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?w=1200&q=80')`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      />
 
     </div>
   )
