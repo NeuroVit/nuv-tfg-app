@@ -1,10 +1,24 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useNavigate } from 'react-router'
+import { useNavigate, Link } from 'react-router'
 import { GoogleLogin, type CredentialResponse } from '@react-oauth/google'
 import { login, googleLogin } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
+import { Separator } from '@/components/ui/separator'
+import { Loader2 } from 'lucide-react'
 
 const isTauri = () => '__TAURI_INTERNALS__' in window
 
@@ -19,13 +33,12 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const setUser = useAuthStore((s) => s.setUser)
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-    setError,
-  } = useForm<FormData>({
+  const form = useForm<FormData>({
     resolver: zodResolver(schema),
+    defaultValues: {
+      username: '',
+      password: '',
+    },
   })
 
   const onSubmit = async (data: FormData) => {
@@ -34,7 +47,7 @@ export default function LoginPage() {
       setUser({ username: res.username, role: res.role, token: res.token })
       navigate('/dashboard')
     } catch {
-      setError('root', { message: 'Credenciales incorrectas' })
+      form.setError('root', { message: 'Credenciales incorrectas' })
     }
   }
 
@@ -45,78 +58,97 @@ export default function LoginPage() {
       setUser({ username: res.username, role: res.role, token: res.token })
       navigate('/dashboard')
     } catch {
-      setError('root', { message: 'Error al iniciar sesión con Google' })
+      form.setError('root', { message: 'Error al iniciar sesión con Google' })
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-md p-8 space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Stock Manager</h1>
-
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
-            <input
-              {...register('username')}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            {errors.username && (
-              <p className="text-red-500 text-xs mt-1">{errors.username.message}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
-            <input
-              {...register('password')}
-              type="password"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            {errors.password && (
-              <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>
-            )}
-          </div>
-
-          {errors.root && (
-            <p className="text-red-500 text-sm">{errors.root.message}</p>
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="w-full max-w-sm space-y-4">
+        <div className="pb-4">
+          <h1 className="text-2xl font-semibold tracking-tight">Stock Manager</h1>
+          <p className="text-sm text-muted-foreground">Introduce tus credenciales para acceder</p>
+        </div>
+          {form.formState.errors.root && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                {form.formState.errors.root.message}
+              </AlertDescription>
+            </Alert>
           )}
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
-          >
-            {isSubmitting ? 'Iniciando sesión...' : 'Iniciar sesión'}
-          </button>
-        </form>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="username"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Usuario</FormLabel>
+                    <FormControl>
+                      <Input placeholder="tu_usuario" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-        {!isTauri() && (
-          <>
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200" />
-              </div>
-              <div className="relative flex justify-center text-xs">
-                <span className="bg-white px-3 text-gray-400 uppercase tracking-wide">
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Contraseña</FormLabel>
+                    <FormControl>
+                      <Input type="password" placeholder="••••••••" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={form.formState.isSubmitting}
+              >
+                {form.formState.isSubmitting && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Iniciar sesión
+              </Button>
+            </form>
+          </Form>
+
+          {!isTauri() && (
+            <>
+              <div className="relative">
+                <Separator />
+                <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-2 text-xs text-muted-foreground uppercase tracking-wide">
                   O continúa con
                 </span>
               </div>
-            </div>
 
-            <div className="flex justify-center">
-              <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={() =>
-                  setError('root', { message: 'Error al iniciar sesión con Google' })
-                }
-                theme="outline"
-                shape="rectangular"
-                width="368"
-              />
-            </div>
-          </>
-        )}
+              <div className="flex justify-center">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() =>
+                    form.setError('root', { message: 'Error al iniciar sesión con Google' })
+                  }
+                  theme="outline"
+                  shape="rectangular"
+                  width="368"
+                />
+              </div>
+            </>
+          )}
+
+          <p className="text-center text-sm text-muted-foreground">
+            ¿No tienes cuenta?{' '}
+            <Link to="/register" className="text-primary font-medium hover:underline">
+              Crear cuenta
+            </Link>
+          </p>
       </div>
     </div>
   )
