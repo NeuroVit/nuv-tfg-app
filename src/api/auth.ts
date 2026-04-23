@@ -11,3 +11,7 @@ export const googleLogin = async (credential: string) => {
   const { data } = await client.post<AuthResponse>('/auth/google/verify', { credential })
   return data
 }
+
+export const logout = async () => {
+  await client.post('/auth/logout')
+}

@@ -3,14 +3,14 @@ import { useNavigate, Link } from 'react-router'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import axios from 'axios'
+import { isAxiosError } from 'axios'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useAuthStore } from '@/store/authStore'
 import { GoogleLogin, type CredentialResponse } from '@react-oauth/google'
-import { googleLogin } from '@/api/auth'
+import { googleLogin, register } from '@/api/auth'
 import {
   Form,
   FormControl,
@@ -64,20 +64,21 @@ export default function RegisterPage() {
     const onSubmit = async (data: RegisterFormData) => {
     setServerError(null)
     try {
-        const res = await axios.post(`${import.meta.env.VITE_API_URL}/auth/register`, {
+        const res = await register({
         nombre: data.nombre,
         apellidos: data.apellidos,
         username: data.username,
         email: data.email,
         password: data.password,
         })
-        setUser({ username: res.data.username, role: res.data.role, token: res.data.token })
+        setUser({ username: res.username, role: res.role, token: res.token })
         navigate('/dashboard')
-    } catch (err: any) {
-        const msg =
-        err.response?.data?.message ??
-        err.response?.data?.mensaje ??
-        'Error al crear la cuenta. Inténtalo de nuevo.'
+    } catch (err: unknown) {
+        const msg = isAxiosError<{ message?: string; mensaje?: string }>(err)
+          ? (err.response?.data?.message ??
+            err.response?.data?.mensaje ??
+            'Error al crear la cuenta. Inténtalo de nuevo.')
+          : 'Error al crear la cuenta. Inténtalo de nuevo.'
         setServerError(msg)
     }
 

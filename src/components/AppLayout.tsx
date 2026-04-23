@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router'
 import { useAuthStore } from '../store/authStore'
+import { logout as logoutRequest } from '@/api/auth'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -21,11 +22,16 @@ const navItems = [
 ]
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
-  const { user, logout } = useAuthStore()
+  const { user, logout: clearSession } = useAuthStore()
   const navigate = useNavigate()
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    try {
+      await logoutRequest()
+    } catch {
+      // Si falla la llamada remota, igualmente cerramos sesión local.
+    }
+    clearSession()
     navigate('/login')
   }
 

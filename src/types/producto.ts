@@ -6,24 +6,34 @@ export interface Producto {
   cantidadActual: number
   nivelMinimoStock: number
   precioUnitario: number
+  categoriaId: number | null
   categoriaNombre: string | null
   version: number
   creadoEn: string
   actualizadoEn: string
 }
 
-export interface ProductoRequest {
+export interface CrearProductoRequest {
   nombre: string
   sku: string
   descripcion?: string
+  precioUnitario: number
   cantidadActual: number
   nivelMinimoStock: number
-  precioUnitario: number
-  categoriaId: number
+  categoriaId?: number
 }
+
+export interface EditarProductoRequest extends Partial<CrearProductoRequest> {}
+
+export interface Categoria {
+  id: number
+  nombre: string
+}
+
+export type ProductoRequest = CrearProductoRequest
 
 export interface ActualizarStockRequest {
   delta: number
-  razon: 'COMPRA' | 'VENTA' | 'AJUSTE' | 'DEVOLUCION' | 'MERMA'
+  razon: 'PURCHASE' | 'SALE' | 'ADJUSTMENT' | 'RETURN' | 'DAMAGE'
   notas?: string
 }
