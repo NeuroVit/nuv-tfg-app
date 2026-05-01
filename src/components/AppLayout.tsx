@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   LayoutDashboard,
   Package,
-  Bell,
+  Tags,
   LogOut,
   Menu,
   BarChart3,
@@ -18,7 +18,7 @@ import {
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/productos', label: 'Productos', icon: Package },
-  { to: '/alertas', label: 'Alertas', icon: Bell },
+  { to: '/categorias', label: 'Categorías', icon: Tags },
 ]
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {

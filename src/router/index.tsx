@@ -5,6 +5,7 @@ import LoginPage from '../pages/LoginPage'
 import RegisterPage from '../pages/RegisterPage'
 import DashboardPage from '../pages/DashboardPage'
 import ProductosPage from '../pages/ProductosPage'
+import CategoriasPage from '../pages/CategoriasPage'
 import NotFoundPage from '../pages/NotFoundPage'
 
 export const router = createBrowserRouter([
@@ -25,6 +26,7 @@ export const router = createBrowserRouter([
           { path: '/', element: <DashboardPage /> },
           { path: '/dashboard', element: <DashboardPage /> },
           { path: '/productos', element: <ProductosPage /> },
+          { path: '/categorias', element: <CategoriasPage /> },
         ],
       },
     ],
