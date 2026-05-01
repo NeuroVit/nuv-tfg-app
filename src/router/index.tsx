@@ -7,6 +7,7 @@ import DashboardPage from '../pages/DashboardPage'
 import ProductosPage from '../pages/ProductosPage'
 import CategoriasPage from '../pages/CategoriasPage'
 import NotFoundPage from '../pages/NotFoundPage'
+import SettingsPage from '../pages/SettingsPage'
 
 export const router = createBrowserRouter([
   {
@@ -27,6 +28,7 @@ export const router = createBrowserRouter([
           { path: '/dashboard', element: <DashboardPage /> },
           { path: '/productos', element: <ProductosPage /> },
           { path: '/categorias', element: <CategoriasPage /> },
+          { path: '/settings', element: <SettingsPage /> },
         ],
       },
     ],

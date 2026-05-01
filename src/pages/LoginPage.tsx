@@ -66,7 +66,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="w-full max-w-sm space-y-4">
         <div className="pb-4">
-          <h1 className="text-2xl font-semibold tracking-tight">Stock Manager</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">NeuralStock</h1>
           <p className="text-sm text-muted-foreground">Introduce tus credenciales para acceder</p>
         </div>
           {form.formState.errors.root && (

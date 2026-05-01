@@ -42,6 +42,7 @@ const registerSchema = z
   })
 
 type RegisterFormData = z.infer<typeof registerSchema>
+const isTauri = () => '__TAURI_INTERNALS__' in window
 
 export default function RegisterPage() {
     const navigate = useNavigate()
@@ -113,7 +114,7 @@ const handleGoogleSuccess = async (response: CredentialResponse) => {
         <div className="w-full max-w-md space-y-8">
 
           <h1 className="text-3xl font-bold text-center text-gray-900">
-            Create your account
+            Crea tu cuenta
           </h1>
 
           {serverError && (
@@ -132,9 +133,9 @@ const handleGoogleSuccess = async (response: CredentialResponse) => {
                   name="nombre"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Name</FormLabel>
+                      <FormLabel>Nombre</FormLabel>
                       <FormControl>
-                        <Input placeholder="Name" {...field} />
+                        <Input placeholder="Nombre" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -145,9 +146,9 @@ const handleGoogleSuccess = async (response: CredentialResponse) => {
                   name="apellidos"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Last name</FormLabel>
+                      <FormLabel>Apellidos</FormLabel>
                       <FormControl>
-                        <Input placeholder="Last name" {...field} />
+                        <Input placeholder="Apellidos" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -161,9 +162,9 @@ const handleGoogleSuccess = async (response: CredentialResponse) => {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>Correo electrónico</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="Email" {...field} />
+                      <Input type="email" placeholder="correo@empresa.com" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -176,9 +177,9 @@ const handleGoogleSuccess = async (response: CredentialResponse) => {
                 name="username"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Username</FormLabel>
+                    <FormLabel>Usuario</FormLabel>
                     <FormControl>
-                      <Input placeholder="Username" {...field} />
+                      <Input placeholder="tu_usuario" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -191,9 +192,9 @@ const handleGoogleSuccess = async (response: CredentialResponse) => {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Password</FormLabel>
+                    <FormLabel>Contraseña</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="Password" {...field} />
+                      <Input type="password" placeholder="••••••••" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -206,9 +207,9 @@ const handleGoogleSuccess = async (response: CredentialResponse) => {
                 name="confirmPassword"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Confirm password</FormLabel>
+                    <FormLabel>Confirmar contraseña</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="Confirm password" {...field} />
+                      <Input type="password" placeholder="••••••••" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -223,7 +224,7 @@ const handleGoogleSuccess = async (response: CredentialResponse) => {
                 {form.formState.isSubmitting && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                Sign up
+                Crear cuenta
               </Button>
             </form>
           </Form>
@@ -231,20 +232,22 @@ const handleGoogleSuccess = async (response: CredentialResponse) => {
           
 
           {/* Google */}
-          <div className="flex justify-center">
-            <GoogleLogin
+          {!isTauri() && (
+            <div className="flex justify-center">
+              <GoogleLogin
                 onSuccess={handleGoogleSuccess}
                 onError={() => setServerError('Error al registrarse con Google')}
                 theme="outline"
                 shape="pill"
                 width="448"
-            />
+              />
             </div>
+          )}
 
           <p className="text-center text-sm text-gray-500">
-            Already have an account?{' '}
+            ¿Ya tienes cuenta?{' '}
             <Link to="/login" className="underline text-gray-900 font-medium">
-              Log in
+              Inicia sesión
             </Link>
           </p>
         </div>
