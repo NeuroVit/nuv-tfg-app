@@ -3,12 +3,12 @@ import ProtectedRoute from './ProtectedRoute'
 import AppLayout from '../components/AppLayout'
 import LoginPage from '../pages/LoginPage'
 import RegisterPage from '../pages/RegisterPage'
-import DashboardPage from '../pages/DashboardPage'
 import ProductosPage from '../pages/ProductosPage'
 import CategoriasPage from '../pages/CategoriasPage'
 import BundlesPage from '../pages/BundlesPage'
 import NotFoundPage from '../pages/NotFoundPage'
 import SettingsPage from '../pages/SettingsPage'
+import Inicio from '../pages/Inicio'
 
 export const router = createBrowserRouter([
   {
@@ -25,8 +25,9 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
-          { path: '/', element: <DashboardPage /> },
-          { path: '/dashboard', element: <DashboardPage /> },
+          { path: '/', element: <Inicio /> },
+          { path: '/inicio', element: <Inicio /> },
+          { path: '/dashboard', element: <Inicio /> },
           { path: '/productos', element: <ProductosPage /> },
           { path: '/categorias', element: <CategoriasPage /> },
           { path: '/bundles', element: <BundlesPage /> },
