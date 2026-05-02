@@ -43,3 +43,9 @@ export interface ActualizarStockRequest {
   razon: 'PURCHASE' | 'SALE' | 'ADJUSTMENT' | 'RETURN' | 'DAMAGE'
   notas?: string
 }
+
+export interface UnlinkBundlesResponse {
+  productId: number
+  unlinkedItems: number
+  bundles: string[]
+}

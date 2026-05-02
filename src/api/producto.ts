@@ -4,6 +4,7 @@ import type {
   CrearProductoRequest,
   EditarProductoRequest,
   ActualizarStockRequest,
+  UnlinkBundlesResponse,
 } from '../types/producto'
 import { getCategorias } from './categoria'
 
@@ -26,6 +27,16 @@ export const deleteProducto = async (id: number): Promise<void> => {
 
 export const actualizarStock = async (id: number, req: ActualizarStockRequest): Promise<Producto> => {
   const { data } = await client.patch<Producto>(`/productos/${id}/stock`, req)
+  return data
+}
+
+export const getProductoBundles = async (id: number): Promise<string[]> => {
+  const { data } = await client.get<string[]>(`/productos/${id}/bundles`)
+  return data
+}
+
+export const unlinkProductoFromBundles = async (id: number): Promise<UnlinkBundlesResponse> => {
+  const { data } = await client.delete<UnlinkBundlesResponse>(`/productos/${id}/bundles`)
   return data
 }
 

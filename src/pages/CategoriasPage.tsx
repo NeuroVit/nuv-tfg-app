@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { isAxiosError } from 'axios'
+import { toast } from 'sonner'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { crearCategoria, editarCategoria, eliminarCategoria, getCategorias } from '@/api/categoria'
@@ -59,6 +60,8 @@ const defaultFormValues: CategoriaFormValues = {
   descripcion: '',
 }
 
+const normalizarTexto = (text: string): string => text.trim().toLocaleLowerCase('es-ES')
+
 const parseApiError = (error: unknown, fallback: string): string => {
   if (!isAxiosError(error)) return fallback
   const payload = error.response?.data
@@ -103,7 +106,8 @@ export default function CategoriasPage() {
     setLoading(true)
     try {
       const data = await getCategorias()
-      setCategories(data)
+      const sorted = [...data].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es-ES'))
+      setCategories(sorted)
     } finally {
       setLoading(false)
     }
@@ -124,6 +128,8 @@ export default function CategoriasPage() {
     })
   }, [categories, search])
 
+  const categoryCountLabel = `${filteredCategories.length} ${filteredCategories.length === 1 ? 'categoría' : 'categorías'}`
+
   const openCreateDialog = () => {
     setDialogMode('create')
     setEditingCategory(null)
@@ -143,29 +149,57 @@ export default function CategoriasPage() {
     setDialogOpen(true)
   }
 
+  const validarNombreDuplicado = (nombre: string): boolean => {
+    const nombreNormalizado = normalizarTexto(nombre)
+
+    return categories.some((category) => {
+      if (dialogMode === 'edit' && editingCategory?.id === category.id) {
+        return false
+      }
+      return normalizarTexto(category.nombre) === nombreNormalizado
+    })
+  }
+
   const submitCategory = async (values: CategoriaFormValues) => {
     setSubmitting(true)
     form.clearErrors()
 
+    const nombreLimpio = values.nombre.trim()
+    if (!nombreLimpio) {
+      form.setError('nombre', { message: 'El nombre es obligatorio' })
+      setSubmitting(false)
+      return
+    }
+
+    if (validarNombreDuplicado(nombreLimpio)) {
+      form.setError('nombre', { message: 'Ya existe una categoría con ese nombre' })
+      setSubmitting(false)
+      return
+    }
+
     const payload: CategoriaRequest = {
-      nombre: values.nombre,
+      nombre: nombreLimpio,
       descripcion: values.descripcion?.trim() ? values.descripcion.trim() : undefined,
     }
 
     try {
       if (dialogMode === 'create') {
         await crearCategoria(payload)
+        toast.success(`Categoría "${payload.nombre}" creada correctamente.`)
       } else if (editingCategory) {
         await editarCategoria(editingCategory.id, payload)
+        toast.success(`Categoría "${payload.nombre}" actualizada correctamente.`)
       }
 
       await loadData()
       setDialogOpen(false)
       setEditingCategory(null)
     } catch (error: unknown) {
+      const errorMessage = parseApiError(error, 'No se pudo guardar la categoría')
       form.setError('root', {
-        message: parseApiError(error, 'No se pudo guardar la categoría'),
+        message: errorMessage,
       })
+      toast.error(errorMessage)
     } finally {
       setSubmitting(false)
     }
@@ -181,35 +215,47 @@ export default function CategoriasPage() {
 
     setSubmitting(true)
     try {
+      const deletedName = deletingCategory.nombre
       await eliminarCategoria(deletingCategory.id)
       await loadData()
       setDeleteOpen(false)
       setDeletingCategory(null)
+      toast.success(`Categoría "${deletedName}" eliminada correctamente.`)
     } catch (error: unknown) {
+      const errorMessage = parseApiError(error, 'No se pudo eliminar la categoría')
       form.setError('root', {
-        message: parseApiError(error, 'No se pudo eliminar la categoría'),
+        message: errorMessage,
       })
       setDeleteOpen(false)
+      toast.error(errorMessage)
     } finally {
       setSubmitting(false)
     }
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-5xl space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Categorías</h1>
-            <p className="mt-1 text-sm text-gray-500">{filteredCategories.length} categorías</p>
+            <p className="mt-1 text-sm text-gray-500">{categoryCountLabel}</p>
           </div>
           {canEdit && (
-            <Button onClick={openCreateDialog}>
+            <Button className="w-full sm:w-auto" onClick={openCreateDialog}>
               <Plus className="mr-2 h-4 w-4" />
               Nueva categoría
             </Button>
           )}
         </div>
+
+        {!canEdit && (
+          <Alert>
+            <AlertDescription>
+              Tu rol actual es de solo lectura en esta sección.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {form.formState.errors.root?.message && (
           <Alert variant="destructive">
@@ -221,11 +267,11 @@ export default function CategoriasPage() {
           placeholder="Buscar por nombre o descripción..."
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          className="max-w-sm"
+          className="w-full sm:max-w-sm"
         />
 
-        <div className="overflow-hidden rounded-lg border bg-white">
-          <Table>
+        <div className="rounded-lg border bg-white">
+          <Table className="min-w-[640px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Nombre</TableHead>
@@ -251,7 +297,7 @@ export default function CategoriasPage() {
                   <TableRow key={category.id}>
                     <TableCell className="font-medium">{category.nombre}</TableCell>
                     <TableCell className="max-w-[420px] whitespace-normal text-gray-600">
-                      {category.descripcion || '—'}
+                      {category.descripcion || 'Sin descripción'}
                     </TableCell>
                     <TableCell>
                       {canEdit && (
@@ -294,7 +340,7 @@ export default function CategoriasPage() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{dialogMode === 'create' ? 'Nueva categoría' : 'Editar categoría'}</DialogTitle>
           </DialogHeader>
