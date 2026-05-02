@@ -15,3 +15,6 @@ export const googleLogin = async (credential: string) => {
 export const logout = async () => {
   await client.post('/auth/logout')
 }
+
+export const switchRole = (role: string) =>
+  client.post<AuthResponse>('/auth/role', { role }).then((r) => r.data)

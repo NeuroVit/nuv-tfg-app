@@ -2,6 +2,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useNavigate, Link } from 'react-router'
+import { toast } from 'sonner'
 import { GoogleLogin, type CredentialResponse } from '@react-oauth/google'
 import { login, googleLogin } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
@@ -19,6 +20,7 @@ import {
 } from '@/components/ui/form'
 import { Separator } from '@/components/ui/separator'
 import { Loader2 } from 'lucide-react'
+import { useIsMobile } from '@/hooks/use-mobile'
 
 const isTauri = () => '__TAURI_INTERNALS__' in window
 
@@ -32,6 +34,7 @@ type FormData = z.infer<typeof schema>
 export default function LoginPage() {
   const navigate = useNavigate()
   const setUser = useAuthStore((s) => s.setUser)
+  const isMobile = useIsMobile()
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -45,9 +48,11 @@ export default function LoginPage() {
     try {
       const res = await login(data)
       setUser({ username: res.username, role: res.role, token: res.token })
+      toast.success(`Bienvenido, ${res.username}.`)
       navigate('/dashboard')
     } catch {
       form.setError('root', { message: 'Credenciales incorrectas' })
+      toast.error('Credenciales incorrectas')
     }
   }
 
@@ -56,17 +61,19 @@ export default function LoginPage() {
     try {
       const res = await googleLogin(response.credential)
       setUser({ username: res.username, role: res.role, token: res.token })
+      toast.success(`Bienvenido, ${res.username}.`)
       navigate('/dashboard')
     } catch {
       form.setError('root', { message: 'Error al iniciar sesión con Google' })
+      toast.error('Error al iniciar sesión con Google')
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="w-full max-w-sm space-y-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="w-full max-w-sm space-y-4 rounded-lg border bg-card p-4 sm:p-6">
         <div className="pb-4">
-          <h1 className="text-2xl font-semibold tracking-tight">Stock Manager</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">NeuralStock</h1>
           <p className="text-sm text-muted-foreground">Introduce tus credenciales para acceder</p>
         </div>
           {form.formState.errors.root && (
@@ -137,7 +144,7 @@ export default function LoginPage() {
                   }
                   theme="outline"
                   shape="rectangular"
-                  width="368"
+                  width={isMobile ? '280' : '368'}
                 />
               </div>
             </>

@@ -1,136 +1,123 @@
-import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router'
-import { useAuthStore } from '../store/authStore'
+import { toast } from 'sonner'
 import { logout as logoutRequest } from '@/api/auth'
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
-import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
+import { useAuthStore } from '@/store/authStore'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
-  LayoutDashboard,
-  Package,
-  Bell,
-  LogOut,
-  Menu,
-  BarChart3,
-} from 'lucide-react'
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Separator } from '@/components/ui/separator'
+import { AppSidebar } from '@/components/AppSidebar'
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from '@/components/ui/sidebar'
+import { ChevronsUpDown, LogOut, Settings } from 'lucide-react'
 
-const navItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/productos', label: 'Productos', icon: Package },
-  { to: '/alertas', label: 'Alertas', icon: Bell },
+const topTabs = [
+  { to: '/dashboard', label: 'Inicio' },
+  { to: '/productos', label: 'Productos' },
+  { to: '/categorias', label: 'Categorías' },
+  { to: '/bundles', label: 'Bundles' },
 ]
 
-function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+export default function AppLayout() {
   const { user, logout: clearSession } = useAuthStore()
   const navigate = useNavigate()
+
+  const initials = user?.username ? user.username.slice(0, 2).toUpperCase() : 'U'
+  const roleLabel = (user?.role ?? 'ROLE_VIEWER').replace('ROLE_', '')
 
   const handleLogout = async () => {
     try {
       await logoutRequest()
+      toast.success('Sesión cerrada correctamente.')
     } catch {
       // Si falla la llamada remota, igualmente cerramos sesión local.
+      toast.error('No se pudo cerrar sesión en el servidor. Se cerrará localmente.')
     }
     clearSession()
     navigate('/login')
   }
 
-  const initials = user?.username
-    ? user.username.slice(0, 2).toUpperCase()
-    : 'U'
-
   return (
-    <div className="flex flex-col h-full">
-      {/* Logo */}
-      <div className="flex items-center gap-2 px-4 py-5">
-        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-          <BarChart3 className="w-4 h-4 text-white" />
-        </div>
-        <span className="font-semibold text-gray-900 text-sm">Stock Manager</span>
-      </div>
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        <header className="flex min-h-14 shrink-0 items-center gap-2 border-b bg-background px-3 py-2 sm:px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator
+            orientation="vertical"
+            className="mr-2 data-[orientation=vertical]:h-4"
+          />
+          <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+            {topTabs.map((tab) => (
+              <NavLink
+                key={tab.to}
+                to={tab.to}
+                className={({ isActive }) =>
+                  `rounded-md px-3 py-1.5 text-sm transition-colors ${
+                    isActive
+                      ? 'bg-accent text-accent-foreground'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                  }`
+                }
+              >
+                {tab.label}
+              </NavLink>
+            ))}
+          </nav>
 
-      <Separator />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className="h-auto gap-2 px-1.5 py-1 data-[state=open]:bg-accent sm:px-2"
+              >
+                <Avatar className="h-7 w-7 rounded-full">
+                  <AvatarFallback className="rounded-full bg-muted text-muted-foreground text-[10px]">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="hidden text-left text-sm leading-tight sm:grid">
+                  <span className="max-w-32 truncate font-medium">{user?.username ?? 'Usuario'}</span>
+                  <Badge variant="secondary" className="mt-1 w-fit px-1.5 py-0 text-[10px]">
+                    {roleLabel}
+                  </Badge>
+                </div>
+                <ChevronsUpDown className="size-4 text-muted-foreground" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="min-w-56 rounded-lg" align="end" side="bottom" sideOffset={8}>
+              <DropdownMenuItem onSelect={() => navigate('/settings')}>
+                <Settings className="h-4 w-4" />
+                Ajustes
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={() => {
+                  void handleLogout()
+                }}
+              >
+                <LogOut className="h-4 w-4" />
+                Cerrar sesión
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </header>
 
-      {/* Nav */}
-      <nav className="flex-1 px-2 py-4 space-y-1">
-        {navItems.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            onClick={onNavigate}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                isActive
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-              }`
-            }
-          >
-            <Icon className="w-4 h-4 shrink-0" />
-            {label}
-          </NavLink>
-        ))}
-      </nav>
-
-      <Separator />
-
-      {/* User info + logout */}
-      <div className="px-3 py-4 space-y-3">
-        <div className="flex items-center gap-3 px-1">
-          <Avatar className="w-8 h-8">
-            <AvatarFallback className="text-xs bg-blue-100 text-blue-700">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate">{user?.username}</p>
-            <p className="text-xs text-gray-400 truncate">{user?.role}</p>
-          </div>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleLogout}
-          className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 gap-2"
-        >
-          <LogOut className="w-4 h-4" />
-          Cerrar sesión
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-export default function AppLayout() {
-  const [mobileOpen, setMobileOpen] = useState(false)
-
-  return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Desktop sidebar */}
-      <aside className="hidden md:flex w-56 bg-white border-r border-gray-200 flex-col shrink-0">
-        <SidebarContent />
-      </aside>
-
-      {/* Mobile sidebar */}
-      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden fixed top-4 left-4 z-40"
-          >
-            <Menu className="w-5 h-5" />
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="w-56 p-0">
-          <SidebarContent onNavigate={() => setMobileOpen(false)} />
-        </SheetContent>
-      </Sheet>
-
-      {/* Main content */}
-      <main className="flex-1 overflow-auto">
-        <Outlet />
-      </main>
-    </div>
+        <main className="flex-1 overflow-auto">
+          <Outlet />
+        </main>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }

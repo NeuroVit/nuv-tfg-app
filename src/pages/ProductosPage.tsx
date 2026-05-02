@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { isAxiosError } from 'axios'
+import { toast } from 'sonner'
 import {
   useReactTable,
   getCoreRowModel,
@@ -25,6 +26,16 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
   Form,
@@ -35,9 +46,17 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { AlertTriangle, Pencil, Plus, Trash2 } from 'lucide-react'
+import { AlertTriangle, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { PackageSearchIcon } from '@hugeicons/core-free-icons'
 
 const productoSchema = z.object({
   nombre: z.string().min(1, 'El nombre es obligatorio'),
@@ -93,9 +112,11 @@ export default function ProductosPage() {
   const [stockDialog, setStockDialog] = useState(false)
   const [createDialog, setCreateDialog] = useState(false)
   const [editDialog, setEditDialog] = useState(false)
+  const [deleteDialog, setDeleteDialog] = useState(false)
 
   const [selectedProducto, setSelectedProducto] = useState<Producto | null>(null)
   const [productoEditando, setProductoEditando] = useState<Producto | null>(null)
+  const [productoEliminando, setProductoEliminando] = useState<Producto | null>(null)
   const [stockError, setStockError] = useState<string | null>(null)
 
   const [stockForm, setStockForm] = useState<ActualizarStockRequest>({
@@ -105,6 +126,7 @@ export default function ProductosPage() {
   const [submittingStock, setSubmittingStock] = useState(false)
   const [submittingCreate, setSubmittingCreate] = useState(false)
   const [submittingEdit, setSubmittingEdit] = useState(false)
+  const [submittingDelete, setSubmittingDelete] = useState(false)
 
   const createForm = useForm<ProductoFormValues>({
     resolver: zodResolver(productoSchema),
@@ -179,10 +201,13 @@ export default function ProductosPage() {
       })
       await cargarDatos()
       setCreateDialog(false)
+      toast.success(`Producto "${values.nombre}" creado correctamente.`)
     } catch (error: unknown) {
+      const errorMessage = parseApiError(error, 'No se pudo crear el producto')
       createForm.setError('root', {
-        message: parseApiError(error, 'No se pudo crear el producto'),
+        message: errorMessage,
       })
+      toast.error(errorMessage)
     } finally {
       setSubmittingCreate(false)
     }
@@ -205,10 +230,13 @@ export default function ProductosPage() {
       await cargarDatos()
       setEditDialog(false)
       setProductoEditando(null)
+      toast.success(`Producto "${values.nombre}" actualizado correctamente.`)
     } catch (error: unknown) {
+      const errorMessage = parseApiError(error, 'No se pudo actualizar el producto')
       editForm.setError('root', {
-        message: parseApiError(error, 'No se pudo actualizar el producto'),
+        message: errorMessage,
       })
+      toast.error(errorMessage)
     } finally {
       setSubmittingEdit(false)
     }
@@ -222,20 +250,36 @@ export default function ProductosPage() {
       await actualizarStock(selectedProducto.id, stockForm)
       await cargarDatos()
       setStockDialog(false)
+      toast.success(`Stock actualizado para "${selectedProducto.nombre}".`)
     } catch (error: unknown) {
-      setStockError(parseApiError(error, 'No se pudo actualizar el stock'))
+      const errorMessage = parseApiError(error, 'No se pudo actualizar el stock')
+      setStockError(errorMessage)
+      toast.error(errorMessage)
     } finally {
       setSubmittingStock(false)
     }
   }
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('¿Eliminar este producto?')) return
+  const handleDeleteRequest = (producto: Producto) => {
+    setProductoEliminando(producto)
+    setDeleteDialog(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!productoEliminando) return
+    setSubmittingDelete(true)
     try {
-      await deleteProducto(id)
+      const deletedName = productoEliminando.nombre
+      await deleteProducto(productoEliminando.id)
       await cargarDatos()
+      setDeleteDialog(false)
+      setProductoEliminando(null)
+      toast.success(`Producto "${deletedName}" eliminado correctamente.`)
     } catch (error: unknown) {
-      alert(parseApiError(error, 'No se pudo eliminar el producto'))
+      setDeleteDialog(false)
+      toast.error(parseApiError(error, 'No se pudo eliminar el producto'))
+    } finally {
+      setSubmittingDelete(false)
     }
   }
 
@@ -310,28 +354,30 @@ export default function ProductosPage() {
       cell: ({ row }) => (
         <div className="flex items-center justify-end gap-2">
           {canEdit && (
-            <>
-              <Button variant="outline" size="sm" onClick={() => handleOpenStock(row.original)}>
-                Stock
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleOpenEdit(row.original)}
-                aria-label="Editar producto"
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleDelete(row.original.id)}
-                className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                aria-label="Eliminar producto"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Acciones de producto">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-44">
+                <DropdownMenuItem onSelect={() => handleOpenStock(row.original)}>
+                  <HugeiconsIcon icon={PackageSearchIcon} strokeWidth={2} className="h-4 w-4" />
+                  Stock
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => handleOpenEdit(row.original)}>
+                  <Pencil className="h-4 w-4" />
+                  Editar
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  variant="destructive"
+                  onSelect={() => handleDeleteRequest(row.original)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Eliminar
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       ),
@@ -348,15 +394,15 @@ export default function ProductosPage() {
   })
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Productos</h1>
             <p className="mt-1 text-sm text-gray-500">{productosFiltrados.length} productos en inventario</p>
           </div>
           {canEdit && (
-            <Button onClick={handleOpenCreate}>
+            <Button className="w-full sm:w-auto" onClick={handleOpenCreate}>
               <Plus className="mr-2 h-4 w-4" />
               Nuevo producto
             </Button>
@@ -368,7 +414,7 @@ export default function ProductosPage() {
             placeholder="Buscar por nombre, SKU, categoría..."
             value={globalFilter}
             onChange={(event) => setGlobalFilter(event.target.value)}
-            className="max-w-sm"
+            className="w-full md:max-w-sm"
           />
 
           <Select value={filtroCategoria} onValueChange={setFiltroCategoria}>
@@ -397,8 +443,8 @@ export default function ProductosPage() {
           </Select>
         </div>
 
-        <div className="overflow-hidden rounded-lg border bg-white">
-          <Table>
+        <div className="rounded-lg border bg-white">
+          <Table className="min-w-[1000px]">
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
@@ -440,7 +486,7 @@ export default function ProductosPage() {
       </div>
 
       <Dialog open={createDialog} onOpenChange={setCreateDialog}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Crear producto</DialogTitle>
           </DialogHeader>
@@ -583,7 +629,7 @@ export default function ProductosPage() {
           if (!open) setProductoEditando(null)
         }}
       >
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Editar producto</DialogTitle>
           </DialogHeader>
@@ -720,7 +766,7 @@ export default function ProductosPage() {
       </Dialog>
 
       <Dialog open={stockDialog} onOpenChange={setStockDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Actualizar Stock — {selectedProducto?.nombre}</DialogTitle>
           </DialogHeader>
@@ -783,6 +829,31 @@ export default function ProductosPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={deleteDialog}
+        onOpenChange={(open) => {
+          setDeleteDialog(open)
+          if (!open) {
+            setProductoEliminando(null)
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar producto</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Seguro que quieres eliminar el producto "{productoEliminando?.nombre}"?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={submittingDelete}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} disabled={submittingDelete}>
+              {submittingDelete ? 'Eliminando...' : 'Eliminar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
