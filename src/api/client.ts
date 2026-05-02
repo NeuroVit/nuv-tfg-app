@@ -2,8 +2,15 @@ import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import type { AuthResponse } from '@/types/auth'
 import { useAuthStore } from '../store/authStore'
 
+const configuredBaseUrl = import.meta.env.VITE_API_URL ?? import.meta.env.VITE_API_BASE_URL ?? ''
+const normalizedBaseUrl = configuredBaseUrl
+  ? configuredBaseUrl.endsWith('/api')
+    ? configuredBaseUrl
+    : `${configuredBaseUrl.replace(/\/+$/, '')}/api`
+  : '/api'
+
 const client = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: normalizedBaseUrl,
   withCredentials: true,
 })
 
