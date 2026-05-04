@@ -59,6 +59,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { AlertTriangle, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { PackageSearchIcon } from '@hugeicons/core-free-icons'
+import ProductoModal from '@/components/ProductoModal'
 
 const productoSchema = z.object({
   nombre: z.string().min(1, 'El nombre es obligatorio'),
@@ -114,6 +115,8 @@ export default function ProductosPage() {
   const [filtroCategoria, setFiltroCategoria] = useState('all')
   const [filtroProveedor, setFiltroProveedor] = useState('all')
   const [filtroEstado, setFiltroEstado] = useState<EstadoFiltro>('all')
+  const [modalOpen, setModalOpen] = useState(false)
+  const [productoEditar, setProductoEditar] = useState<Producto | null>(null)
 
   const [stockDialog, setStockDialog] = useState(false)
   const [createDialog, setCreateDialog] = useState(false)
@@ -377,7 +380,7 @@ export default function ProductosPage() {
       id: 'acciones',
       header: '',
       cell: ({ row }) => (
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center justify-end gap-2" onClick={(event) => event.stopPropagation()}>
           {canEdit && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -426,12 +429,10 @@ export default function ProductosPage() {
             <h1 className="text-2xl font-bold text-gray-900">Productos</h1>
             <p className="mt-1 text-sm text-gray-500">{productosFiltrados.length} productos en inventario</p>
           </div>
-          {canEdit && (
-            <Button className="w-full sm:w-auto" onClick={handleOpenCreate}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nuevo producto
-            </Button>
-          )}
+          <Button className="w-full sm:w-auto" onClick={() => { setProductoEditar(null); setModalOpen(true) }}>
+            <Plus className="mr-2 h-4 w-4" />
+            Nuevo producto
+          </Button>
         </div>
 
         <div className="flex flex-col gap-3 md:flex-row md:items-center">
@@ -510,7 +511,14 @@ export default function ProductosPage() {
                 </TableRow>
               ) : (
                 table.getRowModel().rows.map((row) => (
-                  <TableRow key={row.id} className="hover:bg-gray-50">
+                  <TableRow
+                    key={row.id}
+                    className="cursor-pointer hover:bg-gray-50"
+                    onClick={() => {
+                      setProductoEditar(row.original)
+                      setModalOpen(true)
+                    }}
+                  >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -943,6 +951,15 @@ export default function ProductosPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ProductoModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSuccess={() => {
+          void cargarDatos()
+        }}
+        producto={productoEditar}
+      />
     </div>
   )
 }
