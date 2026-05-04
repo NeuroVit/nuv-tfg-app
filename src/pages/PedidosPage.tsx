@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { isAxiosError } from 'axios'
 import { useSearchParams } from 'react-router'
 import { toast } from 'sonner'
-import { Check, MoreHorizontal, PackagePlus, Plus, Send, X } from 'lucide-react'
+import { Check, Eye, MoreHorizontal, PackagePlus, Plus, Send, X } from 'lucide-react'
 import {
   cancelarPedidoProveedor,
   crearPedidoProveedor,
@@ -70,6 +70,8 @@ export default function PedidosPage() {
   const [orderStatusFilter, setOrderStatusFilter] = useState<'all' | 'DRAFT' | 'SENT' | 'RECEIVED' | 'CANCELLED'>('all')
 
   const [orderDialogOpen, setOrderDialogOpen] = useState(false)
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false)
+  const [detailOrder, setDetailOrder] = useState<PedidoProveedor | null>(null)
   const [orderArrivalDate, setOrderArrivalDate] = useState<string>(toDateInputValue(new Date()))
   const [orderNotes, setOrderNotes] = useState('')
   const [orderItems, setOrderItems] = useState<OrderItemForm[]>([{ productoId: '', cantidad: 1 }])
@@ -164,6 +166,11 @@ export default function PedidosPage() {
   const openCreateOrder = () => {
     resetOrderForm()
     setOrderDialogOpen(true)
+  }
+
+  const openOrderDetail = (order: PedidoProveedor) => {
+    setDetailOrder(order)
+    setDetailDialogOpen(true)
   }
 
   const addOrderItem = () => {
@@ -360,6 +367,10 @@ export default function PedidosPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="min-w-44">
+                              <DropdownMenuItem onSelect={() => openOrderDetail(order)}>
+                                <Eye className="h-4 w-4" />
+                                Ver detalle
+                              </DropdownMenuItem>
                               {canEdit && order.status === 'DRAFT' && (
                                 <DropdownMenuItem
                                   onSelect={() => {
@@ -490,6 +501,51 @@ export default function PedidosPage() {
               {creatingOrder ? 'Creando...' : 'Crear pedido (DRAFT)'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Detalle pedido #{detailOrder?.id}</DialogTitle>
+          </DialogHeader>
+          {!detailOrder ? (
+            <p className="text-sm text-gray-500">Pedido no disponible.</p>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 rounded-md border p-3 text-sm">
+                <p><span className="text-gray-500">Proveedor:</span> {detailOrder.providerNombre}</p>
+                <p><span className="text-gray-500">Estado:</span> {detailOrder.status}</p>
+                <p><span className="text-gray-500">Llegada deseada:</span> {detailOrder.fechaLlegadaDeseada}</p>
+                <p><span className="text-gray-500">Pedido recomendado:</span> {detailOrder.fechaPedidoRecomendada}</p>
+              </div>
+
+              <div className="rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Producto</TableHead>
+                      <TableHead>SKU</TableHead>
+                      <TableHead>Cantidad</TableHead>
+                      <TableHead>Precio snapshot</TableHead>
+                      <TableHead>Subtotal</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {detailOrder.items.map((item) => (
+                      <TableRow key={item.productoId}>
+                        <TableCell>{item.productoNombre}</TableCell>
+                        <TableCell className="font-mono text-xs">{item.sku}</TableCell>
+                        <TableCell>{item.cantidad}</TableCell>
+                        <TableCell>€{Number(item.precioUnitarioSnapshot).toFixed(2)}</TableCell>
+                        <TableCell>€{(Number(item.precioUnitarioSnapshot) * item.cantidad).toFixed(2)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

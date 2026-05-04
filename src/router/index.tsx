@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router'
+import { createBrowserRouter, Navigate } from 'react-router'
 import ProtectedRoute from './ProtectedRoute'
 import AppLayout from '../components/AppLayout'
 import LoginPage from '../pages/LoginPage'
@@ -11,6 +11,16 @@ import PedidosPage from '../pages/PedidosPage'
 import NotFoundPage from '../pages/NotFoundPage'
 import SettingsPage from '../pages/SettingsPage'
 import Inicio from '../pages/Inicio'
+import MovimientosPage from '../pages/MovimientosPage'
+import AlertasPage from '../pages/AlertasPage'
+import AnaliticaPage from '../pages/AnaliticaPage'
+import ProveedorDetailPage from '../pages/ProveedorDetailPage'
+import UsuariosPage from '../pages/UsuariosPage'
+import ClientesPage from '../pages/ClientesPage'
+import VentasPage from '../pages/VentasPage'
+import SettingsProfilePage from '../pages/settings/SettingsProfilePage'
+import SettingsSecurityPage from '../pages/settings/SettingsSecurityPage'
+import SettingsUsersPage from '../pages/settings/SettingsUsersPage'
 
 export const router = createBrowserRouter([
   {
@@ -34,8 +44,19 @@ export const router = createBrowserRouter([
           { path: '/categorias', element: <CategoriasPage /> },
           { path: '/bundles', element: <BundlesPage /> },
           { path: '/proveedores', element: <ProveedoresPage /> },
+          { path: '/proveedores/:id', element: <ProveedorDetailPage /> },
           { path: '/pedidos', element: <PedidosPage /> },
-          { path: '/settings', element: <SettingsPage /> },
+          { path: '/movimientos', element: <MovimientosPage /> },
+          { path: '/alertas', element: <AlertasPage /> },
+          { path: '/analitica', element: <AnaliticaPage /> },
+          { path: '/usuarios', element: <UsuariosPage /> },
+          { path: '/clientes', element: <ClientesPage /> },
+          { path: '/ventas', element: <VentasPage /> },
+          { path: '/settings', element: <Navigate to="/settings/general" replace /> },
+          { path: '/settings/profile', element: <SettingsProfilePage /> },
+          { path: '/settings/users', element: <SettingsUsersPage /> },
+          { path: '/settings/general', element: <SettingsPage /> },
+          { path: '/settings/security', element: <SettingsSecurityPage /> },
         ],
       },
     ],

@@ -174,12 +174,6 @@ export default function ProductosPage() {
     setStockDialog(true)
   }
 
-  const handleOpenCreate = () => {
-    createForm.reset(defaultProductoValues)
-    createForm.clearErrors()
-    setCreateDialog(true)
-  }
-
   const handleOpenEdit = (producto: Producto) => {
     const categoriaIdActual =
       producto.categoriaId ??
@@ -365,8 +359,16 @@ export default function ProductosPage() {
     },
     {
       accessorKey: 'precioUnitario',
-      header: 'Precio',
+      header: 'Precio venta',
       cell: ({ getValue }) => `€${Number(getValue<number>()).toFixed(2)}`,
+    },
+    {
+      accessorKey: 'costoUnitario',
+      header: 'Coste unitario',
+      cell: ({ getValue }) => {
+        const value = getValue<number | null>()
+        return value == null ? '—' : `€${Number(value).toFixed(2)}`
+      },
     },
     {
       id: 'estado',

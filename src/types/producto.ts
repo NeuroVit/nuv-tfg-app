@@ -6,6 +6,7 @@ export interface Producto {
   cantidadActual: number
   nivelMinimoStock: number
   precioUnitario: number
+  costoUnitario: number | null
   categoriaId: number | null
   categoriaNombre: string | null
   providerId: number | null

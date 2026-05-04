@@ -1,0 +1,532 @@
+import { useEffect, useMemo, useState } from 'react'
+import { toast } from 'sonner'
+import {
+  getBundleCandidatosAnalitica,
+  getDistribucionStockAnalitica,
+  getFinanzasResumenAnalitica,
+  getInventarioAnalitica,
+  getPreciosAnalitica,
+  getRentabilidadProductosAnalitica,
+  getStockPorCategoriaAnalitica,
+  getTopProductosVelocidadAnalitica,
+  getVelocidadAnalitica,
+  getVelocidadResumenAnalitica,
+} from '@/api/analitica'
+import type {
+  BundleCandidateRow,
+  FinanzasResumen,
+  InventorySummaryRow,
+  PriceTrendRow,
+  RentabilidadProductoRow,
+  SalesVelocityRow,
+  StockByCategoryRow,
+  StockDistributionRow,
+  TopProductVelocityRow,
+  VelocitySummaryRow,
+} from '@/types/analitica'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
+
+const formatCurrency = (value: number) => `€${value.toLocaleString('es-ES', { maximumFractionDigits: 2 })}`
+const formatCompact = (value: number) => value.toLocaleString('es-ES')
+
+const statusLabels: Record<string, string> = {
+  OUT_OF_STOCK: 'Sin stock',
+  LOW_STOCK: 'Stock bajo',
+  OK: 'OK',
+  OVERSTOCK: 'Sobrestock',
+}
+
+const pieColors = ['#ef4444', '#f59e0b', '#22c55e', '#6366f1']
+
+type TimeRangeValue = 'all' | '180' | '90' | '30' | '7' | '1'
+
+const timeRangeOptions: Array<{ value: TimeRangeValue; label: string; days: number }> = [
+  { value: 'all', label: 'Todo el tiempo', days: 0 },
+  { value: '180', label: '6 meses', days: 180 },
+  { value: '90', label: '3 meses', days: 90 },
+  { value: '30', label: '30 días', days: 30 },
+  { value: '7', label: 'Semanal', days: 7 },
+  { value: '1', label: 'Diario', days: 1 },
+]
+
+export default function AnaliticaPage() {
+  const [loading, setLoading] = useState(true)
+  const [inventario, setInventario] = useState<InventorySummaryRow[]>([])
+  const [velocidad, setVelocidad] = useState<SalesVelocityRow[]>([])
+  const [precios, setPrecios] = useState<PriceTrendRow[]>([])
+  const [bundles, setBundles] = useState<BundleCandidateRow[]>([])
+  const [velocidadResumen, setVelocidadResumen] = useState<VelocitySummaryRow[]>([])
+  const [topProductos, setTopProductos] = useState<TopProductVelocityRow[]>([])
+  const [distribucionStock, setDistribucionStock] = useState<StockDistributionRow[]>([])
+  const [stockPorCategoria, setStockPorCategoria] = useState<StockByCategoryRow[]>([])
+  const [finanzas, setFinanzas] = useState<FinanzasResumen | null>(null)
+  const [rentabilidad, setRentabilidad] = useState<RentabilidadProductoRow[]>([])
+  const [timeRange, setTimeRange] = useState<TimeRangeValue>('30')
+
+  const selectedDays = useMemo(
+    () => timeRangeOptions.find((option) => option.value === timeRange)?.days ?? 30,
+    [timeRange],
+  )
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true)
+      try {
+        const [inv, vel, pri, bun, velRes, topVel, dist, byCat, fin, rent] = await Promise.all([
+          getInventarioAnalitica(),
+          getVelocidadAnalitica(120, selectedDays),
+          getPreciosAnalitica(),
+          getBundleCandidatosAnalitica(),
+          getVelocidadResumenAnalitica(selectedDays),
+          getTopProductosVelocidadAnalitica(selectedDays, 10),
+          getDistribucionStockAnalitica(),
+          getStockPorCategoriaAnalitica(),
+          getFinanzasResumenAnalitica(selectedDays),
+          getRentabilidadProductosAnalitica(selectedDays, 20),
+        ])
+
+        setInventario(inv)
+        setVelocidad(vel)
+        setPrecios(pri)
+        setBundles(bun)
+        setVelocidadResumen(velRes)
+        setTopProductos(topVel)
+        setDistribucionStock(dist)
+        setStockPorCategoria(byCat)
+        setFinanzas(fin)
+        setRentabilidad(rent)
+      } catch {
+        toast.error('No se pudieron cargar los datos de analítica')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    void load()
+  }, [selectedDays])
+
+  const kpis = useMemo(() => {
+    const lowStockCount = inventario.filter((row) => row.stockStatus === 'LOW_STOCK').length
+    const outOfStockCount = inventario.filter((row) => row.stockStatus === 'OUT_OF_STOCK').length
+    const units30d = velocidadResumen.reduce((sum, row) => sum + row.unitsSold, 0)
+
+    return {
+      lowStockCount,
+      outOfStockCount,
+      units30d,
+      ventas30d: finanzas?.ventas30d ?? 0,
+      compras30d: finanzas?.compras30d ?? 0,
+      flujoNeto30d: finanzas?.flujoNeto30d ?? 0,
+      cogsReal30d: finanzas?.cogsReal30d ?? 0,
+      margenReal30d: finanzas?.margenReal30d ?? 0,
+      valorStockVenta: finanzas?.valorStockVenta ?? 0,
+      costoStockReal: finanzas?.costoStockReal ?? 0,
+    }
+  }, [inventario, velocidadResumen, finanzas])
+
+  const salesLineData = useMemo(
+    () =>
+      velocidadResumen.map((row) => ({
+        date: new Date(row.movementDate).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+        unitsSold: row.unitsSold,
+        revenue: row.revenue,
+      })),
+    [velocidadResumen],
+  )
+
+  const topProductsChartData = useMemo(
+    () =>
+      topProductos
+        .slice()
+        .sort((a, b) => a.unitsSold - b.unitsSold)
+        .map((row) => ({
+          name: row.productName,
+          unitsSold: row.unitsSold,
+        })),
+    [topProductos],
+  )
+
+  const marginProductsChartData = useMemo(() => {
+    const positives = rentabilidad
+      .filter((row) => row.margen > 0)
+      .sort((a, b) => b.margen - a.margen)
+      .slice(0, 6)
+    const negatives = rentabilidad
+      .filter((row) => row.margen < 0)
+      .sort((a, b) => a.margen - b.margen)
+      .slice(0, 6)
+
+    return [...positives, ...negatives]
+      .map((row) => ({
+        name: row.productName,
+        margen: row.margen,
+      }))
+      .sort((a, b) => a.margen - b.margen)
+  }, [rentabilidad])
+
+  const stockDistributionData = useMemo(
+    () =>
+      distribucionStock.map((row) => ({
+        name: statusLabels[row.stockStatus] ?? row.stockStatus,
+        value: row.products,
+      })),
+    [distribucionStock],
+  )
+
+  const categoryStockData = useMemo(
+    () =>
+      stockPorCategoria.map((row) => ({
+        category: row.categoryName,
+        value: row.stockValueTotal,
+      })),
+    [stockPorCategoria],
+  )
+
+  const topWinners = useMemo(
+    () => rentabilidad.filter((row) => row.margen > 0).sort((a, b) => b.margen - a.margen).slice(0, 5),
+    [rentabilidad],
+  )
+
+  const topLosers = useMemo(
+    () => rentabilidad.filter((row) => row.margen < 0).sort((a, b) => a.margen - b.margen).slice(0, 5),
+    [rentabilidad],
+  )
+
+  return (
+    <div className="p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Analítica</h1>
+          <p className="mt-1 text-sm text-gray-500">Métricas reales de ventas, costes y rentabilidad por producto.</p>
+        </div>
+
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+          <span className="text-sm text-gray-500">Rango temporal</span>
+          <Select value={timeRange} onValueChange={(value) => setTimeRange(value as TimeRangeValue)}>
+            <SelectTrigger className="w-full sm:w-56">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {timeRangeOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <article className="rounded-lg border bg-white p-4">
+            <p className="text-xs uppercase tracking-wide text-gray-500">Ventas (rango)</p>
+            <p className="mt-2 text-xl font-semibold text-emerald-700">{formatCurrency(kpis.ventas30d)}</p>
+          </article>
+          <article className="rounded-lg border bg-white p-4">
+            <p className="text-xs uppercase tracking-wide text-gray-500">COGS real (rango)</p>
+            <p className="mt-2 text-xl font-semibold text-orange-700">-{formatCurrency(kpis.cogsReal30d)}</p>
+          </article>
+          <article className="rounded-lg border bg-white p-4">
+            <p className="text-xs uppercase tracking-wide text-gray-500">Margen real (rango)</p>
+            <p className={`mt-2 text-xl font-semibold ${kpis.margenReal30d >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+              {formatCurrency(kpis.margenReal30d)}
+            </p>
+          </article>
+          <article className="rounded-lg border bg-white p-4">
+            <p className="text-xs uppercase tracking-wide text-gray-500">Compras proveedores (rango)</p>
+            <p className="mt-2 text-xl font-semibold text-red-700">-{formatCurrency(kpis.compras30d)}</p>
+          </article>
+          <article className="rounded-lg border bg-white p-4">
+            <p className="text-xs uppercase tracking-wide text-gray-500">Flujo neto (rango)</p>
+            <p className={`mt-2 text-xl font-semibold ${kpis.flujoNeto30d >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+              {formatCurrency(kpis.flujoNeto30d)}
+            </p>
+          </article>
+          <article className="rounded-lg border bg-white p-4">
+            <p className="text-xs uppercase tracking-wide text-gray-500">Valor stock (venta)</p>
+            <p className="mt-2 text-xl font-semibold text-slate-800">{formatCurrency(kpis.valorStockVenta)}</p>
+          </article>
+          <article className="rounded-lg border bg-white p-4">
+            <p className="text-xs uppercase tracking-wide text-gray-500">Coste stock real</p>
+            <p className="mt-2 text-xl font-semibold text-slate-700">{formatCurrency(kpis.costoStockReal)}</p>
+          </article>
+          <article className="rounded-lg border bg-white p-4">
+            <p className="text-xs uppercase tracking-wide text-gray-500">Unidades vendidas (rango)</p>
+            <p className="mt-2 text-xl font-semibold text-blue-700">{formatCompact(kpis.units30d)}</p>
+          </article>
+        </section>
+
+        <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <article className="rounded-lg border bg-white p-4">
+            <h2 className="text-sm font-semibold text-gray-900">Tendencia diaria de ventas (rango)</h2>
+            <div className="mt-3 h-72">
+              {loading ? (
+                <div className="flex h-full items-center justify-center text-sm text-gray-400">Cargando...</div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={salesLineData} margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" minTickGap={18} />
+                    <YAxis yAxisId="left" />
+                    <YAxis yAxisId="right" orientation="right" />
+                    <Tooltip />
+                    <Line yAxisId="left" type="monotone" dataKey="unitsSold" stroke="#2563eb" strokeWidth={2} dot={false} name="Unidades" />
+                    <Line yAxisId="right" type="monotone" dataKey="revenue" stroke="#059669" strokeWidth={2} dot={false} name="Revenue" />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </article>
+
+          <article className="rounded-lg border bg-white p-4">
+            <h2 className="text-sm font-semibold text-gray-900">Top productos por velocidad (rango)</h2>
+            <div className="mt-3 h-72">
+              {loading ? (
+                <div className="flex h-full items-center justify-center text-sm text-gray-400">Cargando...</div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={topProductsChartData} layout="vertical" margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis type="number" />
+                    <YAxis type="category" width={140} dataKey="name" tick={{ fontSize: 11 }} />
+                    <Tooltip />
+                    <Bar dataKey="unitsSold" fill="#1d4ed8" name="Unidades" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </article>
+
+          <article className="rounded-lg border bg-white p-4">
+            <h2 className="text-sm font-semibold text-gray-900">Productos ganadores vs perdedores (margen)</h2>
+            <div className="mt-3 h-72">
+              {loading ? (
+                <div className="flex h-full items-center justify-center text-sm text-gray-400">Cargando...</div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={marginProductsChartData} layout="vertical" margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis type="number" />
+                    <YAxis type="category" width={150} dataKey="name" tick={{ fontSize: 11 }} />
+                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                    <Bar dataKey="margen" name="Margen">
+                      {marginProductsChartData.map((row) => (
+                        <Cell key={row.name} fill={row.margen >= 0 ? '#16a34a' : '#dc2626'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </article>
+
+          <article className="rounded-lg border bg-white p-4">
+            <h2 className="text-sm font-semibold text-gray-900">Distribución de estado de stock</h2>
+            <div className="mt-3 h-72">
+              {loading ? (
+                <div className="flex h-full items-center justify-center text-sm text-gray-400">Cargando...</div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={stockDistributionData} dataKey="value" nameKey="name" innerRadius={70} outerRadius={100} paddingAngle={2}>
+                      {stockDistributionData.map((entry, index) => (
+                        <Cell key={`${entry.name}-${index}`} fill={pieColors[index % pieColors.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </article>
+
+          <article className="rounded-lg border bg-white p-4 xl:col-span-2">
+            <h2 className="text-sm font-semibold text-gray-900">Top 5 productos más rentables y menos rentables</h2>
+            <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-emerald-800">Ganadores</p>
+                <div className="space-y-2">
+                  {topWinners.length === 0 ? (
+                    <p className="text-sm text-emerald-800">Sin ventas rentables aún.</p>
+                  ) : topWinners.map((row) => (
+                    <div key={row.productId} className="flex items-center justify-between text-sm">
+                      <span className="truncate pr-2">{row.productName}</span>
+                      <span className="font-semibold text-emerald-800">{formatCurrency(row.margen)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-md border border-red-200 bg-red-50 p-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-red-800">Perdedores</p>
+                <div className="space-y-2">
+                  {topLosers.length === 0 ? (
+                    <p className="text-sm text-red-800">No hay productos en pérdidas.</p>
+                  ) : topLosers.map((row) => (
+                    <div key={row.productId} className="flex items-center justify-between text-sm">
+                      <span className="truncate pr-2">{row.productName}</span>
+                      <span className="font-semibold text-red-800">{formatCurrency(row.margen)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article className="rounded-lg border bg-white p-4 xl:col-span-2">
+            <h2 className="text-sm font-semibold text-gray-900">Valor de stock por categoría</h2>
+            <div className="mt-3 h-72">
+              {loading ? (
+                <div className="flex h-full items-center justify-center text-sm text-gray-400">Cargando...</div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={categoryStockData} margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="category" tick={{ fontSize: 11 }} interval={0} angle={-15} textAnchor="end" height={64} />
+                    <YAxis />
+                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                    <Bar dataKey="value" fill="#0f766e" radius={[4, 4, 0, 0]} name="Valor" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </article>
+        </section>
+
+        <Tabs defaultValue="inventario" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
+            <TabsTrigger value="inventario">Inventario</TabsTrigger>
+            <TabsTrigger value="velocidad">Velocidad</TabsTrigger>
+            <TabsTrigger value="precios">Precios</TabsTrigger>
+            <TabsTrigger value="bundles">Bundles</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="inventario" className="rounded-lg border bg-white p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Producto</TableHead>
+                  <TableHead>Categoría</TableHead>
+                  <TableHead>Stock</TableHead>
+                  <TableHead>Mínimo</TableHead>
+                  <TableHead>Valor</TableHead>
+                  <TableHead>Estado</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow><TableCell colSpan={6} className="py-8 text-center text-gray-400">Cargando...</TableCell></TableRow>
+                ) : inventario.map((row) => (
+                  <TableRow key={row.productId}>
+                    <TableCell>{row.productName} <span className="text-xs text-gray-500">({row.sku})</span></TableCell>
+                    <TableCell>{row.categoryName}</TableCell>
+                    <TableCell>{row.currentQuantity}</TableCell>
+                    <TableCell>{row.minimumStockLevel}</TableCell>
+                    <TableCell>{formatCurrency(row.stockValue)}</TableCell>
+                    <TableCell>{row.stockStatus}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TabsContent>
+
+          <TabsContent value="velocidad" className="rounded-lg border bg-white p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Producto</TableHead>
+                  <TableHead>Categoría</TableHead>
+                  <TableHead>Unidades</TableHead>
+                  <TableHead>Revenue</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow><TableCell colSpan={5} className="py-8 text-center text-gray-400">Cargando...</TableCell></TableRow>
+                ) : velocidad.map((row, index) => (
+                  <TableRow key={`${row.productId}-${row.movementDate}-${index}`}>
+                    <TableCell>{new Date(row.movementDate).toLocaleDateString('es-ES')}</TableCell>
+                    <TableCell>{row.productName} <span className="text-xs text-gray-500">({row.sku})</span></TableCell>
+                    <TableCell>{row.categoryName}</TableCell>
+                    <TableCell>{row.unitsSold}</TableCell>
+                    <TableCell>{formatCurrency(row.revenue)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TabsContent>
+
+          <TabsContent value="precios" className="rounded-lg border bg-white p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Producto</TableHead>
+                  <TableHead>Anterior</TableHead>
+                  <TableHead>Nuevo</TableHead>
+                  <TableHead>Delta</TableHead>
+                  <TableHead>%</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow><TableCell colSpan={6} className="py-8 text-center text-gray-400">Cargando...</TableCell></TableRow>
+                ) : precios.map((row) => (
+                  <TableRow key={row.historyId}>
+                    <TableCell>{new Date(row.changedAt).toLocaleString('es-ES')}</TableCell>
+                    <TableCell>{row.productName} <span className="text-xs text-gray-500">({row.sku})</span></TableCell>
+                    <TableCell>{formatCurrency(row.oldPrice)}</TableCell>
+                    <TableCell>{formatCurrency(row.newPrice)}</TableCell>
+                    <TableCell>{formatCurrency(row.priceDelta)}</TableCell>
+                    <TableCell>{row.pctChange}%</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TabsContent>
+
+          <TabsContent value="bundles" className="rounded-lg border bg-white p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Producto A</TableHead>
+                  <TableHead>Producto B</TableHead>
+                  <TableHead>Co-ocurrencia</TableHead>
+                  <TableHead>Precio combinado</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow><TableCell colSpan={4} className="py-8 text-center text-gray-400">Cargando...</TableCell></TableRow>
+                ) : bundles.map((row) => (
+                  <TableRow key={`${row.productAId}-${row.productBId}`}>
+                    <TableCell>{row.productAName} <span className="text-xs text-gray-500">({row.productASku})</span></TableCell>
+                    <TableCell>{row.productBName} <span className="text-xs text-gray-500">({row.productBSku})</span></TableCell>
+                    <TableCell>{row.coOccurrenceCount}</TableCell>
+                    <TableCell>{formatCurrency(row.combinedPrice)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  )
+}

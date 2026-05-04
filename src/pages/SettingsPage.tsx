@@ -48,8 +48,8 @@ export default function SettingsPage() {
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-3xl space-y-6">
         <div>
-          <h1 className="mb-2 text-2xl font-bold text-gray-900">Ajustes</h1>
-          <p className="text-gray-500">Configura tu cuenta y preferencias de la aplicación.</p>
+          <h1 className="mb-2 text-2xl font-bold text-gray-900">General</h1>
+          <p className="text-gray-500">Configuración general de la aplicación y de tu sesión.</p>
         </div>
 
         <div className="rounded-lg border bg-white p-4 shadow-sm sm:p-6">

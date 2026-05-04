@@ -23,3 +23,25 @@ export interface AuthUser {
   role: string
   token: string
 }
+
+export interface UserProfile {
+  id: number
+  username: string
+  email: string
+  nombre: string
+  apellidos: string
+  role: string
+  activo: boolean
+  avatarUrl: string | null
+}
+
+export interface UpdateProfileRequest {
+  nombre: string
+  apellidos: string
+  email: string
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string
+  newPassword: string
+}

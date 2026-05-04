@@ -1,7 +1,9 @@
-import { NavLink, Outlet, useNavigate } from 'react-router'
+import { useEffect, useMemo, useState } from 'react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { toast } from 'sonner'
-import { logout as logoutRequest } from '@/api/auth'
+import { getMe, logout as logoutRequest } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
+import type { UserProfile } from '@/types/auth'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -21,21 +23,81 @@ import {
 } from '@/components/ui/sidebar'
 import { ChevronsUpDown, LogOut, Settings } from 'lucide-react'
 
-const topTabs = [
-  { to: '/dashboard', label: 'Inicio' },
+type TopTab = {
+  to: string
+  label: string
+}
+
+const productosTabs: TopTab[] = [
   { to: '/productos', label: 'Productos' },
   { to: '/categorias', label: 'Categorías' },
   { to: '/bundles', label: 'Bundles' },
+]
+
+const proveedoresTabs: TopTab[] = [
   { to: '/proveedores', label: 'Proveedores' },
   { to: '/pedidos', label: 'Pedidos' },
 ]
 
+const inRouteGroup = (pathname: string, routes: string[]) =>
+  routes.some((route) => pathname === route || pathname.startsWith(`${route}/`))
+
 export default function AppLayout() {
   const { user, logout: clearSession } = useAuthStore()
   const navigate = useNavigate()
+  const location = useLocation()
+  const isSettingsRoute = location.pathname.startsWith('/settings')
+  const [profile, setProfile] = useState<UserProfile | null>(null)
 
   const initials = user?.username ? user.username.slice(0, 2).toUpperCase() : 'U'
   const roleLabel = (user?.role ?? 'ROLE_VIEWER').replace('ROLE_', '')
+  const topTabs = useMemo(() => {
+    if (isSettingsRoute) return []
+
+    if (inRouteGroup(location.pathname, ['/productos', '/categorias', '/bundles'])) {
+      return productosTabs
+    }
+
+    if (inRouteGroup(location.pathname, ['/proveedores', '/pedidos'])) {
+      return proveedoresTabs
+    }
+
+    return []
+  }, [isSettingsRoute, location.pathname])
+  const accountLabel = useMemo(() => {
+    const fullName = [profile?.nombre?.trim(), profile?.apellidos?.trim()]
+      .filter(Boolean)
+      .join(' ')
+      .trim()
+    if (fullName) return fullName
+    return user?.username ?? 'Usuario'
+  }, [profile?.apellidos, profile?.nombre, user?.username])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadProfile = async () => {
+      if (!user?.token) {
+        if (isMounted) setProfile(null)
+        return
+      }
+
+      try {
+        const me = await getMe()
+        if (!isMounted) return
+        setProfile(me)
+      } catch {
+        if (!isMounted) return
+        setProfile(null)
+      }
+    }
+
+    void loadProfile()
+
+    return () => {
+      isMounted = false
+    }
+  }, [user?.token])
 
   const handleLogout = async () => {
     try {
@@ -51,7 +113,7 @@ export default function AppLayout() {
 
   return (
     <SidebarProvider>
-      <AppSidebar />
+      <AppSidebar isSettingsRoute={isSettingsRoute} />
       <SidebarInset className="min-w-0 overflow-x-hidden">
         <header className="flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b bg-background px-3 py-2 sm:px-4">
           <SidebarTrigger className="-ml-1" />
@@ -89,7 +151,7 @@ export default function AppLayout() {
                   </AvatarFallback>
                 </Avatar>
                 <div className="hidden text-left text-sm leading-tight sm:grid">
-                  <span className="max-w-32 truncate font-medium">{user?.username ?? 'Usuario'}</span>
+                  <span className="max-w-44 truncate font-medium">{accountLabel}</span>
                   <Badge variant="secondary" className="mt-1 w-fit px-1.5 py-0 text-[10px]">
                     {roleLabel}
                   </Badge>
@@ -98,7 +160,7 @@ export default function AppLayout() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="min-w-56 rounded-lg" align="end" side="bottom" sideOffset={8}>
-              <DropdownMenuItem onSelect={() => navigate('/settings')}>
+              <DropdownMenuItem onSelect={() => navigate('/settings/general')}>
                 <Settings className="h-4 w-4" />
                 Ajustes
               </DropdownMenuItem>

@@ -174,6 +174,10 @@ export default function ProveedoresPage() {
     navigate(`/pedidos?providerId=${provider.id}`)
   }
 
+  const goToProviderDetail = (provider: Proveedor) => {
+    navigate(`/proveedores/${provider.id}`)
+  }
+
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -265,6 +269,9 @@ export default function ProveedoresPage() {
                             <DropdownMenuItem onSelect={() => goToPedidosForProvider(provider)}>
                               <Truck className="h-4 w-4" />
                               Ver pedidos de este proveedor
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => goToProviderDetail(provider)}>
+                              Ver detalle del proveedor
                             </DropdownMenuItem>
                             {canEdit && (
                               <>

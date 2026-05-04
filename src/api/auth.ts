@@ -1,5 +1,12 @@
 import client from './client'
-import type { LoginRequest, RegisterRequest, AuthResponse } from '../types/auth'
+import type {
+  LoginRequest,
+  RegisterRequest,
+  AuthResponse,
+  UserProfile,
+  UpdateProfileRequest,
+  ChangePasswordRequest,
+} from '../types/auth'
 
 export const login = (data: LoginRequest) =>
   client.post<AuthResponse>('/auth/login', data).then((r) => r.data)
@@ -18,3 +25,13 @@ export const logout = async () => {
 
 export const switchRole = (role: string) =>
   client.post<AuthResponse>('/auth/role', { role }).then((r) => r.data)
+
+export const getMe = () =>
+  client.get<UserProfile>('/auth/me').then((r) => r.data)
+
+export const updateMe = (payload: UpdateProfileRequest) =>
+  client.put<UserProfile>('/auth/me', payload).then((r) => r.data)
+
+export const changePassword = async (payload: ChangePasswordRequest) => {
+  await client.post('/auth/change-password', payload)
+}

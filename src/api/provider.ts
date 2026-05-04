@@ -1,5 +1,6 @@
 import client from './client'
 import type { Proveedor, ProveedorRequest } from '@/types/provider'
+import type { ProveedorDetalle } from '@/types/proveedorDetalle'
 
 export const getProveedores = async (includeArchived = false): Promise<Proveedor[]> => {
   const { data } = await client.get<Proveedor[]>('/proveedores', {
@@ -25,5 +26,10 @@ export const archivarProveedor = async (id: number): Promise<Proveedor> => {
 
 export const restaurarProveedor = async (id: number): Promise<Proveedor> => {
   const { data } = await client.patch<Proveedor>(`/proveedores/${id}/restore`)
+  return data
+}
+
+export const getProveedorDetalle = async (id: number): Promise<ProveedorDetalle> => {
+  const { data } = await client.get<ProveedorDetalle>(`/proveedores/${id}`)
   return data
 }
