@@ -12,6 +12,8 @@
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
     --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-active-foreground: var(--sidebar-active-foreground);
+    --color-sidebar-active: var(--sidebar-active);
     --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
     --color-sidebar-primary: var(--sidebar-primary);
     --color-sidebar-foreground: var(--sidebar-foreground);
@@ -79,6 +81,8 @@
     --sidebar-primary-foreground: oklch(0.985 0 0);
     --sidebar-accent: oklch(0.97 0 0);
     --sidebar-accent-foreground: oklch(0.205 0 0);
+    --sidebar-active: oklch(0 0 0);
+    --sidebar-active-foreground: oklch(1 0 0);
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
 }
@@ -113,6 +117,8 @@
     --sidebar-primary-foreground: oklch(0.985 0 0);
     --sidebar-accent: oklch(0.269 0 0);
     --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-active: oklch(0 0 0);
+    --sidebar-active-foreground: oklch(1 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
 }
@@ -121,12 +127,25 @@
   * {
     @apply border-border outline-ring/50;
     }
+  html, body, #root {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    }
   body {
     @apply bg-background text-foreground;
     }
   html {
     @apply font-sans;
     }
+}
+
+@layer utilities {
+  .allow-horizontal-scroll {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 .cn-toast {

@@ -51,7 +51,13 @@ const Toaster = ({ ...props }: ToasterProps) => {
       }
       toastOptions={{
         classNames: {
-          toast: "cn-toast",
+          toast: "cn-toast text-popover-foreground",
+          title: "text-current",
+          description: "text-current/95",
+          error: "!text-red-50",
+          success: "!text-green-50",
+          warning: "!text-amber-50",
+          info: "!text-blue-50",
         },
       }}
       {...props}

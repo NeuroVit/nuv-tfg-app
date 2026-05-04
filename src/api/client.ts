@@ -8,6 +8,17 @@ const client = axios.create({
 })
 
 client.interceptors.request.use((config) => {
+  const path = window.location.pathname
+  const isPublicRoute = path === '/login' || path === '/register'
+
+  if (!useAuthStore.getState().isAuthenticated()) {
+    if (!isPublicRoute) {
+      useAuthStore.getState().logout()
+      window.location.href = '/login'
+    }
+    return config
+  }
+
   const token = useAuthStore.getState().user?.token
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
@@ -22,7 +33,9 @@ const isAuthEndpoint = (url?: string) =>
 
 const redirectToLogin = () => {
   useAuthStore.getState().logout()
-  window.location.href = '/login'
+  if (window.location.pathname !== '/login') {
+    window.location.href = '/login'
+  }
 }
 
 let refreshPromise: Promise<string> | null = null

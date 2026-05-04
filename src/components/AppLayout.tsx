@@ -26,6 +26,8 @@ const topTabs = [
   { to: '/productos', label: 'Productos' },
   { to: '/categorias', label: 'Categorías' },
   { to: '/bundles', label: 'Bundles' },
+  { to: '/proveedores', label: 'Proveedores' },
+  { to: '/pedidos', label: 'Pedidos' },
 ]
 
 export default function AppLayout() {
@@ -50,20 +52,20 @@ export default function AppLayout() {
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset>
-        <header className="flex min-h-14 shrink-0 items-center gap-2 border-b bg-background px-3 py-2 sm:px-4">
+      <SidebarInset className="min-w-0 overflow-x-hidden">
+        <header className="flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b bg-background px-3 py-2 sm:px-4">
           <SidebarTrigger className="-ml-1" />
           <Separator
             orientation="vertical"
             className="mr-2 data-[orientation=vertical]:h-4"
           />
-          <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+          <nav className="flex min-w-0 flex-1 flex-wrap items-center gap-1 overflow-hidden">
             {topTabs.map((tab) => (
               <NavLink
                 key={tab.to}
                 to={tab.to}
                 className={({ isActive }) =>
-                  `rounded-md px-3 py-1.5 text-sm transition-colors ${
+                  `rounded-md px-3 py-1.5 text-sm whitespace-nowrap transition-colors ${
                     isActive
                       ? 'bg-accent text-accent-foreground'
                       : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
@@ -114,7 +116,7 @@ export default function AppLayout() {
           </DropdownMenu>
         </header>
 
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden">
           <Outlet />
         </main>
       </SidebarInset>

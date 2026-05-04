@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { isAxiosError } from 'axios'
 import { toast } from 'sonner'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { crearCategoria, editarCategoria, eliminarCategoria, getCategorias } from '@/api/categoria'
 import type { Categoria, CategoriaRequest } from '@/types/producto'
@@ -45,6 +45,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 const categoriaSchema = z.object({
   nombre: z.string().min(1, 'El nombre es obligatorio').max(100, 'Máximo 100 caracteres'),
@@ -301,24 +307,24 @@ export default function CategoriasPage() {
                     </TableCell>
                     <TableCell>
                       {canEdit && (
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => openEditDialog(category)}
-                            aria-label="Editar categoría"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => requestDelete(category)}
-                            className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                            aria-label="Eliminar categoría"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                        <div className="flex justify-end">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" aria-label="Acciones de categoría">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="min-w-40">
+                              <DropdownMenuItem onSelect={() => openEditDialog(category)}>
+                                <Pencil className="h-4 w-4" />
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem variant="destructive" onSelect={() => requestDelete(category)}>
+                                <Trash2 className="h-4 w-4" />
+                                Eliminar
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       )}
                     </TableCell>

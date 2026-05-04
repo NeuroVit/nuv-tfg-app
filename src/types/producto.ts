@@ -8,6 +8,8 @@ export interface Producto {
   precioUnitario: number
   categoriaId: number | null
   categoriaNombre: string | null
+  providerId: number | null
+  providerNombre: string | null
   version: number
   creadoEn: string
   actualizadoEn: string
@@ -20,7 +22,8 @@ export interface CrearProductoRequest {
   precioUnitario: number
   cantidadActual: number
   nivelMinimoStock: number
-  categoriaId?: number
+  categoriaId: number
+  providerId: number
 }
 
 export interface EditarProductoRequest extends Partial<CrearProductoRequest> {}

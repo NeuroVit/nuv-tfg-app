@@ -19,7 +19,9 @@ import {
   getCategorias,
   getProductos,
 } from '@/api/producto'
+import { getProveedores } from '@/api/provider'
 import type { ActualizarStockRequest, Categoria, Producto } from '@/types/producto'
+import type { Proveedor } from '@/types/provider'
 import { useAuthStore } from '@/store/authStore'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -66,6 +68,7 @@ const productoSchema = z.object({
   cantidadActual: z.coerce.number().int().min(0, 'La cantidad no puede ser negativa'),
   nivelMinimoStock: z.coerce.number().int().min(0, 'El stock mínimo no puede ser negativo'),
   categoriaId: z.string().min(1, 'La categoría es obligatoria'),
+  providerId: z.string().min(1, 'El proveedor es obligatorio'),
 })
 
 type ProductoFormValues = z.infer<typeof productoSchema>
@@ -79,6 +82,7 @@ const defaultProductoValues: ProductoFormValues = {
   cantidadActual: 0,
   nivelMinimoStock: 0,
   categoriaId: '',
+  providerId: '',
 }
 
 const parseApiError = (error: unknown, fallback: string): string => {
@@ -104,9 +108,11 @@ export default function ProductosPage() {
 
   const [productos, setProductos] = useState<Producto[]>([])
   const [categorias, setCategorias] = useState<Categoria[]>([])
+  const [proveedores, setProveedores] = useState<Proveedor[]>([])
   const [loading, setLoading] = useState(true)
   const [globalFilter, setGlobalFilter] = useState('')
   const [filtroCategoria, setFiltroCategoria] = useState('all')
+  const [filtroProveedor, setFiltroProveedor] = useState('all')
   const [filtroEstado, setFiltroEstado] = useState<EstadoFiltro>('all')
 
   const [stockDialog, setStockDialog] = useState(false)
@@ -141,9 +147,14 @@ export default function ProductosPage() {
   const cargarDatos = async () => {
     setLoading(true)
     try {
-      const [productosData, categoriasData] = await Promise.all([getProductos(), getCategorias()])
+      const [productosData, categoriasData, proveedoresData] = await Promise.all([
+        getProductos(),
+        getCategorias(),
+        getProveedores(),
+      ])
       setProductos(productosData)
       setCategorias(categoriasData)
+      setProveedores(proveedoresData.filter((provider) => provider.activo))
     } finally {
       setLoading(false)
     }
@@ -171,6 +182,10 @@ export default function ProductosPage() {
       producto.categoriaId ??
       categorias.find((categoria) => categoria.nombre === producto.categoriaNombre)?.id ??
       null
+    const providerIdActual =
+      producto.providerId ??
+      proveedores.find((provider) => provider.nombre === producto.providerNombre)?.id ??
+      null
 
     editForm.reset({
       nombre: producto.nombre,
@@ -180,6 +195,7 @@ export default function ProductosPage() {
       cantidadActual: producto.cantidadActual,
       nivelMinimoStock: producto.nivelMinimoStock,
       categoriaId: categoriaIdActual ? String(categoriaIdActual) : '',
+      providerId: providerIdActual ? String(providerIdActual) : '',
     })
     editForm.clearErrors()
     setProductoEditando(producto)
@@ -198,6 +214,7 @@ export default function ProductosPage() {
         cantidadActual: values.cantidadActual,
         nivelMinimoStock: values.nivelMinimoStock,
         categoriaId: Number(values.categoriaId),
+        providerId: Number(values.providerId),
       })
       await cargarDatos()
       setCreateDialog(false)
@@ -226,6 +243,7 @@ export default function ProductosPage() {
         cantidadActual: values.cantidadActual,
         nivelMinimoStock: values.nivelMinimoStock,
         categoriaId: Number(values.categoriaId),
+        providerId: Number(values.providerId),
       })
       await cargarDatos()
       setEditDialog(false)
@@ -287,6 +305,8 @@ export default function ProductosPage() {
     return productos.filter((producto) => {
       const categoriaOk =
         filtroCategoria === 'all' || String(producto.categoriaId) === filtroCategoria
+      const providerOk =
+        filtroProveedor === 'all' || String(producto.providerId) === filtroProveedor
 
       const esStockBajo = producto.cantidadActual <= producto.nivelMinimoStock
       const estadoOk =
@@ -294,9 +314,9 @@ export default function ProductosPage() {
         (filtroEstado === 'low' && esStockBajo) ||
         (filtroEstado === 'normal' && !esStockBajo)
 
-      return categoriaOk && estadoOk
+      return categoriaOk && providerOk && estadoOk
     })
-  }, [productos, filtroCategoria, filtroEstado])
+  }, [productos, filtroCategoria, filtroProveedor, filtroEstado])
 
   const columns: ColumnDef<Producto>[] = [
     {
@@ -314,6 +334,11 @@ export default function ProductosPage() {
     {
       accessorKey: 'categoriaNombre',
       header: 'Categoría',
+      cell: ({ getValue }) => getValue<string>() ?? '—',
+    },
+    {
+      accessorKey: 'providerNombre',
+      header: 'Proveedor',
       cell: ({ getValue }) => getValue<string>() ?? '—',
     },
     {
@@ -426,6 +451,20 @@ export default function ProductosPage() {
               {categorias.map((categoria) => (
                 <SelectItem key={categoria.id} value={String(categoria.id)}>
                   {categoria.nombre}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={filtroProveedor} onValueChange={setFiltroProveedor}>
+            <SelectTrigger className="w-full md:w-56">
+              <SelectValue placeholder="Filtrar por proveedor" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los proveedores</SelectItem>
+              {proveedores.map((proveedor) => (
+                <SelectItem key={proveedor.id} value={String(proveedor.id)}>
+                  {proveedor.nombre}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -557,6 +596,31 @@ export default function ProductosPage() {
                           {categorias.map((categoria) => (
                             <SelectItem key={categoria.id} value={String(categoria.id)}>
                               {categoria.nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={createForm.control}
+                  name="providerId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Proveedor</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecciona un proveedor" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {proveedores.map((proveedor) => (
+                            <SelectItem key={proveedor.id} value={String(proveedor.id)}>
+                              {proveedor.nombre}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -700,6 +764,31 @@ export default function ProductosPage() {
                           {categorias.map((categoria) => (
                             <SelectItem key={categoria.id} value={String(categoria.id)}>
                               {categoria.nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="providerId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Proveedor</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecciona un proveedor" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {proveedores.map((proveedor) => (
+                            <SelectItem key={proveedor.id} value={String(proveedor.id)}>
+                              {proveedor.nombre}
                             </SelectItem>
                           ))}
                         </SelectContent>

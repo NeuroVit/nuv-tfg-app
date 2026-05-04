@@ -10,13 +10,15 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
-import { Boxes, LayoutDashboard, Package, Tags } from 'lucide-react'
+import { Boxes, ClipboardList, LayoutDashboard, Package, Tags, Truck } from 'lucide-react'
 
 const navItems = [
   { to: '/dashboard', label: 'Inicio', icon: LayoutDashboard },
   { to: '/productos', label: 'Productos', icon: Package },
   { to: '/categorias', label: 'Categorías', icon: Tags },
   { to: '/bundles', label: 'Bundles', icon: Boxes },
+  { to: '/proveedores', label: 'Proveedores', icon: Truck },
+  { to: '/pedidos', label: 'Pedidos', icon: ClipboardList },
 ]
 
 export function AppSidebar() {
