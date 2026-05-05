@@ -40,6 +40,7 @@ export interface PedidoProveedor {
 export interface CrearPedidoProveedorItemRequest {
   productoId: number
   cantidad: number
+  precioUnitario: number
 }
 
 export interface CrearPedidoProveedorRequest {

@@ -3,6 +3,8 @@ export interface VentaItem {
   productoNombre: string
   sku: string
   quantity: number
+  listUnitPriceSnapshot?: number
+  discountPctSnapshot?: number
   unitPriceSnapshot: number
   subtotal: number
 }
@@ -13,6 +15,9 @@ export interface Venta {
   clientName: string
   soldAt: string
   notas: string | null
+  subtotalAmount?: number
+  discountTotalAmount?: number
+  globalDiscountPct?: number
   totalAmount: number
   createdAt: string
   items: VentaItem[]
@@ -21,8 +26,15 @@ export interface Venta {
 export interface CrearVentaRequest {
   clientId: number
   notas?: string
-  items: Array<{
+  descuentoPctGlobal?: number
+  items?: Array<{
     productId: number
     quantity: number
+    descuentoPct?: number
+  }>
+  bundles?: Array<{
+    bundleId: number
+    quantity: number
+    descuentoPctOverride?: number
   }>
 }
