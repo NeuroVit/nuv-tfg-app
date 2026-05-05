@@ -137,6 +137,13 @@ export default function AnaliticaPage() {
       margenReal30d: finanzas?.margenReal30d ?? 0,
       valorStockVenta: finanzas?.valorStockVenta ?? 0,
       costoStockReal: finanzas?.costoStockReal ?? 0,
+      margenBrutoPct: finanzas?.margenBrutoPct ?? 0,
+      markupPct: finanzas?.markupPct ?? 0,
+      ticketPromedio: finanzas?.ticketPromedio ?? 0,
+      rotacionInventario: finanzas?.rotacionInventario ?? 0,
+      diasInventario: finanzas?.diasInventario ?? 0,
+      gmroi: finanzas?.gmroi ?? 0,
+      ventasPromedioDiarias: finanzas?.ventasPromedioDiarias ?? 0,
     }
   }, [inventario, velocidadResumen, finanzas])
 
@@ -268,6 +275,34 @@ export default function AnaliticaPage() {
           <article className="rounded-lg border bg-white p-4">
             <p className="text-xs uppercase tracking-wide text-gray-500">Unidades vendidas (rango)</p>
             <p className="mt-2 text-xl font-semibold text-blue-700">{formatCompact(kpis.units30d)}</p>
+          </article>
+          <article className="rounded-lg border bg-white p-4">
+            <p className="text-xs uppercase tracking-wide text-gray-500">Margen bruto %</p>
+            <p className="mt-2 text-xl font-semibold text-emerald-700">{kpis.margenBrutoPct.toFixed(2)}%</p>
+          </article>
+          <article className="rounded-lg border bg-white p-4">
+            <p className="text-xs uppercase tracking-wide text-gray-500">Markup %</p>
+            <p className="mt-2 text-xl font-semibold text-emerald-700">{kpis.markupPct.toFixed(2)}%</p>
+          </article>
+          <article className="rounded-lg border bg-white p-4">
+            <p className="text-xs uppercase tracking-wide text-gray-500">Ticket promedio</p>
+            <p className="mt-2 text-xl font-semibold text-slate-800">{formatCurrency(kpis.ticketPromedio)}</p>
+          </article>
+          <article className="rounded-lg border bg-white p-4">
+            <p className="text-xs uppercase tracking-wide text-gray-500">Ventas promedio diarias</p>
+            <p className="mt-2 text-xl font-semibold text-blue-700">{formatCurrency(kpis.ventasPromedioDiarias)}</p>
+          </article>
+          <article className="rounded-lg border bg-white p-4">
+            <p className="text-xs uppercase tracking-wide text-gray-500">Rotación inventario</p>
+            <p className="mt-2 text-xl font-semibold text-indigo-700">{kpis.rotacionInventario.toFixed(2)}x</p>
+          </article>
+          <article className="rounded-lg border bg-white p-4">
+            <p className="text-xs uppercase tracking-wide text-gray-500">Días inventario</p>
+            <p className="mt-2 text-xl font-semibold text-indigo-700">{kpis.diasInventario.toFixed(1)} días</p>
+          </article>
+          <article className="rounded-lg border bg-white p-4">
+            <p className="text-xs uppercase tracking-wide text-gray-500">GMROI</p>
+            <p className="mt-2 text-xl font-semibold text-violet-700">{kpis.gmroi.toFixed(2)}x</p>
           </article>
         </section>
 
