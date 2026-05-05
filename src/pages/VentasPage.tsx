@@ -118,13 +118,13 @@ export default function VentasPage() {
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Ventas</h1>
-          <p className="mt-1 text-sm text-gray-500">Registro de ventas y descarga automática de stock.</p>
+          <h1 className="text-2xl font-bold text-foreground">Ventas</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Registro de ventas y descarga automática de stock.</p>
         </div>
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-          <div className="rounded-lg border bg-white p-4 xl:col-span-1">
-            <h2 className="text-sm font-semibold text-gray-900">Nueva venta</h2>
+          <div className="rounded-lg border bg-card p-4 xl:col-span-1">
+            <h2 className="text-sm font-semibold text-foreground">Nueva venta</h2>
             <div className="mt-4 space-y-3">
               <Select value={selectedClientId} onValueChange={setSelectedClientId}>
                 <SelectTrigger>
@@ -172,9 +172,9 @@ export default function VentasPage() {
             </div>
           </div>
 
-          <div className="rounded-lg border bg-white xl:col-span-2">
+          <div className="rounded-lg border bg-card xl:col-span-2">
             <div className="flex items-center justify-between border-b px-4 py-3">
-              <h2 className="text-sm font-semibold text-gray-900">Historial de ventas</h2>
+              <h2 className="text-sm font-semibold text-foreground">Historial de ventas</h2>
               <Select value={filterClientId} onValueChange={setFilterClientId}>
                 <SelectTrigger className="w-64">
                   <SelectValue placeholder="Filtrar cliente" />
@@ -200,9 +200,9 @@ export default function VentasPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={5} className="py-8 text-center text-gray-400">Cargando ventas...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Cargando ventas...</TableCell></TableRow>
                 ) : filteredSales.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="py-8 text-center text-gray-400">No hay ventas para mostrar.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No hay ventas para mostrar.</TableCell></TableRow>
                 ) : (
                   filteredSales.map((sale) => (
                     <TableRow key={sale.id}>

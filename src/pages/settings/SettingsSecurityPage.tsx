@@ -55,11 +55,11 @@ export default function SettingsSecurityPage() {
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-3xl space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Security</h1>
-          <p className="mt-1 text-sm text-gray-500">Gestiona tu contraseña y seguridad de cuenta.</p>
+          <h1 className="text-2xl font-bold text-foreground">Security</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Gestiona tu contraseña y seguridad de cuenta.</p>
         </div>
 
-        <div className="rounded-lg border bg-white p-4 shadow-sm sm:p-6 space-y-5">
+        <div className="rounded-lg border bg-card p-4 shadow-sm sm:p-6 space-y-5">
           <div className="space-y-2">
             <Label htmlFor="security-current-password">Contraseña actual</Label>
             <Input
@@ -78,7 +78,7 @@ export default function SettingsSecurityPage() {
               value={form.newPassword}
               onChange={(event) => setForm((prev) => ({ ...prev, newPassword: event.target.value }))}
             />
-            <p className="text-xs text-gray-500">Mínimo 8 caracteres, con al menos una mayúscula y un número.</p>
+            <p className="text-xs text-muted-foreground">Mínimo 8 caracteres, con al menos una mayúscula y un número.</p>
           </div>
 
           <div className="space-y-2">

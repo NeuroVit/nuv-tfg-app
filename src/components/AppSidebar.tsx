@@ -12,8 +12,8 @@ import {
 } from '@/components/ui/sidebar'
 import {
   Activity,
-  ArrowLeft,
   AlertTriangle,
+  ArrowLeft,
   BarChart3,
   LayoutDashboard,
   Package,
@@ -26,22 +26,43 @@ import {
   Users,
 } from 'lucide-react'
 
-const navItems = [
-  { to: '/dashboard', label: 'Inicio', icon: LayoutDashboard },
-  { to: '/productos', label: 'Productos', icon: Package },
-  { to: '/proveedores', label: 'Proveedores', icon: Truck },
-  { to: '/movimientos', label: 'Movimientos', icon: Activity },
-  { to: '/alertas', label: 'Alertas', icon: AlertTriangle },
-  { to: '/analitica', label: 'Analítica', icon: BarChart3 },
-  { to: '/clientes', label: 'Clientes', icon: UserSquare2 },
-  { to: '/ventas', label: 'Ventas', icon: ReceiptText },
+type NavItem = { to: string; label: string; icon: React.ComponentType<{ className?: string }> }
+
+const navGroups: { label?: string; items: NavItem[] }[] = [
+  {
+    items: [
+      { to: '/dashboard', label: 'Inicio', icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: 'Inventario',
+    items: [
+      { to: '/productos', label: 'Productos', icon: Package },
+      { to: '/proveedores', label: 'Proveedores', icon: Truck },
+      { to: '/movimientos', label: 'Movimientos', icon: Activity },
+    ],
+  },
+  {
+    label: 'Control',
+    items: [
+      { to: '/alertas', label: 'Alertas', icon: AlertTriangle },
+      { to: '/analitica', label: 'Analítica', icon: BarChart3 },
+    ],
+  },
+  {
+    label: 'Comercial',
+    items: [
+      { to: '/clientes', label: 'Clientes', icon: UserSquare2 },
+      { to: '/ventas', label: 'Ventas', icon: ReceiptText },
+    ],
+  },
 ]
 
-const settingsNavItems = [
-  { to: '/settings/profile', label: 'Profile', icon: UserCircle2 },
-  { to: '/settings/users', label: 'Users', icon: Users },
+const settingsNavItems: NavItem[] = [
+  { to: '/settings/profile', label: 'Perfil', icon: UserCircle2 },
+  { to: '/settings/users', label: 'Usuarios', icon: Users },
   { to: '/settings/general', label: 'General', icon: SlidersHorizontal },
-  { to: '/settings/security', label: 'Security', icon: ShieldCheck },
+  { to: '/settings/security', label: 'Seguridad', icon: ShieldCheck },
 ]
 
 type AppSidebarProps = {
@@ -84,25 +105,49 @@ export function AppSidebar({ isSettingsRoute = false }: AppSidebarProps) {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>{isSettingsRoute ? 'Ajustes' : 'Plataforma'}</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {(isSettingsRoute ? settingsNavItems : navItems).map((item) => (
-                <SidebarMenuItem key={item.to}>
-                  <NavLink to={item.to}>
-                    {({ isActive }) => (
-                      <SidebarMenuButton isActive={isActive} tooltip={item.label}>
-                        <item.icon />
-                        <span>{item.label}</span>
-                      </SidebarMenuButton>
-                    )}
-                  </NavLink>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {isSettingsRoute ? (
+          <SidebarGroup>
+            <SidebarGroupLabel>Ajustes</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {settingsNavItems.map((item) => (
+                  <SidebarMenuItem key={item.to}>
+                    <NavLink to={item.to}>
+                      {({ isActive }) => (
+                        <SidebarMenuButton isActive={isActive} tooltip={item.label}>
+                          <item.icon />
+                          <span>{item.label}</span>
+                        </SidebarMenuButton>
+                      )}
+                    </NavLink>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : (
+          navGroups.map((group, i) => (
+            <SidebarGroup key={i}>
+              {group.label && <SidebarGroupLabel>{group.label}</SidebarGroupLabel>}
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {group.items.map((item) => (
+                    <SidebarMenuItem key={item.to}>
+                      <NavLink to={item.to}>
+                        {({ isActive }) => (
+                          <SidebarMenuButton isActive={isActive} tooltip={item.label}>
+                            <item.icon />
+                            <span>{item.label}</span>
+                          </SidebarMenuButton>
+                        )}
+                      </NavLink>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ))
+        )}
       </SidebarContent>
     </Sidebar>
   )

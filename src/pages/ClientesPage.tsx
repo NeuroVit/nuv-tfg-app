@@ -127,11 +127,11 @@ export default function ClientesPage() {
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Clientes</h1>
-          <p className="mt-1 text-sm text-gray-500">Gestión de cartera de clientes para ventas.</p>
+          <h1 className="text-2xl font-bold text-foreground">Clientes</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Gestión de cartera de clientes para ventas.</p>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 rounded-lg border bg-white p-4 md:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 rounded-lg border bg-card p-4 md:grid-cols-4">
           <Input
             placeholder="Buscar por nombre, email o teléfono"
             value={search}
@@ -152,7 +152,7 @@ export default function ClientesPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-          <div className="xl:col-span-2 rounded-lg border bg-white">
+          <div className="xl:col-span-2 rounded-lg border bg-card">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -165,9 +165,9 @@ export default function ClientesPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={5} className="py-8 text-center text-gray-400">Cargando clientes...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Cargando clientes...</TableCell></TableRow>
                 ) : filteredClients.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="py-8 text-center text-gray-400">No hay clientes para mostrar.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No hay clientes para mostrar.</TableCell></TableRow>
                 ) : (
                   filteredClients.map((client) => (
                     <TableRow key={client.id}>
@@ -194,8 +194,8 @@ export default function ClientesPage() {
             </Table>
           </div>
 
-          <div className="rounded-lg border bg-white p-4">
-            <h2 className="text-sm font-semibold text-gray-900">{editing ? 'Editar cliente' : 'Nuevo cliente'}</h2>
+          <div className="rounded-lg border bg-card p-4">
+            <h2 className="text-sm font-semibold text-foreground">{editing ? 'Editar cliente' : 'Nuevo cliente'}</h2>
             <div className="mt-4 space-y-3">
               <Input placeholder="Nombre" value={form.nombre} onChange={(event) => setForm((prev) => ({ ...prev, nombre: event.target.value }))} />
               <Input placeholder="Email" value={form.email} onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))} />

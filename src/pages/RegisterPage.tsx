@@ -117,10 +117,10 @@ const handleGoogleSuccess = async (response: CredentialResponse) => {
       />
 
       {/* Right — form */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 sm:px-8 bg-white">
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 sm:px-8 bg-card">
         <div className="w-full max-w-md space-y-6 sm:space-y-8">
 
-          <h1 className="text-3xl font-bold text-center text-gray-900">
+          <h1 className="text-3xl font-bold text-center text-foreground">
             Crea tu cuenta
           </h1>
 
@@ -225,7 +225,7 @@ const handleGoogleSuccess = async (response: CredentialResponse) => {
 
               <Button
                 type="submit"
-                className="w-full bg-gray-900 hover:bg-gray-800 text-white"
+                className="w-full bg-primary hover:bg-primary/90 text-white"
                 disabled={form.formState.isSubmitting}
               >
                 {form.formState.isSubmitting && (
@@ -251,9 +251,9 @@ const handleGoogleSuccess = async (response: CredentialResponse) => {
             </div>
           )}
 
-          <p className="text-center text-sm text-gray-500">
+          <p className="text-center text-sm text-muted-foreground">
             ¿Ya tienes cuenta?{' '}
-            <Link to="/login" className="underline text-gray-900 font-medium">
+            <Link to="/login" className="underline text-foreground font-medium">
               Inicia sesión
             </Link>
           </p>

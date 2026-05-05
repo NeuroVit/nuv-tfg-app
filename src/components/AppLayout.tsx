@@ -21,7 +21,12 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar'
-import { ChevronsUpDown, LogOut, Settings } from 'lucide-react'
+import { ChevronsUpDown, LogOut, Moon, Settings, Sun } from 'lucide-react'
+import { useTheme } from 'next-themes'
+import { useProfileStore } from '@/store/profileStore'
+
+const toTitleCase = (str: string) =>
+  str.toLowerCase().replace(/\b\p{L}/gu, (c) => c.toUpperCase())
 
 type TopTab = {
   to: string
@@ -44,6 +49,8 @@ const inRouteGroup = (pathname: string, routes: string[]) =>
 
 export default function AppLayout() {
   const { user, logout: clearSession } = useAuthStore()
+  const setDisplayName = useProfileStore((s) => s.setDisplayName)
+  const { theme, setTheme } = useTheme()
   const navigate = useNavigate()
   const location = useLocation()
   const isSettingsRoute = location.pathname.startsWith('/settings')
@@ -69,9 +76,26 @@ export default function AppLayout() {
       .filter(Boolean)
       .join(' ')
       .trim()
-    if (fullName) return fullName
-    return user?.username ?? 'Usuario'
+    return toTitleCase(fullName || user?.username || 'Usuario')
   }, [profile?.apellidos, profile?.nombre, user?.username])
+
+  useEffect(() => {
+    setDisplayName(accountLabel)
+  }, [accountLabel, setDisplayName])
+
+  const sectionLabel = useMemo(() => {
+    const path = location.pathname
+    if (path === '/' || path === '/inicio' || path === '/dashboard') return 'Inicio'
+    if (inRouteGroup(path, ['/productos', '/categorias', '/bundles'])) return 'Productos'
+    if (inRouteGroup(path, ['/proveedores', '/pedidos'])) return 'Proveedores'
+    if (path.startsWith('/movimientos')) return 'Movimientos'
+    if (path.startsWith('/alertas')) return 'Alertas'
+    if (path.startsWith('/analitica')) return 'Analítica'
+    if (path.startsWith('/clientes')) return 'Clientes'
+    if (path.startsWith('/ventas')) return 'Ventas'
+    if (path.startsWith('/settings')) return 'Ajustes'
+    return ''
+  }, [location.pathname])
 
   useEffect(() => {
     let isMounted = true
@@ -117,10 +141,15 @@ export default function AppLayout() {
       <SidebarInset className="min-w-0 overflow-x-hidden">
         <header className="flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b bg-background px-3 py-2 sm:px-4">
           <SidebarTrigger className="-ml-1" />
-          <Separator
-            orientation="vertical"
-            className="mr-2 data-[orientation=vertical]:h-4"
-          />
+          {sectionLabel && (
+            <span className="ml-1 text-sm font-medium text-foreground">{sectionLabel}</span>
+          )}
+          {topTabs.length > 0 && (
+            <Separator
+              orientation="vertical"
+              className="mx-2 data-[orientation=vertical]:h-4"
+            />
+          )}
           <nav className="flex min-w-0 flex-1 flex-wrap items-center gap-1 overflow-hidden">
             {topTabs.map((tab) => (
               <NavLink
@@ -138,6 +167,17 @@ export default function AppLayout() {
               </NavLink>
             ))}
           </nav>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          >
+            <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+            <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            <span className="sr-only">Cambiar tema</span>
+          </Button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

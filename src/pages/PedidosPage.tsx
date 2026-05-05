@@ -249,8 +249,8 @@ export default function PedidosPage() {
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Pedidos</h1>
-          <p className="mt-1 text-sm text-gray-500">Consulta y gestiona pedidos por proveedor.</p>
+          <h1 className="text-2xl font-bold text-foreground">Pedidos</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Consulta y gestiona pedidos por proveedor.</p>
         </div>
 
         <div className="flex flex-col gap-3 md:flex-row md:items-center">
@@ -307,18 +307,18 @@ export default function PedidosPage() {
         </div>
 
         {!selectedProvider ? (
-          <div className="rounded-lg border bg-white p-6 text-sm text-gray-500">
+          <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">
             Selecciona un proveedor para ver sus pedidos.
           </div>
         ) : (
           <>
-            <div className="rounded-lg border bg-white p-3 text-sm text-gray-600">
-              Proveedor seleccionado: <span className="font-medium text-gray-900">{selectedProvider.nombre}</span>
+            <div className="rounded-lg border bg-card p-3 text-sm text-muted-foreground">
+              Proveedor seleccionado: <span className="font-medium text-foreground">{selectedProvider.nombre}</span>
               {' · '}
               Fecha pedido recomendada = llegada deseada - {selectedProvider.diasEntrega} días
             </div>
 
-            <div className="rounded-lg border bg-white">
+            <div className="rounded-lg border bg-card">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -335,13 +335,13 @@ export default function PedidosPage() {
                 <TableBody>
                   {loadingOrders ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="py-8 text-center text-gray-400">
+                      <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
                         Cargando pedidos...
                       </TableCell>
                     </TableRow>
                   ) : filteredOrders.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="py-8 text-center text-gray-400">
+                      <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
                         No hay pedidos para mostrar con los filtros actuales.
                       </TableCell>
                     </TableRow>
@@ -510,14 +510,14 @@ export default function PedidosPage() {
             <DialogTitle>Detalle pedido #{detailOrder?.id}</DialogTitle>
           </DialogHeader>
           {!detailOrder ? (
-            <p className="text-sm text-gray-500">Pedido no disponible.</p>
+            <p className="text-sm text-muted-foreground">Pedido no disponible.</p>
           ) : (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3 rounded-md border p-3 text-sm">
-                <p><span className="text-gray-500">Proveedor:</span> {detailOrder.providerNombre}</p>
-                <p><span className="text-gray-500">Estado:</span> {detailOrder.status}</p>
-                <p><span className="text-gray-500">Llegada deseada:</span> {detailOrder.fechaLlegadaDeseada}</p>
-                <p><span className="text-gray-500">Pedido recomendado:</span> {detailOrder.fechaPedidoRecomendada}</p>
+                <p><span className="text-muted-foreground">Proveedor:</span> {detailOrder.providerNombre}</p>
+                <p><span className="text-muted-foreground">Estado:</span> {detailOrder.status}</p>
+                <p><span className="text-muted-foreground">Llegada deseada:</span> {detailOrder.fechaLlegadaDeseada}</p>
+                <p><span className="text-muted-foreground">Pedido recomendado:</span> {detailOrder.fechaPedidoRecomendada}</p>
               </div>
 
               <div className="rounded-lg border">
