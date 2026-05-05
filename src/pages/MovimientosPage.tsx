@@ -85,11 +85,11 @@ export default function MovimientosPage() {
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Movimientos</h1>
-          <p className="mt-1 text-sm text-gray-500">Histórico completo de entradas y salidas de stock.</p>
+          <h1 className="text-2xl font-bold text-foreground">Movimientos</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Histórico completo de entradas y salidas de stock.</p>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 rounded-lg border bg-white p-4 md:grid-cols-2 xl:grid-cols-6">
+        <div className="grid grid-cols-1 gap-3 rounded-lg border bg-card p-4 md:grid-cols-2 xl:grid-cols-6">
           <Select value={productId} onValueChange={setProductId}>
             <SelectTrigger>
               <SelectValue placeholder="Producto" />
@@ -134,7 +134,7 @@ export default function MovimientosPage() {
           <Button variant="outline" onClick={resetFilters}>Limpiar filtros</Button>
         </div>
 
-        <div className="rounded-lg border bg-white">
+        <div className="rounded-lg border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
@@ -150,11 +150,11 @@ export default function MovimientosPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-gray-400">Cargando movimientos...</TableCell>
+                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Cargando movimientos...</TableCell>
                 </TableRow>
               ) : movimientos.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-gray-400">No hay movimientos para los filtros seleccionados.</TableCell>
+                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">No hay movimientos para los filtros seleccionados.</TableCell>
                 </TableRow>
               ) : (
                 movimientos.map((movimiento) => (
@@ -176,7 +176,7 @@ export default function MovimientosPage() {
         </div>
 
         <div className="flex items-center justify-between">
-          <p className="text-sm text-gray-500">Página {currentPage} de {totalPages} · {total} registros</p>
+          <p className="text-sm text-muted-foreground">Página {currentPage} de {totalPages} · {total} registros</p>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"

@@ -182,8 +182,8 @@ export default function ProveedoresPage() {
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Proveedores</h1>
-          <p className="mt-1 text-sm text-gray-500">Selecciona un proveedor para ver sus pedidos en la pestaña superior "Pedidos".</p>
+          <h1 className="text-2xl font-bold text-foreground">Proveedores</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Selecciona un proveedor para ver sus pedidos en la pestaña superior "Pedidos".</p>
         </div>
 
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -216,7 +216,7 @@ export default function ProveedoresPage() {
           )}
         </div>
 
-        <div className="rounded-lg border bg-white">
+        <div className="rounded-lg border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
@@ -231,13 +231,13 @@ export default function ProveedoresPage() {
             <TableBody>
               {loadingProviders ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-gray-400">
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                     Cargando proveedores...
                   </TableCell>
                 </TableRow>
               ) : filteredProviders.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-gray-400">
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                     No hay proveedores para mostrar.
                   </TableCell>
                 </TableRow>
@@ -245,7 +245,7 @@ export default function ProveedoresPage() {
                 filteredProviders.map((provider) => (
                   <TableRow
                     key={provider.id}
-                    className={`cursor-pointer hover:bg-gray-50 ${selectedProviderId === provider.id ? 'bg-gray-50' : ''}`}
+                    className={`cursor-pointer hover:bg-accent ${selectedProviderId === provider.id ? 'bg-muted' : ''}`}
                     onClick={() => goToPedidosForProvider(provider)}
                   >
                     <TableCell className="font-medium">{provider.nombre}</TableCell>
