@@ -33,6 +33,7 @@ import { Textarea } from '@/components/ui/textarea'
 type OrderItemForm = {
   productoId: string
   cantidad: number
+  precioUnitario: number
 }
 
 const parseApiError = (error: unknown, fallback: string): string => {
@@ -74,7 +75,7 @@ export default function PedidosPage() {
   const [detailOrder, setDetailOrder] = useState<PedidoProveedor | null>(null)
   const [orderArrivalDate, setOrderArrivalDate] = useState<string>(toDateInputValue(new Date()))
   const [orderNotes, setOrderNotes] = useState('')
-  const [orderItems, setOrderItems] = useState<OrderItemForm[]>([{ productoId: '', cantidad: 1 }])
+  const [orderItems, setOrderItems] = useState<OrderItemForm[]>([{ productoId: '', cantidad: 1, precioUnitario: 0 }])
   const [creatingOrder, setCreatingOrder] = useState(false)
 
   const selectedProvider = useMemo(
@@ -160,7 +161,7 @@ export default function PedidosPage() {
   const resetOrderForm = () => {
     setOrderArrivalDate(toDateInputValue(new Date()))
     setOrderNotes('')
-    setOrderItems([{ productoId: '', cantidad: 1 }])
+    setOrderItems([{ productoId: '', cantidad: 1, precioUnitario: 0 }])
   }
 
   const openCreateOrder = () => {
@@ -174,13 +175,13 @@ export default function PedidosPage() {
   }
 
   const addOrderItem = () => {
-    setOrderItems((current) => [...current, { productoId: '', cantidad: 1 }])
+    setOrderItems((current) => [...current, { productoId: '', cantidad: 1, precioUnitario: 0 }])
   }
 
   const removeOrderItem = (index: number) => {
     setOrderItems((current) => {
       const next = current.filter((_, idx) => idx !== index)
-      return next.length > 0 ? next : [{ productoId: '', cantidad: 1 }]
+      return next.length > 0 ? next : [{ productoId: '', cantidad: 1, precioUnitario: 0 }]
     })
   }
 
@@ -192,7 +193,11 @@ export default function PedidosPage() {
     if (!selectedProvider) return
 
     const items = orderItems
-      .map((item) => ({ productoId: Number(item.productoId), cantidad: Number(item.cantidad) }))
+      .map((item) => ({
+        productoId: Number(item.productoId),
+        cantidad: Number(item.cantidad),
+        precioUnitario: Number(item.precioUnitario),
+      }))
       .filter((item) => !Number.isNaN(item.productoId))
 
     if (items.length === 0) {
@@ -201,6 +206,10 @@ export default function PedidosPage() {
     }
     if (items.some((item) => item.cantidad < 1)) {
       toast.error('La cantidad debe ser mayor o igual a 1')
+      return
+    }
+    if (items.some((item) => !Number.isFinite(item.precioUnitario) || item.precioUnitario <= 0)) {
+      toast.error('El precio unitario debe ser mayor a 0')
       return
     }
 
@@ -457,11 +466,17 @@ export default function PedidosPage() {
               {orderItems.map((item, index) => (
                 <div
                   key={index}
-                  className="grid grid-cols-1 gap-2 rounded-md border p-3 md:grid-cols-[1fr_130px_auto]"
+                  className="grid grid-cols-1 gap-2 rounded-md border p-3 md:grid-cols-[1fr_130px_150px_auto]"
                 >
                   <Select
                     value={item.productoId}
-                    onValueChange={(value) => updateOrderItem(index, { productoId: value })}
+                    onValueChange={(value) => {
+                      const selectedProduct = providerProducts.find((product) => String(product.id) === value)
+                      updateOrderItem(index, {
+                        productoId: value,
+                        precioUnitario: selectedProduct?.costoUnitario ?? selectedProduct?.precioUnitario ?? 0,
+                      })
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecciona producto" />
@@ -481,6 +496,16 @@ export default function PedidosPage() {
                     onChange={(event) =>
                       updateOrderItem(index, { cantidad: Number(event.target.value) })
                     }
+                  />
+                  <Input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={item.precioUnitario}
+                    onChange={(event) =>
+                      updateOrderItem(index, { precioUnitario: Number(event.target.value) })
+                    }
+                    placeholder="Coste unitario (€)"
                   />
                   <Button
                     variant="outline"

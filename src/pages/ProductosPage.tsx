@@ -66,6 +66,7 @@ const productoSchema = z.object({
   sku: z.string().min(1, 'El SKU es obligatorio'),
   descripcion: z.string().optional(),
   precioUnitario: z.coerce.number().positive('El precio debe ser mayor a 0'),
+  costoUnitario: z.coerce.number().positive('El coste debe ser mayor a 0'),
   cantidadActual: z.coerce.number().int().min(0, 'La cantidad no puede ser negativa'),
   nivelMinimoStock: z.coerce.number().int().min(0, 'El stock mínimo no puede ser negativo'),
   categoriaId: z.string().min(1, 'La categoría es obligatoria'),
@@ -80,6 +81,7 @@ const defaultProductoValues: ProductoFormValues = {
   sku: '',
   descripcion: '',
   precioUnitario: 0,
+  costoUnitario: 0,
   cantidadActual: 0,
   nivelMinimoStock: 0,
   categoriaId: '',
@@ -189,6 +191,7 @@ export default function ProductosPage() {
       sku: producto.sku,
       descripcion: producto.descripcion ?? '',
       precioUnitario: Number(producto.precioUnitario),
+      costoUnitario: Number(producto.costoUnitario ?? producto.precioUnitario),
       cantidadActual: producto.cantidadActual,
       nivelMinimoStock: producto.nivelMinimoStock,
       categoriaId: categoriaIdActual ? String(categoriaIdActual) : '',
@@ -208,6 +211,7 @@ export default function ProductosPage() {
         sku: values.sku,
         descripcion: values.descripcion?.trim() ? values.descripcion.trim() : undefined,
         precioUnitario: values.precioUnitario,
+        costoUnitario: values.costoUnitario,
         cantidadActual: values.cantidadActual,
         nivelMinimoStock: values.nivelMinimoStock,
         categoriaId: Number(values.categoriaId),
@@ -237,6 +241,7 @@ export default function ProductosPage() {
         sku: values.sku,
         descripcion: values.descripcion?.trim() ? values.descripcion.trim() : undefined,
         precioUnitario: values.precioUnitario,
+        costoUnitario: values.costoUnitario,
         cantidadActual: values.cantidadActual,
         nivelMinimoStock: values.nivelMinimoStock,
         categoriaId: Number(values.categoriaId),
@@ -592,6 +597,20 @@ export default function ProductosPage() {
 
                 <FormField
                   control={createForm.control}
+                  name="costoUnitario"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Coste unitario</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" min="0" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={createForm.control}
                   name="categoriaId"
                   render={({ field }) => (
                     <FormItem>
@@ -750,6 +769,20 @@ export default function ProductosPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Precio unitario</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" min="0" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="costoUnitario"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Coste unitario</FormLabel>
                       <FormControl>
                         <Input type="number" step="0.01" min="0" {...field} />
                       </FormControl>

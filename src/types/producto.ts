@@ -21,6 +21,7 @@ export interface CrearProductoRequest {
   sku: string
   descripcion?: string
   precioUnitario: number
+  costoUnitario?: number
   cantidadActual: number
   nivelMinimoStock: number
   categoriaId: number

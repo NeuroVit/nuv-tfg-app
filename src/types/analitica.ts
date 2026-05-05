@@ -89,6 +89,14 @@ export interface FinanzasResumen {
   diferenciaValorVsCosto: number
   ventasCount30d: number
   ordenesRecibidasCount30d: number
+  margenBrutoPct?: number
+  markupPct?: number
+  ticketPromedio?: number
+  inventarioPromedioCosto?: number
+  rotacionInventario?: number
+  diasInventario?: number
+  gmroi?: number
+  ventasPromedioDiarias?: number
 }
 
 export interface RentabilidadProductoRow {
