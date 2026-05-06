@@ -11,6 +11,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
 
 type SaleItemForm = {
   productId: string
@@ -33,6 +40,9 @@ export default function VentasPage() {
   const [items, setItems] = useState<SaleItemForm[]>([{ productId: '', quantity: 1 }])
 
   const [filterClientId, setFilterClientId] = useState('all')
+
+  const [modalOpen, setModalOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   const activeClients = useMemo(() => clients.filter((client) => client.activo), [clients])
 
@@ -62,6 +72,20 @@ export default function VentasPage() {
     if (filterClientId === 'all') return sales
     return sales.filter((sale) => String(sale.clientId) === filterClientId)
   }, [sales, filterClientId])
+
+  const openModal = () => {
+    setSelectedClientId('')
+    setNotes('')
+    setItems([{ productId: '', quantity: 1 }])
+    setModalOpen(true)
+  }
+
+  const closeModal = () => {
+    setModalOpen(false)
+    setSelectedClientId('')
+    setNotes('')
+    setItems([{ productId: '', quantity: 1 }])
+  }
 
   const addItem = () => setItems((prev) => [...prev, { productId: '', quantity: 1 }])
 
@@ -98,6 +122,7 @@ export default function VentasPage() {
       return
     }
 
+    setSaving(true)
     try {
       await crearVenta({
         clientId,
@@ -105,12 +130,12 @@ export default function VentasPage() {
         items: payloadItems,
       })
       toast.success('Venta creada correctamente')
-      setSelectedClientId('')
-      setNotes('')
-      setItems([{ productId: '', quantity: 1 }])
+      closeModal()
       await loadData()
     } catch {
       toast.error('No se pudo crear la venta')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -122,103 +147,113 @@ export default function VentasPage() {
           <p className="mt-1 text-sm text-muted-foreground">Registro de ventas y descarga automática de stock.</p>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-          <div className="rounded-lg border bg-card p-4 xl:col-span-1">
-            <h2 className="text-sm font-semibold text-foreground">Nueva venta</h2>
-            <div className="mt-4 space-y-3">
-              <Select value={selectedClientId} onValueChange={setSelectedClientId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona cliente" />
-                </SelectTrigger>
-                <SelectContent>
-                  {activeClients.map((client) => (
-                    <SelectItem key={client.id} value={String(client.id)}>{client.nombre}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Input placeholder="Notas" value={notes} onChange={(event) => setNotes(event.target.value)} />
-
-              <div className="space-y-2">
-                {items.map((item, index) => (
-                  <div key={index} className="grid grid-cols-[1fr_90px_auto] gap-2">
-                    <Select value={item.productId} onValueChange={(value) => updateItem(index, { productId: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Producto" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {products.map((product) => (
-                          <SelectItem key={product.id} value={String(product.id)}>
-                            {product.nombre} ({product.sku})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={item.quantity}
-                      onChange={(event) => updateItem(index, { quantity: Number(event.target.value) })}
-                    />
-                    <Button variant="outline" onClick={() => removeItem(index)}>Quitar</Button>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button variant="outline" onClick={addItem}>Añadir línea</Button>
-                <Button onClick={() => void submitSale()} disabled={!canCreate}>Crear venta</Button>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-lg border bg-card xl:col-span-2">
-            <div className="flex items-center justify-between border-b px-4 py-3">
-              <h2 className="text-sm font-semibold text-foreground">Historial de ventas</h2>
-              <Select value={filterClientId} onValueChange={setFilterClientId}>
-                <SelectTrigger className="w-64">
-                  <SelectValue placeholder="Filtrar cliente" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los clientes</SelectItem>
-                  {clients.map((client) => (
-                    <SelectItem key={client.id} value={String(client.id)}>{client.nombre}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead>Items</TableHead>
-                  <TableHead>Total</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Cargando ventas...</TableCell></TableRow>
-                ) : filteredSales.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No hay ventas para mostrar.</TableCell></TableRow>
-                ) : (
-                  filteredSales.map((sale) => (
-                    <TableRow key={sale.id}>
-                      <TableCell>#{sale.id}</TableCell>
-                      <TableCell>{sale.clientName}</TableCell>
-                      <TableCell>{new Date(sale.soldAt).toLocaleString('es-ES')}</TableCell>
-                      <TableCell>{sale.items.length}</TableCell>
-                      <TableCell>{euro(sale.totalAmount)}</TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+        <div className="flex flex-wrap items-center gap-3">
+          <Select value={filterClientId} onValueChange={setFilterClientId}>
+            <SelectTrigger className="w-56">
+              <SelectValue placeholder="Filtrar cliente" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los clientes</SelectItem>
+              {clients.map((client) => (
+                <SelectItem key={client.id} value={String(client.id)}>{client.nombre}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="ml-auto flex gap-2">
+            <Button variant="outline" onClick={() => void loadData()}>Recargar</Button>
+            {canCreate && <Button onClick={openModal}>+ Nueva venta</Button>}
           </div>
         </div>
+
+        <div className="rounded-lg border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Items</TableHead>
+                <TableHead>Total</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Cargando ventas...</TableCell></TableRow>
+              ) : filteredSales.length === 0 ? (
+                <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No hay ventas para mostrar.</TableCell></TableRow>
+              ) : (
+                filteredSales.map((sale) => (
+                  <TableRow key={sale.id}>
+                    <TableCell>#{sale.id}</TableCell>
+                    <TableCell>{sale.clientName}</TableCell>
+                    <TableCell>{new Date(sale.soldAt).toLocaleString('es-ES')}</TableCell>
+                    <TableCell>{sale.items.length}</TableCell>
+                    <TableCell>{euro(sale.totalAmount)}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
+
+      <Dialog open={modalOpen} onOpenChange={(open) => { if (!open) closeModal() }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Nueva venta</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona cliente" />
+              </SelectTrigger>
+              <SelectContent>
+                {activeClients.map((client) => (
+                  <SelectItem key={client.id} value={String(client.id)}>{client.nombre}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Input placeholder="Notas" value={notes} onChange={(event) => setNotes(event.target.value)} />
+
+            <div className="space-y-2">
+              {items.map((item, index) => (
+                <div key={index} className="grid grid-cols-[1fr_90px_auto] gap-2">
+                  <Select value={item.productId} onValueChange={(value) => updateItem(index, { productId: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Producto" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {products.map((product) => (
+                        <SelectItem key={product.id} value={String(product.id)}>
+                          {product.nombre} ({product.sku})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={item.quantity}
+                    onChange={(event) => updateItem(index, { quantity: Number(event.target.value) })}
+                  />
+                  <Button variant="outline" onClick={() => removeItem(index)}>Quitar</Button>
+                </div>
+              ))}
+            </div>
+
+            <Button variant="outline" onClick={addItem}>+ Añadir línea</Button>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeModal}>Cancelar</Button>
+            <Button onClick={() => void submitSale()} disabled={saving || !canCreate}>
+              {saving ? 'Guardando...' : 'Crear venta'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
