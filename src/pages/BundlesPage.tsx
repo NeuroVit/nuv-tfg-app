@@ -280,8 +280,8 @@ export default function BundlesPage() {
       <div className="mx-auto max-w-7xl space-y-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Bundles</h1>
-            <p className="mt-1 text-sm text-gray-500">{bundles.length} bundles creados</p>
+            <h1 className="text-2xl font-bold text-foreground">Bundles</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{bundles.length} bundles creados</p>
           </div>
           {canEdit && (
             <Button className="w-full sm:w-auto" onClick={openCreateDialog}>
@@ -291,7 +291,7 @@ export default function BundlesPage() {
           )}
         </div>
 
-        <div className="rounded-lg border bg-white">
+        <div className="rounded-lg border bg-card">
           <Table className="min-w-[1020px]">
             <TableHeader>
               <TableRow>
@@ -307,13 +307,13 @@ export default function BundlesPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-12 text-center text-gray-400">
+                  <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
                     Cargando bundles...
                   </TableCell>
                 </TableRow>
               ) : bundles.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-12 text-center text-gray-400">
+                  <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
                     No hay bundles para mostrar.
                   </TableCell>
                 </TableRow>
@@ -321,13 +321,13 @@ export default function BundlesPage() {
                 bundles.map((bundle) => (
                   <TableRow
                     key={bundle.id}
-                    className="cursor-pointer hover:bg-gray-50"
+                    className="cursor-pointer hover:bg-accent"
                     onClick={() => {
                       void openBundleDetail(bundle)
                     }}
                   >
                     <TableCell className="font-medium">{bundle.nombre}</TableCell>
-                    <TableCell className="max-w-[320px] whitespace-normal text-gray-600">
+                    <TableCell className="max-w-[320px] whitespace-normal text-muted-foreground">
                       {bundle.descripcion || 'Sin descripción'}
                     </TableCell>
                     <TableCell>{Number(bundle.descuentoPct).toFixed(2)}%</TableCell>
@@ -396,7 +396,7 @@ export default function BundlesPage() {
             <DialogTitle>Productos del bundle: {selectedBundle?.nombre}</DialogTitle>
           </DialogHeader>
 
-          <div className="rounded-lg border bg-white">
+          <div className="rounded-lg border bg-card">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -408,13 +408,13 @@ export default function BundlesPage() {
               <TableBody>
                 {loadingItems ? (
                   <TableRow>
-                    <TableCell colSpan={3} className="py-10 text-center text-gray-400">
+                    <TableCell colSpan={3} className="py-10 text-center text-muted-foreground">
                       Cargando productos del bundle...
                     </TableCell>
                   </TableRow>
                 ) : bundleItems.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={3} className="py-10 text-center text-gray-400">
+                    <TableCell colSpan={3} className="py-10 text-center text-muted-foreground">
                       Este bundle no tiene productos asociados.
                     </TableCell>
                   </TableRow>
@@ -422,7 +422,7 @@ export default function BundlesPage() {
                   bundleItems.map((item) => (
                     <TableRow key={item.productoId}>
                       <TableCell className="font-medium">{item.productoNombre}</TableCell>
-                      <TableCell className="font-mono text-xs text-gray-500">{item.sku}</TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">{item.sku}</TableCell>
                       <TableCell>{item.cantidad}</TableCell>
                     </TableRow>
                   ))

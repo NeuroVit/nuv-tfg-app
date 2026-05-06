@@ -1,19 +1,7 @@
 import { useEffect, useState } from 'react'
 import { isAxiosError } from 'axios'
 import client from '@/api/client'
-
-type ProductoApi = {
-  id: number
-  sku: string
-  nombre: string
-  categoria?: string | null
-  stockActual?: number
-  stockMinimo?: number
-  precio?: number
-  cantidadActual?: number
-  nivelMinimoStock?: number
-  precioUnitario?: number
-}
+import { getInventarioAnalitica } from '@/api/analitica'
 
 type MovimientoStock = {
   id: number
@@ -57,10 +45,6 @@ const initialState: DashboardState = {
   error: null,
 }
 
-const toStockActual = (producto: ProductoApi) => producto.stockActual ?? producto.cantidadActual ?? 0
-const toStockMinimo = (producto: ProductoApi) => producto.stockMinimo ?? producto.nivelMinimoStock ?? 0
-const toPrecio = (producto: ProductoApi) => producto.precio ?? producto.precioUnitario ?? 0
-
 export function useInventarioDashboard() {
   const [state, setState] = useState<DashboardState>(initialState)
 
@@ -71,10 +55,10 @@ export function useInventarioDashboard() {
       setState((prev) => ({ ...prev, loading: true, error: null }))
 
       try {
-        const productosPromise = client.get<ProductoApi[]>('/productos')
+        const inventarioPromise = getInventarioAnalitica()
         const categoriasPromise = client.get<CategoriaApi[]>('/categorias')
         const movimientosPromise = client
-          .get<unknown>('/movimientos', { params: { limit: 10 } })
+          .get<unknown>('/movimientos', { params: { limit: 50 } })
           .then((response) => {
             const raw = response.data
             const list = Array.isArray(raw)
@@ -114,39 +98,38 @@ export function useInventarioDashboard() {
             throw error
           })
 
-        const [productosRes, movimientos, categoriasRes] = await Promise.all([
-          productosPromise,
+        const [inventario, movimientos, categoriasRes] = await Promise.all([
+          inventarioPromise,
           movimientosPromise,
           categoriasPromise,
         ])
 
-        const productos = productosRes.data ?? []
         const categorias = categoriasRes.data ?? []
 
-        const valorTotal = productos.reduce(
-          (total, producto) => total + toPrecio(producto) * toStockActual(producto),
+        const valorTotal = inventario.reduce(
+          (total, producto) => total + Number(producto.stockValue ?? 0),
           0
         )
 
-        const productosStockBajo = productos
+        const productosStockBajo = inventario
+          .filter((producto) => producto.stockStatus === 'LOW_STOCK')
           .map((producto) => ({
-            id: producto.id,
-            nombre: producto.nombre,
+            id: producto.productId,
+            nombre: producto.productName,
             sku: producto.sku,
-            stockActual: toStockActual(producto),
-            stockMinimo: toStockMinimo(producto),
+            stockActual: producto.currentQuantity,
+            stockMinimo: producto.minimumStockLevel,
           }))
-          .filter((producto) => producto.stockActual <= producto.stockMinimo)
 
         const categoriasUnicas = new Set(categorias.map((categoria) => categoria.nombre.trim().toLowerCase()))
 
         if (!isMounted) return
         setState({
           valorTotal,
-          totalProductos: productos.length,
+          totalProductos: inventario.length,
           productosStockBajo,
           totalCategorias: categoriasUnicas.size,
-          movimientos: movimientos.slice(0, 10),
+          movimientos: movimientos.slice(0, 50),
           loading: false,
           error: null,
         })
@@ -169,4 +152,3 @@ export function useInventarioDashboard() {
 
   return state
 }
-

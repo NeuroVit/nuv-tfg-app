@@ -4,6 +4,7 @@ import { AlertTriangle, RefreshCw, X } from 'lucide-react'
 import client from '@/api/client'
 import type { ApiError, Categoria } from '@/types/api'
 import type { Producto } from '@/types/producto'
+import type { Proveedor } from '@/types/provider'
 
 interface ProductoModalProps {
   isOpen: boolean
@@ -15,19 +16,23 @@ interface ProductoModalProps {
 type FormState = {
   nombre: string
   categoriaId: string
+  providerId: string
   sku: string
   stockActual: string
   stockMinimo: string
   precio: string
+  costoUnitario: string
 }
 
 const initialForm: FormState = {
   nombre: '',
   categoriaId: '',
+  providerId: '',
   sku: '',
   stockActual: '0',
   stockMinimo: '1',
   precio: '0.01',
+  costoUnitario: '0.01',
 }
 
 type FieldErrors = Partial<Record<keyof FormState, string>>
@@ -39,6 +44,7 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
   const [serverErrors, setServerErrors] = useState<FieldErrors>({})
   const [footerError, setFooterError] = useState<string | null>(null)
   const [categorias, setCategorias] = useState<Categoria[]>([])
+  const [proveedores, setProveedores] = useState<Proveedor[]>([])
   const [saving, setSaving] = useState(false)
 
   const isEditMode = !!producto
@@ -55,16 +61,21 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
   useEffect(() => {
     if (!isOpen) return
 
-    const loadCategorias = async () => {
+    const loadCatalogs = async () => {
       try {
-        const { data } = await client.get<Categoria[]>('/categorias')
-        setCategorias(data)
+        const [{ data: categoriasData }, { data: proveedoresData }] = await Promise.all([
+          client.get<Categoria[]>('/categorias'),
+          client.get<Proveedor[]>('/proveedores', { params: { includeArchived: false } }),
+        ])
+        setCategorias(categoriasData)
+        setProveedores(proveedoresData)
       } catch {
         setCategorias([])
+        setProveedores([])
       }
     }
 
-    void loadCategorias()
+    void loadCatalogs()
   }, [isOpen])
 
   useEffect(() => {
@@ -74,10 +85,12 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
       setForm({
         nombre: producto.nombre,
         categoriaId: producto.categoriaId ? String(producto.categoriaId) : '',
+        providerId: producto.providerId ? String(producto.providerId) : '',
         sku: producto.sku,
         stockActual: String(producto.cantidadActual ?? 0),
         stockMinimo: String(producto.nivelMinimoStock ?? 1),
         precio: String(producto.precioUnitario ?? 0.01),
+        costoUnitario: String(producto.costoUnitario ?? producto.precioUnitario ?? 0.01),
       })
     } else {
       setForm(initialForm)
@@ -93,13 +106,16 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
     const stockActual = Number(form.stockActual)
     const stockMinimo = Number(form.stockMinimo)
     const precio = Number(form.precio)
+    const costoUnitario = Number(form.costoUnitario)
 
     if (nombre.length < 2) errors.nombre = 'El nombre debe tener al menos 2 caracteres.'
     if (!form.categoriaId) errors.categoriaId = 'Selecciona una categoría.'
+    if (!form.providerId) errors.providerId = 'Selecciona un proveedor.'
     if (!form.sku.trim()) errors.sku = 'El SKU es obligatorio.'
     if (!Number.isFinite(stockActual) || stockActual < 0) errors.stockActual = 'Debe ser 0 o mayor.'
     if (!Number.isFinite(stockMinimo) || stockMinimo < 1) errors.stockMinimo = 'Debe ser 1 o mayor.'
     if (!Number.isFinite(precio) || precio < 0.01) errors.precio = 'Debe ser 0.01 o mayor.'
+    if (!Number.isFinite(costoUnitario) || costoUnitario < 0.01) errors.costoUnitario = 'Debe ser 0.01 o mayor.'
     return errors
   }, [form])
 
@@ -133,10 +149,12 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
     setTouched({
       nombre: true,
       categoriaId: true,
+      providerId: true,
       sku: true,
       stockActual: true,
       stockMinimo: true,
       precio: true,
+      costoUnitario: true,
     })
     setServerErrors({})
     setFooterError(null)
@@ -145,10 +163,12 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
     const payload = {
       nombre: form.nombre.trim(),
       categoriaId: Number(form.categoriaId),
+      providerId: Number(form.providerId),
       sku: form.sku.trim(),
       cantidadActual: Number(form.stockActual),
       nivelMinimoStock: Number(form.stockMinimo),
       precioUnitario: Number(form.precio),
+      costoUnitario: Number(form.costoUnitario),
     }
 
     try {
@@ -167,10 +187,12 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
         for (const item of apiErrors) {
           if (item.field === 'nombre') mappedErrors.nombre = item.message
           if (item.field === 'categoriaId') mappedErrors.categoriaId = item.message
+          if (item.field === 'providerId') mappedErrors.providerId = item.message
           if (item.field === 'sku') mappedErrors.sku = item.message
           if (item.field === 'cantidadActual' || item.field === 'stockActual') mappedErrors.stockActual = item.message
           if (item.field === 'nivelMinimoStock' || item.field === 'stockMinimo') mappedErrors.stockMinimo = item.message
           if (item.field === 'precioUnitario' || item.field === 'precio') mappedErrors.precio = item.message
+          if (item.field === 'costoUnitario') mappedErrors.costoUnitario = item.message
         }
         setServerErrors(mappedErrors)
       } else {
@@ -190,18 +212,18 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
       role="presentation"
     >
       <div
-        className="w-full max-w-[560px] rounded-2xl border bg-white shadow-2xl"
+        className="w-full max-w-[560px] rounded-2xl border bg-card shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between border-b px-6 py-4">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">{isEditMode ? 'Editar producto' : 'Nuevo producto'}</h2>
-            <p className="mt-1 text-sm text-gray-500">Completa la información del producto para guardarlo en inventario.</p>
+            <h2 className="text-xl font-semibold text-foreground">{isEditMode ? 'Editar producto' : 'Nuevo producto'}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Completa la información del producto para guardarlo en inventario.</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
+            className="rounded-md p-1 text-muted-foreground transition hover:bg-accent hover:text-foreground"
             aria-label="Cerrar"
           >
             <X className="h-5 w-5" />
@@ -210,29 +232,29 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
 
         <form onSubmit={handleSubmit} className="space-y-5 px-6 py-5">
           <section className="space-y-4">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Información básica</h3>
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Información básica</h3>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-700">Nombre</label>
+              <label className="text-sm font-medium text-foreground">Nombre</label>
               <input
                 value={form.nombre}
                 onChange={(event) => updateField('nombre', event.target.value)}
                 onBlur={() => markTouched('nombre')}
                 className={`w-full rounded-xl border px-3 py-2 text-sm outline-none transition ${
-                  touched.nombre && mergedErrors.nombre ? 'border-red-500 ring-2 ring-red-100' : 'border-gray-200 focus:border-gray-400'
+                  touched.nombre && mergedErrors.nombre ? 'border-red-500 ring-2 ring-red-100' : 'border-input focus:border-ring'
                 }`}
               />
               {touched.nombre && mergedErrors.nombre && <p className="text-xs text-red-600">{mergedErrors.nombre}</p>}
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-700">Categoría</label>
+              <label className="text-sm font-medium text-foreground">Categoría</label>
               <select
                 value={form.categoriaId}
                 onChange={(event) => updateField('categoriaId', event.target.value)}
                 onBlur={() => markTouched('categoriaId')}
-                className={`w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none transition ${
-                  touched.categoriaId && mergedErrors.categoriaId ? 'border-red-500 ring-2 ring-red-100' : 'border-gray-200 focus:border-gray-400'
+                className={`w-full rounded-xl border bg-card px-3 py-2 text-sm outline-none transition ${
+                  touched.categoriaId && mergedErrors.categoriaId ? 'border-red-500 ring-2 ring-red-100' : 'border-input focus:border-ring'
                 }`}
               >
                 <option value="">Selecciona una categoría</option>
@@ -246,20 +268,40 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-700">SKU</label>
+              <label className="text-sm font-medium text-foreground">Proveedor</label>
+              <select
+                value={form.providerId}
+                onChange={(event) => updateField('providerId', event.target.value)}
+                onBlur={() => markTouched('providerId')}
+                className={`w-full rounded-xl border bg-card px-3 py-2 text-sm outline-none transition ${
+                  touched.providerId && mergedErrors.providerId ? 'border-red-500 ring-2 ring-red-100' : 'border-input focus:border-ring'
+                }`}
+              >
+                <option value="">Selecciona un proveedor</option>
+                {proveedores.map((proveedor) => (
+                  <option key={proveedor.id} value={proveedor.id}>
+                    {proveedor.nombre}
+                  </option>
+                ))}
+              </select>
+              {touched.providerId && mergedErrors.providerId && <p className="text-xs text-red-600">{mergedErrors.providerId}</p>}
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">SKU</label>
               <div className="flex gap-2">
                 <input
                   value={form.sku}
                   onChange={(event) => updateField('sku', event.target.value)}
                   onBlur={() => markTouched('sku')}
                   className={`w-full rounded-xl border px-3 py-2 text-sm outline-none transition ${
-                    touched.sku && mergedErrors.sku ? 'border-red-500 ring-2 ring-red-100' : 'border-gray-200 focus:border-gray-400'
+                    touched.sku && mergedErrors.sku ? 'border-red-500 ring-2 ring-red-100' : 'border-input focus:border-ring'
                   }`}
                 />
                 <button
                   type="button"
                   onClick={autoGenerateSku}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-input px-3 py-2 text-sm font-medium text-foreground transition hover:bg-accent"
                 >
                   Auto <RefreshCw className="h-3.5 w-3.5" />
                 </button>
@@ -269,7 +311,7 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
           </section>
 
           <section className="space-y-4 border-t pt-4">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Stock y precio</h3>
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Stock y precio</h3>
 
             {showStockWarning && (
               <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
@@ -280,9 +322,9 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
               </div>
             )}
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Stock actual</label>
+                <label className="text-sm font-medium text-foreground">Stock actual</label>
                 <input
                   type="number"
                   min={0}
@@ -290,14 +332,14 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
                   onChange={(event) => updateField('stockActual', event.target.value)}
                   onBlur={() => markTouched('stockActual')}
                   className={`w-full rounded-xl border px-3 py-2 text-sm outline-none transition ${
-                    touched.stockActual && mergedErrors.stockActual ? 'border-red-500 ring-2 ring-red-100' : 'border-gray-200 focus:border-gray-400'
+                    touched.stockActual && mergedErrors.stockActual ? 'border-red-500 ring-2 ring-red-100' : 'border-input focus:border-ring'
                   }`}
                 />
                 {touched.stockActual && mergedErrors.stockActual && <p className="text-xs text-red-600">{mergedErrors.stockActual}</p>}
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Stock mínimo</label>
+                <label className="text-sm font-medium text-foreground">Stock mínimo</label>
                 <input
                   type="number"
                   min={1}
@@ -305,14 +347,14 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
                   onChange={(event) => updateField('stockMinimo', event.target.value)}
                   onBlur={() => markTouched('stockMinimo')}
                   className={`w-full rounded-xl border px-3 py-2 text-sm outline-none transition ${
-                    touched.stockMinimo && mergedErrors.stockMinimo ? 'border-red-500 ring-2 ring-red-100' : 'border-gray-200 focus:border-gray-400'
+                    touched.stockMinimo && mergedErrors.stockMinimo ? 'border-red-500 ring-2 ring-red-100' : 'border-input focus:border-ring'
                   }`}
                 />
                 {touched.stockMinimo && mergedErrors.stockMinimo && <p className="text-xs text-red-600">{mergedErrors.stockMinimo}</p>}
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Precio (€)</label>
+                <label className="text-sm font-medium text-foreground">Precio (€)</label>
                 <input
                   type="number"
                   min={0.01}
@@ -321,10 +363,26 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
                   onChange={(event) => updateField('precio', event.target.value)}
                   onBlur={() => markTouched('precio')}
                   className={`w-full rounded-xl border px-3 py-2 text-sm outline-none transition ${
-                    touched.precio && mergedErrors.precio ? 'border-red-500 ring-2 ring-red-100' : 'border-gray-200 focus:border-gray-400'
+                    touched.precio && mergedErrors.precio ? 'border-red-500 ring-2 ring-red-100' : 'border-input focus:border-ring'
                   }`}
                 />
                 {touched.precio && mergedErrors.precio && <p className="text-xs text-red-600">{mergedErrors.precio}</p>}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">Coste unitario (€)</label>
+                <input
+                  type="number"
+                  min={0.01}
+                  step="0.01"
+                  value={form.costoUnitario}
+                  onChange={(event) => updateField('costoUnitario', event.target.value)}
+                  onBlur={() => markTouched('costoUnitario')}
+                  className={`w-full rounded-xl border px-3 py-2 text-sm outline-none transition ${
+                    touched.costoUnitario && mergedErrors.costoUnitario ? 'border-red-500 ring-2 ring-red-100' : 'border-input focus:border-ring'
+                  }`}
+                />
+                {touched.costoUnitario && mergedErrors.costoUnitario && <p className="text-xs text-red-600">{mergedErrors.costoUnitario}</p>}
               </div>
             </div>
           </section>
@@ -333,7 +391,7 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+              className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground transition hover:bg-accent"
             >
               Cancelar
             </button>
@@ -342,7 +400,7 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
               <button
                 type="submit"
                 disabled={saving || hasValidationErrors}
-                className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {saving ? 'Guardando…' : 'Guardar producto'}
               </button>
@@ -353,4 +411,3 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
     </div>
   )
 }
-

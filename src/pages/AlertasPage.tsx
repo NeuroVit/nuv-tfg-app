@@ -55,8 +55,8 @@ export default function AlertasPage() {
       <div className="mx-auto max-w-7xl space-y-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Alertas</h1>
-            <p className="mt-1 text-sm text-gray-500">Gestiona alertas de stock y anomalías.</p>
+            <h1 className="text-2xl font-bold text-foreground">Alertas</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Gestiona alertas de stock y anomalías.</p>
           </div>
           <div className="flex items-center gap-3">
             <Badge variant="destructive">Abiertas: {counters.open}</Badge>
@@ -74,7 +74,7 @@ export default function AlertasPage() {
           </div>
         </div>
 
-        <div className="rounded-lg border bg-white">
+        <div className="rounded-lg border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
@@ -90,11 +90,11 @@ export default function AlertasPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-gray-400">Cargando alertas...</TableCell>
+                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Cargando alertas...</TableCell>
                 </TableRow>
               ) : alerts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-gray-400">No hay alertas para mostrar.</TableCell>
+                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">No hay alertas para mostrar.</TableCell>
                 </TableRow>
               ) : (
                 alerts.map((alert) => (
@@ -113,7 +113,7 @@ export default function AlertasPage() {
                           Resolver
                         </Button>
                       ) : (
-                        <span className="text-xs text-gray-500">—</span>
+                        <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </TableCell>
                   </TableRow>

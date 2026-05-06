@@ -89,6 +89,14 @@ export interface FinanzasResumen {
   diferenciaValorVsCosto: number
   ventasCount30d: number
   ordenesRecibidasCount30d: number
+  margenBrutoPct?: number
+  markupPct?: number
+  ticketPromedio?: number
+  inventarioPromedioCosto?: number
+  rotacionInventario?: number
+  diasInventario?: number
+  gmroi?: number
+  ventasPromedioDiarias?: number
 }
 
 export interface RentabilidadProductoRow {
@@ -101,4 +109,11 @@ export interface RentabilidadProductoRow {
   cogs: number
   margen: number
   margenPct: number
+}
+
+export interface AnaliticaMeta {
+  source: string
+  seedEnabled: boolean
+  generatedAt: string
+  windowDays: number
 }

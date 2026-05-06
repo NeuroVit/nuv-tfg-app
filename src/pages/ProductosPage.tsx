@@ -66,6 +66,7 @@ const productoSchema = z.object({
   sku: z.string().min(1, 'El SKU es obligatorio'),
   descripcion: z.string().optional(),
   precioUnitario: z.coerce.number().positive('El precio debe ser mayor a 0'),
+  costoUnitario: z.coerce.number().positive('El coste debe ser mayor a 0'),
   cantidadActual: z.coerce.number().int().min(0, 'La cantidad no puede ser negativa'),
   nivelMinimoStock: z.coerce.number().int().min(0, 'El stock mínimo no puede ser negativo'),
   categoriaId: z.string().min(1, 'La categoría es obligatoria'),
@@ -80,6 +81,7 @@ const defaultProductoValues: ProductoFormValues = {
   sku: '',
   descripcion: '',
   precioUnitario: 0,
+  costoUnitario: 0,
   cantidadActual: 0,
   nivelMinimoStock: 0,
   categoriaId: '',
@@ -189,6 +191,7 @@ export default function ProductosPage() {
       sku: producto.sku,
       descripcion: producto.descripcion ?? '',
       precioUnitario: Number(producto.precioUnitario),
+      costoUnitario: Number(producto.costoUnitario ?? producto.precioUnitario),
       cantidadActual: producto.cantidadActual,
       nivelMinimoStock: producto.nivelMinimoStock,
       categoriaId: categoriaIdActual ? String(categoriaIdActual) : '',
@@ -208,6 +211,7 @@ export default function ProductosPage() {
         sku: values.sku,
         descripcion: values.descripcion?.trim() ? values.descripcion.trim() : undefined,
         precioUnitario: values.precioUnitario,
+        costoUnitario: values.costoUnitario,
         cantidadActual: values.cantidadActual,
         nivelMinimoStock: values.nivelMinimoStock,
         categoriaId: Number(values.categoriaId),
@@ -237,6 +241,7 @@ export default function ProductosPage() {
         sku: values.sku,
         descripcion: values.descripcion?.trim() ? values.descripcion.trim() : undefined,
         precioUnitario: values.precioUnitario,
+        costoUnitario: values.costoUnitario,
         cantidadActual: values.cantidadActual,
         nivelMinimoStock: values.nivelMinimoStock,
         categoriaId: Number(values.categoriaId),
@@ -320,13 +325,13 @@ export default function ProductosPage() {
       accessorKey: 'sku',
       header: 'SKU',
       cell: ({ getValue }) => (
-        <span className="font-mono text-xs text-gray-500">{getValue<string>()}</span>
+        <span className="font-mono text-xs text-muted-foreground">{getValue<string>()}</span>
       ),
     },
     {
       accessorKey: 'nombre',
       header: 'Nombre',
-      cell: ({ getValue }) => <span className="font-medium text-gray-900">{getValue<string>()}</span>,
+      cell: ({ getValue }) => <span className="font-medium text-foreground">{getValue<string>()}</span>,
     },
     {
       accessorKey: 'categoriaNombre',
@@ -428,8 +433,8 @@ export default function ProductosPage() {
       <div className="mx-auto max-w-7xl space-y-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Productos</h1>
-            <p className="mt-1 text-sm text-gray-500">{productosFiltrados.length} productos en inventario</p>
+            <h1 className="text-2xl font-bold text-foreground">Productos</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{productosFiltrados.length} productos en inventario</p>
           </div>
           <Button className="w-full sm:w-auto" onClick={() => { setProductoEditar(null); setModalOpen(true) }}>
             <Plus className="mr-2 h-4 w-4" />
@@ -485,7 +490,7 @@ export default function ProductosPage() {
           </Select>
         </div>
 
-        <div className="rounded-lg border bg-white">
+        <div className="rounded-lg border bg-card">
           <Table className="min-w-[1000px]">
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
@@ -501,13 +506,13 @@ export default function ProductosPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={columns.length} className="py-12 text-center text-gray-400">
+                  <TableCell colSpan={columns.length} className="py-12 text-center text-muted-foreground">
                     Cargando productos...
                   </TableCell>
                 </TableRow>
               ) : table.getRowModel().rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={columns.length} className="py-12 text-center text-gray-400">
+                  <TableCell colSpan={columns.length} className="py-12 text-center text-muted-foreground">
                     No se encontraron productos.
                   </TableCell>
                 </TableRow>
@@ -515,7 +520,7 @@ export default function ProductosPage() {
                 table.getRowModel().rows.map((row) => (
                   <TableRow
                     key={row.id}
-                    className="cursor-pointer hover:bg-gray-50"
+                    className="cursor-pointer hover:bg-accent"
                     onClick={() => {
                       setProductoEditar(row.original)
                       setModalOpen(true)
@@ -582,6 +587,20 @@ export default function ProductosPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Precio unitario</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" min="0" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={createForm.control}
+                  name="costoUnitario"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Coste unitario</FormLabel>
                       <FormControl>
                         <Input type="number" step="0.01" min="0" {...field} />
                       </FormControl>
@@ -760,6 +779,20 @@ export default function ProductosPage() {
 
                 <FormField
                   control={editForm.control}
+                  name="costoUnitario"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Coste unitario</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" min="0" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
                   name="categoriaId"
                   render={({ field }) => (
                     <FormItem>
@@ -876,9 +909,10 @@ export default function ProductosPage() {
               </Alert>
             )}
             <div className="space-y-1">
-              <Label>Delta (positivo = entrada, negativo = salida)</Label>
+              <Label>Cantidad a ajustar en el stock</Label>
               <Input
                 type="number"
+                placeholder="Usa un número positivo si entra stock o negativo si sale stock."
                 value={stockForm.delta}
                 onChange={(event) =>
                   setStockForm((current) => ({ ...current, delta: Number(event.target.value) }))

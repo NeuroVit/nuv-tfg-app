@@ -33,6 +33,7 @@ import { Textarea } from '@/components/ui/textarea'
 type OrderItemForm = {
   productoId: string
   cantidad: number
+  precioUnitario: number
 }
 
 const parseApiError = (error: unknown, fallback: string): string => {
@@ -74,7 +75,7 @@ export default function PedidosPage() {
   const [detailOrder, setDetailOrder] = useState<PedidoProveedor | null>(null)
   const [orderArrivalDate, setOrderArrivalDate] = useState<string>(toDateInputValue(new Date()))
   const [orderNotes, setOrderNotes] = useState('')
-  const [orderItems, setOrderItems] = useState<OrderItemForm[]>([{ productoId: '', cantidad: 1 }])
+  const [orderItems, setOrderItems] = useState<OrderItemForm[]>([{ productoId: '', cantidad: 1, precioUnitario: 0 }])
   const [creatingOrder, setCreatingOrder] = useState(false)
 
   const selectedProvider = useMemo(
@@ -160,7 +161,7 @@ export default function PedidosPage() {
   const resetOrderForm = () => {
     setOrderArrivalDate(toDateInputValue(new Date()))
     setOrderNotes('')
-    setOrderItems([{ productoId: '', cantidad: 1 }])
+    setOrderItems([{ productoId: '', cantidad: 1, precioUnitario: 0 }])
   }
 
   const openCreateOrder = () => {
@@ -174,13 +175,13 @@ export default function PedidosPage() {
   }
 
   const addOrderItem = () => {
-    setOrderItems((current) => [...current, { productoId: '', cantidad: 1 }])
+    setOrderItems((current) => [...current, { productoId: '', cantidad: 1, precioUnitario: 0 }])
   }
 
   const removeOrderItem = (index: number) => {
     setOrderItems((current) => {
       const next = current.filter((_, idx) => idx !== index)
-      return next.length > 0 ? next : [{ productoId: '', cantidad: 1 }]
+      return next.length > 0 ? next : [{ productoId: '', cantidad: 1, precioUnitario: 0 }]
     })
   }
 
@@ -192,7 +193,11 @@ export default function PedidosPage() {
     if (!selectedProvider) return
 
     const items = orderItems
-      .map((item) => ({ productoId: Number(item.productoId), cantidad: Number(item.cantidad) }))
+      .map((item) => ({
+        productoId: Number(item.productoId),
+        cantidad: Number(item.cantidad),
+        precioUnitario: Number(item.precioUnitario),
+      }))
       .filter((item) => !Number.isNaN(item.productoId))
 
     if (items.length === 0) {
@@ -201,6 +206,10 @@ export default function PedidosPage() {
     }
     if (items.some((item) => item.cantidad < 1)) {
       toast.error('La cantidad debe ser mayor o igual a 1')
+      return
+    }
+    if (items.some((item) => !Number.isFinite(item.precioUnitario) || item.precioUnitario <= 0)) {
+      toast.error('El precio unitario debe ser mayor a 0')
       return
     }
 
@@ -249,8 +258,8 @@ export default function PedidosPage() {
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Pedidos</h1>
-          <p className="mt-1 text-sm text-gray-500">Consulta y gestiona pedidos por proveedor.</p>
+          <h1 className="text-2xl font-bold text-foreground">Pedidos</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Consulta y gestiona pedidos por proveedor.</p>
         </div>
 
         <div className="flex flex-col gap-3 md:flex-row md:items-center">
@@ -307,18 +316,18 @@ export default function PedidosPage() {
         </div>
 
         {!selectedProvider ? (
-          <div className="rounded-lg border bg-white p-6 text-sm text-gray-500">
+          <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">
             Selecciona un proveedor para ver sus pedidos.
           </div>
         ) : (
           <>
-            <div className="rounded-lg border bg-white p-3 text-sm text-gray-600">
-              Proveedor seleccionado: <span className="font-medium text-gray-900">{selectedProvider.nombre}</span>
+            <div className="rounded-lg border bg-card p-3 text-sm text-muted-foreground">
+              Proveedor seleccionado: <span className="font-medium text-foreground">{selectedProvider.nombre}</span>
               {' · '}
               Fecha pedido recomendada = llegada deseada - {selectedProvider.diasEntrega} días
             </div>
 
-            <div className="rounded-lg border bg-white">
+            <div className="rounded-lg border bg-card">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -335,13 +344,13 @@ export default function PedidosPage() {
                 <TableBody>
                   {loadingOrders ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="py-8 text-center text-gray-400">
+                      <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
                         Cargando pedidos...
                       </TableCell>
                     </TableRow>
                   ) : filteredOrders.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="py-8 text-center text-gray-400">
+                      <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
                         No hay pedidos para mostrar con los filtros actuales.
                       </TableCell>
                     </TableRow>
@@ -457,11 +466,17 @@ export default function PedidosPage() {
               {orderItems.map((item, index) => (
                 <div
                   key={index}
-                  className="grid grid-cols-1 gap-2 rounded-md border p-3 md:grid-cols-[1fr_130px_auto]"
+                  className="grid grid-cols-1 gap-2 rounded-md border p-3 md:grid-cols-[1fr_130px_150px_auto]"
                 >
                   <Select
                     value={item.productoId}
-                    onValueChange={(value) => updateOrderItem(index, { productoId: value })}
+                    onValueChange={(value) => {
+                      const selectedProduct = providerProducts.find((product) => String(product.id) === value)
+                      updateOrderItem(index, {
+                        productoId: value,
+                        precioUnitario: selectedProduct?.costoUnitario ?? selectedProduct?.precioUnitario ?? 0,
+                      })
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecciona producto" />
@@ -481,6 +496,16 @@ export default function PedidosPage() {
                     onChange={(event) =>
                       updateOrderItem(index, { cantidad: Number(event.target.value) })
                     }
+                  />
+                  <Input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={item.precioUnitario}
+                    onChange={(event) =>
+                      updateOrderItem(index, { precioUnitario: Number(event.target.value) })
+                    }
+                    placeholder="Coste unitario (€)"
                   />
                   <Button
                     variant="outline"
@@ -510,14 +535,14 @@ export default function PedidosPage() {
             <DialogTitle>Detalle pedido #{detailOrder?.id}</DialogTitle>
           </DialogHeader>
           {!detailOrder ? (
-            <p className="text-sm text-gray-500">Pedido no disponible.</p>
+            <p className="text-sm text-muted-foreground">Pedido no disponible.</p>
           ) : (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3 rounded-md border p-3 text-sm">
-                <p><span className="text-gray-500">Proveedor:</span> {detailOrder.providerNombre}</p>
-                <p><span className="text-gray-500">Estado:</span> {detailOrder.status}</p>
-                <p><span className="text-gray-500">Llegada deseada:</span> {detailOrder.fechaLlegadaDeseada}</p>
-                <p><span className="text-gray-500">Pedido recomendado:</span> {detailOrder.fechaPedidoRecomendada}</p>
+                <p><span className="text-muted-foreground">Proveedor:</span> {detailOrder.providerNombre}</p>
+                <p><span className="text-muted-foreground">Estado:</span> {detailOrder.status}</p>
+                <p><span className="text-muted-foreground">Llegada deseada:</span> {detailOrder.fechaLlegadaDeseada}</p>
+                <p><span className="text-muted-foreground">Pedido recomendado:</span> {detailOrder.fechaPedidoRecomendada}</p>
               </div>
 
               <div className="rounded-lg border">
