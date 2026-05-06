@@ -10,9 +10,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useAuthStore } from '@/store/authStore'
-import { GoogleLogin, type CredentialResponse } from '@react-oauth/google'
+import { type CredentialResponse } from '@react-oauth/google'
 import { googleLogin, register } from '@/api/auth'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton'
 import {
   Form,
   FormControl,
@@ -49,6 +50,7 @@ const isTauri = () => '__TAURI_INTERNALS__' in window
 export default function RegisterPage() {
     const navigate = useNavigate()
     const [serverError, setServerError] = useState<string | null>(null)
+    const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false)
     const isMobile = useIsMobile()
 
     const form = useForm<RegisterFormData>({
@@ -92,6 +94,7 @@ export default function RegisterPage() {
 
 const handleGoogleSuccess = async (response: CredentialResponse) => {
     if (!response.credential) return
+    setIsGoogleSubmitting(true)
     try {
         const res = await googleLogin(response.credential)
         setUser({ username: res.username, role: res.role, token: res.token })
@@ -100,6 +103,8 @@ const handleGoogleSuccess = async (response: CredentialResponse) => {
     } catch {
         setServerError('Error al registrarse con Google')
         toast.error('Error al registrarse con Google')
+    } finally {
+        setIsGoogleSubmitting(false)
     }
 }
 
@@ -225,7 +230,7 @@ const handleGoogleSuccess = async (response: CredentialResponse) => {
 
               <Button
                 type="submit"
-                className="w-full bg-primary hover:bg-primary/90 text-white"
+                className="w-full border border-border bg-white text-black hover:bg-white/90"
                 disabled={form.formState.isSubmitting}
               >
                 {form.formState.isSubmitting && (
@@ -240,15 +245,17 @@ const handleGoogleSuccess = async (response: CredentialResponse) => {
 
           {/* Google */}
           {!isTauri() && (
-            <div className="flex justify-center">
-              <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={() => setServerError('Error al registrarse con Google')}
-                theme="outline"
-                shape="pill"
+              <GoogleAuthButton
+                className="mx-auto max-w-md hover:bg-accent/90"
+                label="Continuar con Google"
                 width={isMobile ? '280' : '448'}
+                onSuccess={handleGoogleSuccess}
+                onError={() => {
+                  setIsGoogleSubmitting(false)
+                  setServerError('Error al registrarse con Google')
+                }}
+                disabled={isGoogleSubmitting || form.formState.isSubmitting}
               />
-            </div>
           )}
 
           <p className="text-center text-sm text-muted-foreground">

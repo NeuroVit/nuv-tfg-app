@@ -909,9 +909,10 @@ export default function ProductosPage() {
               </Alert>
             )}
             <div className="space-y-1">
-              <Label>Delta (positivo = entrada, negativo = salida)</Label>
+              <Label>Cantidad a ajustar en el stock</Label>
               <Input
                 type="number"
+                placeholder="Usa un número positivo si entra stock o negativo si sale stock."
                 value={stockForm.delta}
                 onChange={(event) =>
                   setStockForm((current) => ({ ...current, delta: Number(event.target.value) }))

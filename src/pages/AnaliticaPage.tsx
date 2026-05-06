@@ -39,6 +39,14 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart'
 import {
+  BarChart3,
+  LineChart as LineChartIcon,
+  PieChart as PieChartIcon,
+  type LucideIcon,
+  TrendingUp,
+  Warehouse,
+} from 'lucide-react'
+import {
   Bar,
   BarChart,
   CartesianGrid,
@@ -78,7 +86,7 @@ const salesTrendChartConfig = {
     color: '#2563eb',
   },
   revenue: {
-    label: 'Revenue',
+    label: 'Ingresos',
     color: '#16a34a',
   },
 } satisfies ChartConfig
@@ -155,6 +163,20 @@ function sourceLabel(meta: AnaliticaMeta | null) {
     return 'API real (seed pendiente)'
   }
   return 'API real'
+}
+
+type EmptyChartPlaceholderProps = {
+  icon: LucideIcon
+  message: string
+}
+
+function EmptyChartPlaceholder({ icon: Icon, message }: EmptyChartPlaceholderProps) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center rounded-md border border-dashed border-border bg-muted/20 px-6 text-center">
+      <Icon className="mb-3 h-8 w-8 text-muted-foreground" />
+      <p className="text-sm text-muted-foreground">{message}</p>
+    </div>
+  )
 }
 
 export default function AnaliticaPage() {
@@ -338,7 +360,7 @@ export default function AnaliticaPage() {
           <p className="mt-1 text-sm text-muted-foreground">Métricas reales de ventas, costes y rentabilidad por producto.</p>
         </div>
 
-        <section className="rounded-lg border bg-white p-4">
+        <section className="rounded-lg border bg-card p-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
@@ -346,7 +368,7 @@ export default function AnaliticaPage() {
                 <Badge variant="outline">Rango: {rangeLabel}</Badge>
                 <Badge variant="outline">Estado: {loadStateLabel}</Badge>
               </div>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 Seed local: {metadata?.seedEnabled ? 'Activo' : 'Inactivo'} · Última carga UI:{' '}
                 {lastUpdatedAt ? lastUpdatedAt.toLocaleString('es-ES') : 'Sin datos'} · Último movimiento backend:{' '}
                 {metadata?.generatedAt ? new Date(metadata.generatedAt).toLocaleString('es-ES') : 'Sin datos'}
@@ -408,40 +430,40 @@ export default function AnaliticaPage() {
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Unidades vendidas (rango)</p>
             <p className="mt-2 text-xl font-semibold text-blue-700">{formatCompact(kpis.units30d)}</p>
           </article>
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Margen bruto %</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Margen bruto %</p>
             <p className="mt-2 text-xl font-semibold text-emerald-700">{kpis.margenBrutoPct.toFixed(2)}%</p>
           </article>
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Markup %</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Markup %</p>
             <p className="mt-2 text-xl font-semibold text-emerald-700">{kpis.markupPct.toFixed(2)}%</p>
           </article>
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Ticket promedio</p>
-            <p className="mt-2 text-xl font-semibold text-slate-800">{formatCurrency(kpis.ticketPromedio)}</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Ticket promedio</p>
+            <p className="mt-2 text-xl font-semibold text-foreground">{formatCurrency(kpis.ticketPromedio)}</p>
           </article>
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Ventas promedio diarias</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Ventas promedio diarias</p>
             <p className="mt-2 text-xl font-semibold text-blue-700">{formatCurrency(kpis.ventasPromedioDiarias)}</p>
           </article>
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Rotación inventario</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Rotación inventario</p>
             <p className="mt-2 text-xl font-semibold text-indigo-700">{kpis.rotacionInventario.toFixed(2)}x</p>
           </article>
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Días inventario</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Días inventario</p>
             <p className="mt-2 text-xl font-semibold text-indigo-700">{kpis.diasInventario.toFixed(1)} días</p>
           </article>
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-gray-500">GMROI</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">GMROI</p>
             <p className="mt-2 text-xl font-semibold text-violet-700">{kpis.gmroi.toFixed(2)}x</p>
           </article>
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Productos low stock</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Productos low stock</p>
             <p className="mt-2 text-xl font-semibold text-amber-700">{formatCompact(kpis.lowStockCount)}</p>
           </article>
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Productos sin stock</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Productos sin stock</p>
             <p className="mt-2 text-xl font-semibold text-red-700">{formatCompact(kpis.outOfStockCount)}</p>
           </article>
         </section>
@@ -452,6 +474,11 @@ export default function AnaliticaPage() {
             <div className="mt-3 h-72">
               {loading ? (
                 <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
+              ) : salesLineData.length === 0 ? (
+                <EmptyChartPlaceholder
+                  icon={LineChartIcon}
+                  message="No hay datos de ventas en el rango seleccionado para mostrar la tendencia."
+                />
               ) : (
                 <ChartContainer config={salesTrendChartConfig} className="h-full w-full">
                   <LineChart data={salesLineData} margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
@@ -490,6 +517,11 @@ export default function AnaliticaPage() {
             <div className="mt-3 h-72">
               {loading ? (
                 <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
+              ) : topProductsChartData.length === 0 ? (
+                <EmptyChartPlaceholder
+                  icon={TrendingUp}
+                  message="No hay productos con ventas en este rango para mostrar velocidad."
+                />
               ) : (
                 <ChartContainer config={topProductsChartConfig} className="h-full w-full">
                   <BarChart data={topProductsChartData} layout="vertical" margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
@@ -509,6 +541,11 @@ export default function AnaliticaPage() {
             <div className="mt-3 h-72">
               {loading ? (
                 <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
+              ) : marginProductsChartData.length === 0 ? (
+                <EmptyChartPlaceholder
+                  icon={BarChart3}
+                  message="Todavía no hay datos de margen para comparar productos ganadores y perdedores."
+                />
               ) : (
                 <ChartContainer config={marginChartConfig} className="h-full w-full">
                   <BarChart data={marginProductsChartData} layout="vertical" margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
@@ -541,6 +578,11 @@ export default function AnaliticaPage() {
             <div className="mt-3 h-72">
               {loading ? (
                 <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
+              ) : stockDistributionData.length === 0 || stockDistributionData.every((row) => row.value <= 0) ? (
+                <EmptyChartPlaceholder
+                  icon={PieChartIcon}
+                  message="No hay datos de stock para mostrar la distribución por estado."
+                />
               ) : (
                 <ChartContainer config={stockDistributionChartConfig} className="h-full w-full">
                   <PieChart>
@@ -560,29 +602,29 @@ export default function AnaliticaPage() {
           <article className="rounded-lg border bg-card p-4 xl:col-span-2">
             <h2 className="text-sm font-semibold text-foreground">Top 5 productos más rentables y menos rentables</h2>
             <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-emerald-800">Ganadores</p>
+              <div className="rounded-md border border-emerald-300 bg-emerald-50 p-3 text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">Ganadores</p>
                 <div className="space-y-2">
                   {topWinners.length === 0 ? (
-                    <p className="text-sm text-emerald-800">Sin ventas rentables aún.</p>
+                    <p className="text-sm text-emerald-900 dark:text-emerald-100">Sin ventas rentables aún.</p>
                   ) : topWinners.map((row) => (
                     <div key={row.productId} className="flex items-center justify-between text-sm">
-                      <span className="truncate pr-2">{row.productName}</span>
-                      <span className="font-semibold text-emerald-800">{formatCurrency(row.margen)}</span>
+                      <span className="truncate pr-2 text-emerald-950 dark:text-emerald-100">{row.productName}</span>
+                      <span className="font-semibold text-emerald-800 dark:text-emerald-200">{formatCurrency(row.margen)}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="rounded-md border border-red-200 bg-red-50 p-3">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-red-800">Perdedores</p>
+              <div className="rounded-md border border-red-300 bg-red-50 p-3 text-red-950 dark:border-red-800 dark:bg-red-950/30 dark:text-red-100">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-red-800 dark:text-red-200">Perdedores</p>
                 <div className="space-y-2">
                   {topLosers.length === 0 ? (
-                    <p className="text-sm text-red-800">No hay productos en pérdidas.</p>
+                    <p className="text-sm text-red-900 dark:text-red-100">No hay productos en pérdidas.</p>
                   ) : topLosers.map((row) => (
                     <div key={row.productId} className="flex items-center justify-between text-sm">
-                      <span className="truncate pr-2">{row.productName}</span>
-                      <span className="font-semibold text-red-800">{formatCurrency(row.margen)}</span>
+                      <span className="truncate pr-2 text-red-950 dark:text-red-100">{row.productName}</span>
+                      <span className="font-semibold text-red-800 dark:text-red-200">{formatCurrency(row.margen)}</span>
                     </div>
                   ))}
                 </div>
@@ -595,6 +637,11 @@ export default function AnaliticaPage() {
             <div className="mt-3 h-72">
               {loading ? (
                 <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
+              ) : categoryStockData.length === 0 || categoryStockData.every((row) => row.value <= 0) ? (
+                <EmptyChartPlaceholder
+                  icon={Warehouse}
+                  message="No hay categorías con valor de stock para graficar en este momento."
+                />
               ) : (
                 <ChartContainer config={categoryStockChartConfig} className="h-full w-full">
                   <BarChart data={categoryStockData} margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
@@ -684,7 +731,7 @@ export default function AnaliticaPage() {
                   <TableHead>Producto</TableHead>
                   <TableHead>Anterior</TableHead>
                   <TableHead>Nuevo</TableHead>
-                  <TableHead>Delta</TableHead>
+                  <TableHead>Cambio de precio</TableHead>
                   <TableHead>%</TableHead>
                 </TableRow>
               </TableHeader>
