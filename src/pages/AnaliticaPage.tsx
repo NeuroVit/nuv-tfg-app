@@ -334,8 +334,8 @@ export default function AnaliticaPage() {
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Analítica</h1>
-          <p className="mt-1 text-sm text-gray-500">Métricas reales de ventas, costes y rentabilidad por producto.</p>
+          <h1 className="text-2xl font-bold text-foreground">Analítica</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Métricas reales de ventas, costes y rentabilidad por producto.</p>
         </div>
 
         <section className="rounded-lg border bg-white p-4">
@@ -356,7 +356,7 @@ export default function AnaliticaPage() {
         </section>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-          <span className="text-sm text-gray-500">Rango temporal</span>
+          <span className="text-sm text-muted-foreground">Rango temporal</span>
           <Select value={timeRange} onValueChange={(value) => setTimeRange(value as TimeRangeValue)}>
             <SelectTrigger className="w-full sm:w-56">
               <SelectValue />
@@ -372,40 +372,40 @@ export default function AnaliticaPage() {
         </div>
 
         <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Ventas (rango)</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Ventas (rango)</p>
             <p className="mt-2 text-xl font-semibold text-emerald-700">{formatCurrency(kpis.ventas30d)}</p>
           </article>
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-gray-500">COGS real (rango)</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">COGS real (rango)</p>
             <p className="mt-2 text-xl font-semibold text-orange-700">-{formatCurrency(kpis.cogsReal30d)}</p>
           </article>
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Margen real (rango)</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Margen real (rango)</p>
             <p className={`mt-2 text-xl font-semibold ${kpis.margenReal30d >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
               {formatCurrency(kpis.margenReal30d)}
             </p>
           </article>
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Compras proveedores (rango)</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Compras proveedores (rango)</p>
             <p className="mt-2 text-xl font-semibold text-red-700">-{formatCurrency(kpis.compras30d)}</p>
           </article>
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Flujo neto (rango)</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Flujo neto (rango)</p>
             <p className={`mt-2 text-xl font-semibold ${kpis.flujoNeto30d >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
               {formatCurrency(kpis.flujoNeto30d)}
             </p>
           </article>
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Valor stock (venta)</p>
-            <p className="mt-2 text-xl font-semibold text-slate-800">{formatCurrency(kpis.valorStockVenta)}</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Valor stock (venta)</p>
+            <p className="mt-2 text-xl font-semibold text-foreground">{formatCurrency(kpis.valorStockVenta)}</p>
           </article>
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Coste stock real</p>
-            <p className="mt-2 text-xl font-semibold text-slate-700">{formatCurrency(kpis.costoStockReal)}</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Coste stock real</p>
+            <p className="mt-2 text-xl font-semibold text-muted-foreground">{formatCurrency(kpis.costoStockReal)}</p>
           </article>
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Unidades vendidas (rango)</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Unidades vendidas (rango)</p>
             <p className="mt-2 text-xl font-semibold text-blue-700">{formatCompact(kpis.units30d)}</p>
           </article>
           <article className="rounded-lg border bg-white p-4">
@@ -447,11 +447,11 @@ export default function AnaliticaPage() {
         </section>
 
         <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <article className="rounded-lg border bg-white p-4">
-            <h2 className="text-sm font-semibold text-gray-900">Tendencia diaria de ventas (rango)</h2>
+          <article className="rounded-lg border bg-card p-4">
+            <h2 className="text-sm font-semibold text-foreground">Tendencia diaria de ventas (rango)</h2>
             <div className="mt-3 h-72">
               {loading ? (
-                <div className="flex h-full items-center justify-center text-sm text-gray-400">Cargando...</div>
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
               ) : (
                 <ChartContainer config={salesTrendChartConfig} className="h-full w-full">
                   <LineChart data={salesLineData} margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
@@ -485,11 +485,11 @@ export default function AnaliticaPage() {
             </div>
           </article>
 
-          <article className="rounded-lg border bg-white p-4">
-            <h2 className="text-sm font-semibold text-gray-900">Top productos por velocidad (rango)</h2>
+          <article className="rounded-lg border bg-card p-4">
+            <h2 className="text-sm font-semibold text-foreground">Top productos por velocidad (rango)</h2>
             <div className="mt-3 h-72">
               {loading ? (
-                <div className="flex h-full items-center justify-center text-sm text-gray-400">Cargando...</div>
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
               ) : (
                 <ChartContainer config={topProductsChartConfig} className="h-full w-full">
                   <BarChart data={topProductsChartData} layout="vertical" margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
@@ -504,11 +504,11 @@ export default function AnaliticaPage() {
             </div>
           </article>
 
-          <article className="rounded-lg border bg-white p-4">
-            <h2 className="text-sm font-semibold text-gray-900">Productos ganadores vs perdedores (margen)</h2>
+          <article className="rounded-lg border bg-card p-4">
+            <h2 className="text-sm font-semibold text-foreground">Productos ganadores vs perdedores (margen)</h2>
             <div className="mt-3 h-72">
               {loading ? (
-                <div className="flex h-full items-center justify-center text-sm text-gray-400">Cargando...</div>
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
               ) : (
                 <ChartContainer config={marginChartConfig} className="h-full w-full">
                   <BarChart data={marginProductsChartData} layout="vertical" margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
@@ -536,11 +536,11 @@ export default function AnaliticaPage() {
             </div>
           </article>
 
-          <article className="rounded-lg border bg-white p-4">
-            <h2 className="text-sm font-semibold text-gray-900">Distribución de estado de stock</h2>
+          <article className="rounded-lg border bg-card p-4">
+            <h2 className="text-sm font-semibold text-foreground">Distribución de estado de stock</h2>
             <div className="mt-3 h-72">
               {loading ? (
-                <div className="flex h-full items-center justify-center text-sm text-gray-400">Cargando...</div>
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
               ) : (
                 <ChartContainer config={stockDistributionChartConfig} className="h-full w-full">
                   <PieChart>
@@ -557,8 +557,8 @@ export default function AnaliticaPage() {
             </div>
           </article>
 
-          <article className="rounded-lg border bg-white p-4 xl:col-span-2">
-            <h2 className="text-sm font-semibold text-gray-900">Top 5 productos más rentables y menos rentables</h2>
+          <article className="rounded-lg border bg-card p-4 xl:col-span-2">
+            <h2 className="text-sm font-semibold text-foreground">Top 5 productos más rentables y menos rentables</h2>
             <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-emerald-800">Ganadores</p>
@@ -590,11 +590,11 @@ export default function AnaliticaPage() {
             </div>
           </article>
 
-          <article className="rounded-lg border bg-white p-4 xl:col-span-2">
-            <h2 className="text-sm font-semibold text-gray-900">Valor de stock por categoría</h2>
+          <article className="rounded-lg border bg-card p-4 xl:col-span-2">
+            <h2 className="text-sm font-semibold text-foreground">Valor de stock por categoría</h2>
             <div className="mt-3 h-72">
               {loading ? (
-                <div className="flex h-full items-center justify-center text-sm text-gray-400">Cargando...</div>
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
               ) : (
                 <ChartContainer config={categoryStockChartConfig} className="h-full w-full">
                   <BarChart data={categoryStockData} margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
@@ -620,7 +620,7 @@ export default function AnaliticaPage() {
             <TabsTrigger value="bundles">Bundles</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="inventario" className="rounded-lg border bg-white p-0">
+          <TabsContent value="inventario" className="rounded-lg border bg-card p-0">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -634,10 +634,10 @@ export default function AnaliticaPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={6} className="py-8 text-center text-gray-400">Cargando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
                 ) : inventario.map((row) => (
                   <TableRow key={row.productId}>
-                    <TableCell>{row.productName} <span className="text-xs text-gray-500">({row.sku})</span></TableCell>
+                    <TableCell>{row.productName} <span className="text-xs text-muted-foreground">({row.sku})</span></TableCell>
                     <TableCell>{row.categoryName}</TableCell>
                     <TableCell>{row.currentQuantity}</TableCell>
                     <TableCell>{row.minimumStockLevel}</TableCell>
@@ -649,7 +649,7 @@ export default function AnaliticaPage() {
             </Table>
           </TabsContent>
 
-          <TabsContent value="velocidad" className="rounded-lg border bg-white p-0">
+          <TabsContent value="velocidad" className="rounded-lg border bg-card p-0">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -662,11 +662,11 @@ export default function AnaliticaPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={5} className="py-8 text-center text-gray-400">Cargando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
                 ) : velocidad.map((row, index) => (
                   <TableRow key={`${row.productId}-${row.movementDate}-${index}`}>
                     <TableCell>{new Date(row.movementDate).toLocaleDateString('es-ES')}</TableCell>
-                    <TableCell>{row.productName} <span className="text-xs text-gray-500">({row.sku})</span></TableCell>
+                    <TableCell>{row.productName} <span className="text-xs text-muted-foreground">({row.sku})</span></TableCell>
                     <TableCell>{row.categoryName}</TableCell>
                     <TableCell>{row.unitsSold}</TableCell>
                     <TableCell>{formatCurrency(row.revenue)}</TableCell>
@@ -676,7 +676,7 @@ export default function AnaliticaPage() {
             </Table>
           </TabsContent>
 
-          <TabsContent value="precios" className="rounded-lg border bg-white p-0">
+          <TabsContent value="precios" className="rounded-lg border bg-card p-0">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -690,11 +690,11 @@ export default function AnaliticaPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={6} className="py-8 text-center text-gray-400">Cargando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
                 ) : precios.map((row) => (
                   <TableRow key={row.historyId}>
                     <TableCell>{new Date(row.changedAt).toLocaleString('es-ES')}</TableCell>
-                    <TableCell>{row.productName} <span className="text-xs text-gray-500">({row.sku})</span></TableCell>
+                    <TableCell>{row.productName} <span className="text-xs text-muted-foreground">({row.sku})</span></TableCell>
                     <TableCell>{formatCurrency(row.oldPrice)}</TableCell>
                     <TableCell>{formatCurrency(row.newPrice)}</TableCell>
                     <TableCell>{formatCurrency(row.priceDelta)}</TableCell>
@@ -705,7 +705,7 @@ export default function AnaliticaPage() {
             </Table>
           </TabsContent>
 
-          <TabsContent value="bundles" className="rounded-lg border bg-white p-0">
+          <TabsContent value="bundles" className="rounded-lg border bg-card p-0">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -717,11 +717,11 @@ export default function AnaliticaPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={4} className="py-8 text-center text-gray-400">Cargando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
                 ) : bundles.map((row) => (
                   <TableRow key={`${row.productAId}-${row.productBId}`}>
-                    <TableCell>{row.productAName} <span className="text-xs text-gray-500">({row.productASku})</span></TableCell>
-                    <TableCell>{row.productBName} <span className="text-xs text-gray-500">({row.productBSku})</span></TableCell>
+                    <TableCell>{row.productAName} <span className="text-xs text-muted-foreground">({row.productASku})</span></TableCell>
+                    <TableCell>{row.productBName} <span className="text-xs text-muted-foreground">({row.productBSku})</span></TableCell>
                     <TableCell>{row.coOccurrenceCount}</TableCell>
                     <TableCell>{formatCurrency(row.combinedPrice)}</TableCell>
                   </TableRow>

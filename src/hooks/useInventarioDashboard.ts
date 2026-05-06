@@ -58,7 +58,7 @@ export function useInventarioDashboard() {
         const inventarioPromise = getInventarioAnalitica()
         const categoriasPromise = client.get<CategoriaApi[]>('/categorias')
         const movimientosPromise = client
-          .get<unknown>('/movimientos', { params: { limit: 10 } })
+          .get<unknown>('/movimientos', { params: { limit: 50 } })
           .then((response) => {
             const raw = response.data
             const list = Array.isArray(raw)
@@ -129,7 +129,7 @@ export function useInventarioDashboard() {
           totalProductos: inventario.length,
           productosStockBajo,
           totalCategorias: categoriasUnicas.size,
-          movimientos: movimientos.slice(0, 10),
+          movimientos: movimientos.slice(0, 50),
           loading: false,
           error: null,
         })

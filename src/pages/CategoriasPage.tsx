@@ -244,8 +244,8 @@ export default function CategoriasPage() {
       <div className="mx-auto max-w-5xl space-y-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Categorías</h1>
-            <p className="mt-1 text-sm text-gray-500">{categoryCountLabel}</p>
+            <h1 className="text-2xl font-bold text-foreground">Categorías</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{categoryCountLabel}</p>
           </div>
           {canEdit && (
             <Button className="w-full sm:w-auto" onClick={openCreateDialog}>
@@ -276,7 +276,7 @@ export default function CategoriasPage() {
           className="w-full sm:max-w-sm"
         />
 
-        <div className="rounded-lg border bg-white">
+        <div className="rounded-lg border bg-card">
           <Table className="min-w-[640px]">
             <TableHeader>
               <TableRow>
@@ -288,13 +288,13 @@ export default function CategoriasPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="py-10 text-center text-gray-400">
+                  <TableCell colSpan={3} className="py-10 text-center text-muted-foreground">
                     Cargando categorías...
                   </TableCell>
                 </TableRow>
               ) : filteredCategories.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="py-10 text-center text-gray-400">
+                  <TableCell colSpan={3} className="py-10 text-center text-muted-foreground">
                     No hay categorías para mostrar.
                   </TableCell>
                 </TableRow>
@@ -302,7 +302,7 @@ export default function CategoriasPage() {
                 filteredCategories.map((category) => (
                   <TableRow key={category.id}>
                     <TableCell className="font-medium">{category.nombre}</TableCell>
-                    <TableCell className="max-w-[420px] whitespace-normal text-gray-600">
+                    <TableCell className="max-w-[420px] whitespace-normal text-muted-foreground">
                       {category.descripcion || 'Sin descripción'}
                     </TableCell>
                     <TableCell>
