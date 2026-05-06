@@ -1,13 +1,15 @@
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useNavigate, Link } from 'react-router'
 import { toast } from 'sonner'
-import { GoogleLogin, type CredentialResponse } from '@react-oauth/google'
+import { type CredentialResponse } from '@react-oauth/google'
 import { login, googleLogin } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton'
 
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
@@ -35,6 +37,7 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const setUser = useAuthStore((s) => s.setUser)
   const isMobile = useIsMobile()
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false)
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -58,6 +61,7 @@ export default function LoginPage() {
 
   const handleGoogleSuccess = async (response: CredentialResponse) => {
     if (!response.credential) return
+    setIsGoogleSubmitting(true)
     try {
       const res = await googleLogin(response.credential)
       setUser({ username: res.username, role: res.role, token: res.token })
@@ -66,6 +70,8 @@ export default function LoginPage() {
     } catch {
       form.setError('root', { message: 'Error al iniciar sesión con Google' })
       toast.error('Error al iniciar sesión con Google')
+    } finally {
+      setIsGoogleSubmitting(false)
     }
   }
 
@@ -136,17 +142,16 @@ export default function LoginPage() {
                 </span>
               </div>
 
-              <div className="flex justify-center">
-                <GoogleLogin
-                  onSuccess={handleGoogleSuccess}
-                  onError={() =>
-                    form.setError('root', { message: 'Error al iniciar sesión con Google' })
-                  }
-                  theme="outline"
-                  shape="rectangular"
-                  width={isMobile ? '280' : '368'}
-                />
-              </div>
+              <GoogleAuthButton
+                label="Continuar con Google"
+                width={isMobile ? '280' : '368'}
+                onSuccess={handleGoogleSuccess}
+                onError={() => {
+                  setIsGoogleSubmitting(false)
+                  form.setError('root', { message: 'Error al iniciar sesión con Google' })
+                }}
+                disabled={isGoogleSubmitting || form.formState.isSubmitting}
+              />
             </>
           )}
 
