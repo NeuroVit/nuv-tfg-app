@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { X } from 'lucide-react'
 import { toast } from 'sonner'
 import { getMovimientos } from '@/api/movimiento'
 import { getProductos } from '@/api/producto'
@@ -127,49 +126,6 @@ export default function MovimientosPage() {
     []
   )
 
-  const activeFilterChips = useMemo(() => {
-    const selectedProduct = productos.find((product) => String(product.id) === productId)
-    const chips: Array<{ key: string; label: string; onClear: () => void }> = []
-
-    if (productId !== 'all' && selectedProduct) {
-      chips.push({
-        key: 'product',
-        label: `Producto: ${selectedProduct.nombre}`,
-        onClear: () => setProductId('all'),
-      })
-    }
-    if (tipo !== 'all') {
-      chips.push({
-        key: 'tipo',
-        label: `Tipo: ${tipo === 'ENTRADA' ? 'Entrada' : 'Salida'}`,
-        onClear: () => setTipo('all'),
-      })
-    }
-    if (razon !== 'all') {
-      chips.push({
-        key: 'razon',
-        label: `Razon: ${formatReason(razon)}`,
-        onClear: () => setRazon('all'),
-      })
-    }
-    if (desde) {
-      chips.push({
-        key: 'desde',
-        label: `Desde: ${desde}`,
-        onClear: () => setDesde(''),
-      })
-    }
-    if (hasta) {
-      chips.push({
-        key: 'hasta',
-        label: `Hasta: ${hasta}`,
-        onClear: () => setHasta(''),
-      })
-    }
-
-    return chips
-  }, [productos, productId, tipo, razon, desde, hasta])
-
   const resetFilters = () => {
     setProductId('all')
     setTipo('all')
@@ -187,7 +143,7 @@ export default function MovimientosPage() {
           <p className="mt-1 text-sm text-muted-foreground">Historico completo de entradas y salidas de stock.</p>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 rounded-lg border bg-card p-4 md:grid-cols-2 xl:grid-cols-12">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-12">
           <div className="min-w-0 space-y-1 xl:col-span-3">
             <p className="text-xs font-medium text-muted-foreground">Producto</p>
             <Select value={productId} onValueChange={setProductId}>
@@ -260,19 +216,6 @@ export default function MovimientosPage() {
             <p className="text-xs font-medium text-muted-foreground">Acciones</p>
             <Button className="w-full" variant="outline" onClick={resetFilters}>Limpiar filtros</Button>
           </div>
-        </div>
-
-        <div className="min-h-8">
-          {activeFilterChips.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {activeFilterChips.map((chip) => (
-                <Button key={chip.key} type="button" size="xs" variant="secondary" onClick={chip.onClear}>
-                  {chip.label}
-                  <X />
-                </Button>
-              ))}
-            </div>
-          )}
         </div>
 
         <div className="rounded-lg border bg-card">
