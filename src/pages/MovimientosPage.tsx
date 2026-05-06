@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { X } from 'lucide-react'
 import { toast } from 'sonner'
 import { getMovimientos } from '@/api/movimiento'
 import { getProductos } from '@/api/producto'
@@ -10,8 +11,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 const PAGE_SIZE = 20
+const MIN_DATE = '2000-01-01'
+const MAX_DATE = '2100-12-31'
 
 const formatDate = (value: string) => new Date(value).toLocaleString('es-ES')
+const formatReason = (reason: string) => {
+  const reasonLabels: Record<string, string> = {
+    SALE: 'Venta',
+    PURCHASE: 'Compra',
+    ADJUSTMENT: 'Ajuste',
+    RETURN: 'Devolucion',
+    DAMAGE: 'Dano',
+    INITIAL: 'Inicial',
+  }
+  return reasonLabels[reason] ?? reason
+}
 
 export default function MovimientosPage() {
   const [productos, setProductos] = useState<Producto[]>([])
@@ -25,9 +39,32 @@ export default function MovimientosPage() {
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
   const [offset, setOffset] = useState(0)
+  const [debouncedFilters, setDebouncedFilters] = useState({
+    productId: 'all',
+    tipo: 'all' as 'all' | 'ENTRADA' | 'SALIDA',
+    razon: 'all',
+    desde: '',
+    hasta: '',
+  })
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1
+  const hasActiveFilters =
+    productId !== 'all' || tipo !== 'all' || razon !== 'all' || Boolean(desde) || Boolean(hasta)
+  const invalidDateRange = Boolean(desde && hasta && desde > hasta)
+  const invalidYear = Boolean(
+    (desde && (desde < MIN_DATE || desde > MAX_DATE)) ||
+    (hasta && (hasta < MIN_DATE || hasta > MAX_DATE))
+  )
+  const debouncedInvalidDateRange = Boolean(
+    debouncedFilters.desde && debouncedFilters.hasta && debouncedFilters.desde > debouncedFilters.hasta
+  )
+  const debouncedInvalidYear = Boolean(
+    (debouncedFilters.desde &&
+      (debouncedFilters.desde < MIN_DATE || debouncedFilters.desde > MAX_DATE)) ||
+    (debouncedFilters.hasta &&
+      (debouncedFilters.hasta < MIN_DATE || debouncedFilters.hasta > MAX_DATE))
+  )
 
   const loadProductos = async () => {
     try {
@@ -39,14 +76,21 @@ export default function MovimientosPage() {
   }
 
   const loadMovimientos = async () => {
+    if (debouncedInvalidDateRange || debouncedInvalidYear) {
+      setMovimientos([])
+      setTotal(0)
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     try {
       const data = await getMovimientos({
-        productId: productId === 'all' ? undefined : Number(productId),
-        tipo: tipo === 'all' ? undefined : tipo,
-        razon: razon === 'all' ? undefined : razon,
-        desde: desde || undefined,
-        hasta: hasta || undefined,
+        productId: debouncedFilters.productId === 'all' ? undefined : Number(debouncedFilters.productId),
+        tipo: debouncedFilters.tipo === 'all' ? undefined : debouncedFilters.tipo,
+        razon: debouncedFilters.razon === 'all' ? undefined : debouncedFilters.razon,
+        desde: debouncedFilters.desde || undefined,
+        hasta: debouncedFilters.hasta || undefined,
         limit: PAGE_SIZE,
         offset,
       })
@@ -65,12 +109,66 @@ export default function MovimientosPage() {
 
   useEffect(() => {
     void loadMovimientos()
-  }, [productId, tipo, razon, desde, hasta, offset])
+  }, [debouncedFilters, offset, debouncedInvalidDateRange, debouncedInvalidYear])
+
+  useEffect(() => {
+    setOffset(0)
+  }, [productId, tipo, razon, desde, hasta])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedFilters({ productId, tipo, razon, desde, hasta })
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [productId, tipo, razon, desde, hasta])
 
   const reasons = useMemo(
     () => ['SALE', 'PURCHASE', 'ADJUSTMENT', 'RETURN', 'DAMAGE', 'INITIAL'],
     []
   )
+
+  const activeFilterChips = useMemo(() => {
+    const selectedProduct = productos.find((product) => String(product.id) === productId)
+    const chips: Array<{ key: string; label: string; onClear: () => void }> = []
+
+    if (productId !== 'all' && selectedProduct) {
+      chips.push({
+        key: 'product',
+        label: `Producto: ${selectedProduct.nombre}`,
+        onClear: () => setProductId('all'),
+      })
+    }
+    if (tipo !== 'all') {
+      chips.push({
+        key: 'tipo',
+        label: `Tipo: ${tipo === 'ENTRADA' ? 'Entrada' : 'Salida'}`,
+        onClear: () => setTipo('all'),
+      })
+    }
+    if (razon !== 'all') {
+      chips.push({
+        key: 'razon',
+        label: `Razon: ${formatReason(razon)}`,
+        onClear: () => setRazon('all'),
+      })
+    }
+    if (desde) {
+      chips.push({
+        key: 'desde',
+        label: `Desde: ${desde}`,
+        onClear: () => setDesde(''),
+      })
+    }
+    if (hasta) {
+      chips.push({
+        key: 'hasta',
+        label: `Hasta: ${hasta}`,
+        onClear: () => setHasta(''),
+      })
+    }
+
+    return chips
+  }, [productos, productId, tipo, razon, desde, hasta])
 
   const resetFilters = () => {
     setProductId('all')
@@ -86,53 +184,94 @@ export default function MovimientosPage() {
       <div className="mx-auto max-w-7xl space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Movimientos</h1>
-          <p className="mt-1 text-sm text-gray-500">Histórico completo de entradas y salidas de stock.</p>
+          <p className="mt-1 text-sm text-gray-500">Historico completo de entradas y salidas de stock.</p>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 rounded-lg border bg-white p-4 md:grid-cols-2 xl:grid-cols-6">
-          <Select value={productId} onValueChange={setProductId}>
-            <SelectTrigger>
-              <SelectValue placeholder="Producto" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los productos</SelectItem>
-              {productos.map((product) => (
-                <SelectItem key={product.id} value={String(product.id)}>
-                  {product.nombre} ({product.sku})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="grid grid-cols-1 gap-4 rounded-lg border bg-white p-4 md:grid-cols-2 xl:grid-cols-12">
+          <div className="min-w-0 space-y-1 xl:col-span-3">
+            <p className="text-xs font-medium text-gray-600">Producto</p>
+            <Select value={productId} onValueChange={setProductId}>
+              <SelectTrigger className="w-full min-w-0">
+                <SelectValue placeholder="Selecciona producto" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los productos</SelectItem>
+                {productos.map((product) => (
+                  <SelectItem key={product.id} value={String(product.id)}>
+                    {product.nombre} ({product.sku})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          <Select value={tipo} onValueChange={(value) => setTipo(value as 'all' | 'ENTRADA' | 'SALIDA')}>
-            <SelectTrigger>
-              <SelectValue placeholder="Tipo" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="ENTRADA">Entrada</SelectItem>
-              <SelectItem value="SALIDA">Salida</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="min-w-0 space-y-1 xl:col-span-1">
+            <p className="text-xs font-medium text-gray-600 whitespace-nowrap">Tipo</p>
+            <Select value={tipo} onValueChange={(value) => setTipo(value as 'all' | 'ENTRADA' | 'SALIDA')}>
+              <SelectTrigger className="w-full min-w-0">
+                <SelectValue placeholder="Selecciona tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="ENTRADA">Entrada</SelectItem>
+                <SelectItem value="SALIDA">Salida</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-          <Select value={razon} onValueChange={setRazon}>
-            <SelectTrigger>
-              <SelectValue placeholder="Razón" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
-              {reasons.map((reason) => (
-                <SelectItem key={reason} value={reason}>
-                  {reason}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="min-w-0 space-y-1 xl:col-span-2">
+            <p className="text-xs font-medium text-gray-600 whitespace-nowrap">Razon</p>
+            <Select value={razon} onValueChange={setRazon}>
+              <SelectTrigger className="w-full min-w-0">
+                <SelectValue placeholder="Selecciona razon" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                {reasons.map((reason) => (
+                  <SelectItem key={reason} value={reason}>
+                    {formatReason(reason)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          <Input type="date" value={desde} onChange={(event) => setDesde(event.target.value)} />
-          <Input type="date" value={hasta} onChange={(event) => setHasta(event.target.value)} />
-          <Button variant="outline" onClick={resetFilters}>Limpiar filtros</Button>
+          <div className="min-w-0 space-y-1 xl:col-span-2">
+            <p className="text-xs font-medium text-gray-600">Desde (fecha)</p>
+            <Input
+              type="date"
+              min={MIN_DATE}
+              max={MAX_DATE}
+              value={desde}
+              onChange={(event) => setDesde(event.target.value)}
+            />
+          </div>
+          <div className="min-w-0 space-y-1 xl:col-span-2">
+            <p className="text-xs font-medium text-gray-600">Hasta (fecha)</p>
+            <Input
+              type="date"
+              min={MIN_DATE}
+              max={MAX_DATE}
+              value={hasta}
+              onChange={(event) => setHasta(event.target.value)}
+            />
+          </div>
+          <div className="min-w-0 space-y-1 xl:col-span-2">
+            <p className="text-xs font-medium text-gray-600">Acciones</p>
+            <Button className="w-full" variant="outline" onClick={resetFilters}>Limpiar filtros</Button>
+          </div>
         </div>
+
+        {activeFilterChips.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {activeFilterChips.map((chip) => (
+              <Button key={chip.key} type="button" size="xs" variant="secondary" onClick={chip.onClear}>
+                {chip.label}
+                <X />
+              </Button>
+            ))}
+          </div>
+        )}
 
         <div className="rounded-lg border bg-white">
           <Table>
@@ -142,7 +281,7 @@ export default function MovimientosPage() {
                 <TableHead>Producto</TableHead>
                 <TableHead>SKU</TableHead>
                 <TableHead>Tipo</TableHead>
-                <TableHead>Razón</TableHead>
+                <TableHead>Razon</TableHead>
                 <TableHead>Cantidad</TableHead>
                 <TableHead>Notas</TableHead>
               </TableRow>
@@ -154,7 +293,9 @@ export default function MovimientosPage() {
                 </TableRow>
               ) : movimientos.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-gray-400">No hay movimientos para los filtros seleccionados.</TableCell>
+                  <TableCell colSpan={7} className="py-8 text-center text-gray-400">
+                    {hasActiveFilters ? 'No hay movimientos para los filtros seleccionados.' : 'Aun no hay movimientos registrados.'}
+                  </TableCell>
                 </TableRow>
               ) : (
                 movimientos.map((movimiento) => (
@@ -163,11 +304,13 @@ export default function MovimientosPage() {
                     <TableCell>{movimiento.productoNombre}</TableCell>
                     <TableCell className="font-mono text-xs">{movimiento.productoSku}</TableCell>
                     <TableCell>
-                      <span className={movimiento.tipo === 'ENTRADA' ? 'text-green-700' : 'text-red-700'}>{movimiento.tipo}</span>
+                      <span className={movimiento.tipo === 'ENTRADA' ? 'text-green-700' : 'text-red-700'}>
+                        {movimiento.tipo === 'ENTRADA' ? 'Entrada' : 'Salida'}
+                      </span>
                     </TableCell>
-                    <TableCell>{movimiento.razon}</TableCell>
+                    <TableCell>{formatReason(movimiento.razon)}</TableCell>
                     <TableCell>{movimiento.cantidad}</TableCell>
-                    <TableCell>{movimiento.notas ?? '—'}</TableCell>
+                    <TableCell>{movimiento.notas ?? '-'}</TableCell>
                   </TableRow>
                 ))
               )}
@@ -176,7 +319,7 @@ export default function MovimientosPage() {
         </div>
 
         <div className="flex items-center justify-between">
-          <p className="text-sm text-gray-500">Página {currentPage} de {totalPages} · {total} registros</p>
+          <p className="text-sm text-gray-500">Pagina {currentPage} de {totalPages} · {total} registros</p>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
