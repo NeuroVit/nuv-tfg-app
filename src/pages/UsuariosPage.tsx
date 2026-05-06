@@ -54,7 +54,7 @@ export default function UsuariosPage() {
   if (user?.role !== 'ROLE_ADMIN') {
     return (
       <div className="p-4 sm:p-6 lg:p-8">
-        <div className="mx-auto max-w-4xl rounded-lg border bg-white p-6 text-sm text-gray-600">
+        <div className="mx-auto max-w-4xl rounded-lg border bg-card p-6 text-sm text-muted-foreground">
           Esta sección está disponible solo para administradores.
         </div>
       </div>
@@ -105,12 +105,12 @@ export default function UsuariosPage() {
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Usuarios y permisos</h1>
-          <p className="mt-1 text-sm text-gray-500">Gestiona accesos, roles e historial de cambios.</p>
+          <h1 className="text-2xl font-bold text-foreground">Usuarios y permisos</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Gestiona accesos, roles e historial de cambios.</p>
         </div>
 
-        <div className="rounded-lg border bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold text-gray-800">Invitar usuario</h2>
+        <div className="rounded-lg border bg-card p-4">
+          <h2 className="mb-3 text-sm font-semibold text-foreground">Invitar usuario</h2>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
             <Input placeholder="username" value={invite.username} onChange={(e) => setInvite((prev) => ({ ...prev, username: e.target.value }))} />
             <Input placeholder="email" value={invite.email} onChange={(e) => setInvite((prev) => ({ ...prev, email: e.target.value }))} />
@@ -136,7 +136,7 @@ export default function UsuariosPage() {
             <TabsTrigger value="auditoria">Auditoría</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="usuarios" className="rounded-lg border bg-white">
+          <TabsContent value="usuarios" className="rounded-lg border bg-card">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -149,12 +149,12 @@ export default function UsuariosPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={5} className="py-8 text-center text-gray-400">Cargando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
                 ) : usuarios.map((target) => (
                   <TableRow key={target.id}>
                     <TableCell>
                       <p className="font-medium">{target.username}</p>
-                      <p className="text-xs text-gray-500">{target.nombre} {target.apellidos}</p>
+                      <p className="text-xs text-muted-foreground">{target.nombre} {target.apellidos}</p>
                     </TableCell>
                     <TableCell>{target.email}</TableCell>
                     <TableCell>
@@ -181,7 +181,7 @@ export default function UsuariosPage() {
             </Table>
           </TabsContent>
 
-          <TabsContent value="auditoria" className="rounded-lg border bg-white">
+          <TabsContent value="auditoria" className="rounded-lg border bg-card">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -194,7 +194,7 @@ export default function UsuariosPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={5} className="py-8 text-center text-gray-400">Cargando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
                 ) : auditoria.map((row) => (
                   <TableRow key={row.id}>
                     <TableCell>{new Date(row.changedAt).toLocaleString('es-ES')}</TableCell>

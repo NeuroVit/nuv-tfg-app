@@ -325,13 +325,13 @@ export default function ProductosPage() {
       accessorKey: 'sku',
       header: 'SKU',
       cell: ({ getValue }) => (
-        <span className="font-mono text-xs text-gray-500">{getValue<string>()}</span>
+        <span className="font-mono text-xs text-muted-foreground">{getValue<string>()}</span>
       ),
     },
     {
       accessorKey: 'nombre',
       header: 'Nombre',
-      cell: ({ getValue }) => <span className="font-medium text-gray-900">{getValue<string>()}</span>,
+      cell: ({ getValue }) => <span className="font-medium text-foreground">{getValue<string>()}</span>,
     },
     {
       accessorKey: 'categoriaNombre',
@@ -433,8 +433,8 @@ export default function ProductosPage() {
       <div className="mx-auto max-w-7xl space-y-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Productos</h1>
-            <p className="mt-1 text-sm text-gray-500">{productosFiltrados.length} productos en inventario</p>
+            <h1 className="text-2xl font-bold text-foreground">Productos</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{productosFiltrados.length} productos en inventario</p>
           </div>
           <Button className="w-full sm:w-auto" onClick={() => { setProductoEditar(null); setModalOpen(true) }}>
             <Plus className="mr-2 h-4 w-4" />
@@ -490,7 +490,7 @@ export default function ProductosPage() {
           </Select>
         </div>
 
-        <div className="rounded-lg border bg-white">
+        <div className="rounded-lg border bg-card">
           <Table className="min-w-[1000px]">
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
@@ -506,13 +506,13 @@ export default function ProductosPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={columns.length} className="py-12 text-center text-gray-400">
+                  <TableCell colSpan={columns.length} className="py-12 text-center text-muted-foreground">
                     Cargando productos...
                   </TableCell>
                 </TableRow>
               ) : table.getRowModel().rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={columns.length} className="py-12 text-center text-gray-400">
+                  <TableCell colSpan={columns.length} className="py-12 text-center text-muted-foreground">
                     No se encontraron productos.
                   </TableCell>
                 </TableRow>
@@ -520,7 +520,7 @@ export default function ProductosPage() {
                 table.getRowModel().rows.map((row) => (
                   <TableRow
                     key={row.id}
-                    className="cursor-pointer hover:bg-gray-50"
+                    className="cursor-pointer hover:bg-accent"
                     onClick={() => {
                       setProductoEditar(row.original)
                       setModalOpen(true)

@@ -5,6 +5,7 @@ import {
   getDistribucionStockAnalitica,
   getFinanzasResumenAnalitica,
   getInventarioAnalitica,
+  getMetaAnalitica,
   getPreciosAnalitica,
   getRentabilidadProductosAnalitica,
   getStockPorCategoriaAnalitica,
@@ -13,6 +14,7 @@ import {
   getVelocidadResumenAnalitica,
 } from '@/api/analitica'
 import type {
+  AnaliticaMeta,
   BundleCandidateRow,
   FinanzasResumen,
   InventorySummaryRow,
@@ -24,9 +26,18 @@ import type {
   TopProductVelocityRow,
   VelocitySummaryRow,
 } from '@/types/analitica'
+import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import {
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from '@/components/ui/chart'
 import {
   Bar,
   BarChart,
@@ -36,8 +47,6 @@ import {
   LineChart,
   Pie,
   PieChart,
-  ResponsiveContainer,
-  Tooltip,
   XAxis,
   YAxis,
 } from 'recharts'
@@ -52,8 +61,6 @@ const statusLabels: Record<string, string> = {
   OVERSTOCK: 'Sobrestock',
 }
 
-const pieColors = ['#ef4444', '#f59e0b', '#22c55e', '#6366f1']
-
 type TimeRangeValue = 'all' | '180' | '90' | '30' | '7' | '1'
 
 const timeRangeOptions: Array<{ value: TimeRangeValue; label: string; days: number }> = [
@@ -65,8 +72,97 @@ const timeRangeOptions: Array<{ value: TimeRangeValue; label: string; days: numb
   { value: '1', label: 'Diario', days: 1 },
 ]
 
+const salesTrendChartConfig = {
+  unitsSold: {
+    label: 'Unidades',
+    color: '#2563eb',
+  },
+  revenue: {
+    label: 'Revenue',
+    color: '#16a34a',
+  },
+} satisfies ChartConfig
+
+const topProductsChartConfig = {
+  unitsSold: {
+    label: 'Unidades',
+    color: '#7c3aed',
+  },
+} satisfies ChartConfig
+
+const marginChartConfig = {
+  margenPositivo: {
+    label: 'Margen positivo',
+    color: '#22c55e',
+  },
+  margenNegativo: {
+    label: 'Margen negativo',
+    color: '#ef4444',
+  },
+  margen: {
+    label: 'Margen',
+    color: '#0ea5e9',
+  },
+} satisfies ChartConfig
+
+const stockDistributionChartConfig = {
+  outOfStock: {
+    label: 'Sin stock',
+    color: '#ef4444',
+  },
+  lowStock: {
+    label: 'Stock bajo',
+    color: '#f59e0b',
+  },
+  okStock: {
+    label: 'OK',
+    color: '#10b981',
+  },
+  overStock: {
+    label: 'Sobrestock',
+    color: '#6366f1',
+  },
+} satisfies ChartConfig
+
+const categoryStockChartConfig = {
+  value: {
+    label: 'Valor stock',
+    color: '#06b6d4',
+  },
+} satisfies ChartConfig
+
+function statusFillKey(status: string) {
+  switch (status) {
+    case 'OUT_OF_STOCK':
+      return 'outOfStock'
+    case 'LOW_STOCK':
+      return 'lowStock'
+    case 'OK':
+      return 'okStock'
+    case 'OVERSTOCK':
+      return 'overStock'
+    default:
+      return 'okStock'
+  }
+}
+
+function sourceLabel(meta: AnaliticaMeta | null) {
+  if (!meta) return 'API real'
+  if (meta.source === 'API_REAL_LOCAL_SEEDED') {
+    return 'API real (seed local activo)'
+  }
+  if (meta.source === 'API_REAL_SEED_PENDING') {
+    return 'API real (seed pendiente)'
+  }
+  return 'API real'
+}
+
 export default function AnaliticaPage() {
   const [loading, setLoading] = useState(true)
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading')
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
+  const [metadata, setMetadata] = useState<AnaliticaMeta | null>(null)
+
   const [inventario, setInventario] = useState<InventorySummaryRow[]>([])
   const [velocidad, setVelocidad] = useState<SalesVelocityRow[]>([])
   const [precios, setPrecios] = useState<PriceTrendRow[]>([])
@@ -87,8 +183,10 @@ export default function AnaliticaPage() {
   useEffect(() => {
     const load = async () => {
       setLoading(true)
+      setLoadState('loading')
+
       try {
-        const [inv, vel, pri, bun, velRes, topVel, dist, byCat, fin, rent] = await Promise.all([
+        const [inv, vel, pri, bun, velRes, topVel, dist, byCat, fin, rent, meta] = await Promise.all([
           getInventarioAnalitica(),
           getVelocidadAnalitica(120, selectedDays),
           getPreciosAnalitica(),
@@ -99,6 +197,7 @@ export default function AnaliticaPage() {
           getStockPorCategoriaAnalitica(),
           getFinanzasResumenAnalitica(selectedDays),
           getRentabilidadProductosAnalitica(selectedDays, 20),
+          getMetaAnalitica(selectedDays),
         ])
 
         setInventario(inv)
@@ -111,7 +210,11 @@ export default function AnaliticaPage() {
         setStockPorCategoria(byCat)
         setFinanzas(fin)
         setRentabilidad(rent)
+        setMetadata(meta)
+        setLastUpdatedAt(new Date())
+        setLoadState('ready')
       } catch {
+        setLoadState('error')
         toast.error('No se pudieron cargar los datos de analítica')
       } finally {
         setLoading(false)
@@ -189,10 +292,14 @@ export default function AnaliticaPage() {
 
   const stockDistributionData = useMemo(
     () =>
-      distribucionStock.map((row) => ({
-        name: statusLabels[row.stockStatus] ?? row.stockStatus,
-        value: row.products,
-      })),
+      distribucionStock.map((row) => {
+        const fillKey = statusFillKey(row.stockStatus)
+        return {
+          name: statusLabels[row.stockStatus] ?? row.stockStatus,
+          value: row.products,
+          fill: `var(--color-${fillKey})`,
+        }
+      }),
     [distribucionStock],
   )
 
@@ -215,16 +322,41 @@ export default function AnaliticaPage() {
     [rentabilidad],
   )
 
+  const rangeLabel =
+    selectedDays <= 0
+      ? 'Todo el tiempo'
+      : `${selectedDays} día${selectedDays === 1 ? '' : 's'}`
+
+  const loadStateLabel =
+    loadState === 'loading' ? 'Cargando' : loadState === 'error' ? 'Error' : 'Actualizado'
+
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Analítica</h1>
-          <p className="mt-1 text-sm text-gray-500">Métricas reales de ventas, costes y rentabilidad por producto.</p>
+          <h1 className="text-2xl font-bold text-foreground">Analítica</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Métricas reales de ventas, costes y rentabilidad por producto.</p>
         </div>
 
+        <section className="rounded-lg border bg-white p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={loadState === 'error' ? 'destructive' : 'secondary'}>{sourceLabel(metadata)}</Badge>
+                <Badge variant="outline">Rango: {rangeLabel}</Badge>
+                <Badge variant="outline">Estado: {loadStateLabel}</Badge>
+              </div>
+              <p className="text-xs text-gray-500">
+                Seed local: {metadata?.seedEnabled ? 'Activo' : 'Inactivo'} · Última carga UI:{' '}
+                {lastUpdatedAt ? lastUpdatedAt.toLocaleString('es-ES') : 'Sin datos'} · Último movimiento backend:{' '}
+                {metadata?.generatedAt ? new Date(metadata.generatedAt).toLocaleString('es-ES') : 'Sin datos'}
+              </p>
+            </div>
+          </div>
+        </section>
+
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-          <span className="text-sm text-gray-500">Rango temporal</span>
+          <span className="text-sm text-muted-foreground">Rango temporal</span>
           <Select value={timeRange} onValueChange={(value) => setTimeRange(value as TimeRangeValue)}>
             <SelectTrigger className="w-full sm:w-56">
               <SelectValue />
@@ -240,40 +372,40 @@ export default function AnaliticaPage() {
         </div>
 
         <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Ventas (rango)</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Ventas (rango)</p>
             <p className="mt-2 text-xl font-semibold text-emerald-700">{formatCurrency(kpis.ventas30d)}</p>
           </article>
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-gray-500">COGS real (rango)</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">COGS real (rango)</p>
             <p className="mt-2 text-xl font-semibold text-orange-700">-{formatCurrency(kpis.cogsReal30d)}</p>
           </article>
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Margen real (rango)</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Margen real (rango)</p>
             <p className={`mt-2 text-xl font-semibold ${kpis.margenReal30d >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
               {formatCurrency(kpis.margenReal30d)}
             </p>
           </article>
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Compras proveedores (rango)</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Compras proveedores (rango)</p>
             <p className="mt-2 text-xl font-semibold text-red-700">-{formatCurrency(kpis.compras30d)}</p>
           </article>
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Flujo neto (rango)</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Flujo neto (rango)</p>
             <p className={`mt-2 text-xl font-semibold ${kpis.flujoNeto30d >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
               {formatCurrency(kpis.flujoNeto30d)}
             </p>
           </article>
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Valor stock (venta)</p>
-            <p className="mt-2 text-xl font-semibold text-slate-800">{formatCurrency(kpis.valorStockVenta)}</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Valor stock (venta)</p>
+            <p className="mt-2 text-xl font-semibold text-foreground">{formatCurrency(kpis.valorStockVenta)}</p>
           </article>
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Coste stock real</p>
-            <p className="mt-2 text-xl font-semibold text-slate-700">{formatCurrency(kpis.costoStockReal)}</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Coste stock real</p>
+            <p className="mt-2 text-xl font-semibold text-muted-foreground">{formatCurrency(kpis.costoStockReal)}</p>
           </article>
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Unidades vendidas (rango)</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Unidades vendidas (rango)</p>
             <p className="mt-2 text-xl font-semibold text-blue-700">{formatCompact(kpis.units30d)}</p>
           </article>
           <article className="rounded-lg border bg-white p-4">
@@ -304,94 +436,129 @@ export default function AnaliticaPage() {
             <p className="text-xs uppercase tracking-wide text-gray-500">GMROI</p>
             <p className="mt-2 text-xl font-semibold text-violet-700">{kpis.gmroi.toFixed(2)}x</p>
           </article>
+          <article className="rounded-lg border bg-white p-4">
+            <p className="text-xs uppercase tracking-wide text-gray-500">Productos low stock</p>
+            <p className="mt-2 text-xl font-semibold text-amber-700">{formatCompact(kpis.lowStockCount)}</p>
+          </article>
+          <article className="rounded-lg border bg-white p-4">
+            <p className="text-xs uppercase tracking-wide text-gray-500">Productos sin stock</p>
+            <p className="mt-2 text-xl font-semibold text-red-700">{formatCompact(kpis.outOfStockCount)}</p>
+          </article>
         </section>
 
         <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <article className="rounded-lg border bg-white p-4">
-            <h2 className="text-sm font-semibold text-gray-900">Tendencia diaria de ventas (rango)</h2>
+          <article className="rounded-lg border bg-card p-4">
+            <h2 className="text-sm font-semibold text-foreground">Tendencia diaria de ventas (rango)</h2>
             <div className="mt-3 h-72">
               {loading ? (
-                <div className="flex h-full items-center justify-center text-sm text-gray-400">Cargando...</div>
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
               ) : (
-                <ResponsiveContainer width="100%" height="100%">
+                <ChartContainer config={salesTrendChartConfig} className="h-full w-full">
                   <LineChart data={salesLineData} margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" minTickGap={18} />
                     <YAxis yAxisId="left" />
                     <YAxis yAxisId="right" orientation="right" />
-                    <Tooltip />
-                    <Line yAxisId="left" type="monotone" dataKey="unitsSold" stroke="#2563eb" strokeWidth={2} dot={false} name="Unidades" />
-                    <Line yAxisId="right" type="monotone" dataKey="revenue" stroke="#059669" strokeWidth={2} dot={false} name="Revenue" />
+                    <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
+                    <ChartLegend content={<ChartLegendContent />} />
+                    <Line
+                      yAxisId="left"
+                      type="monotone"
+                      dataKey="unitsSold"
+                      stroke="var(--color-unitsSold)"
+                      strokeWidth={2}
+                      dot={false}
+                      name="unitsSold"
+                    />
+                    <Line
+                      yAxisId="right"
+                      type="monotone"
+                      dataKey="revenue"
+                      stroke="var(--color-revenue)"
+                      strokeWidth={2}
+                      dot={false}
+                      name="revenue"
+                    />
                   </LineChart>
-                </ResponsiveContainer>
+                </ChartContainer>
               )}
             </div>
           </article>
 
-          <article className="rounded-lg border bg-white p-4">
-            <h2 className="text-sm font-semibold text-gray-900">Top productos por velocidad (rango)</h2>
+          <article className="rounded-lg border bg-card p-4">
+            <h2 className="text-sm font-semibold text-foreground">Top productos por velocidad (rango)</h2>
             <div className="mt-3 h-72">
               {loading ? (
-                <div className="flex h-full items-center justify-center text-sm text-gray-400">Cargando...</div>
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
               ) : (
-                <ResponsiveContainer width="100%" height="100%">
+                <ChartContainer config={topProductsChartConfig} className="h-full w-full">
                   <BarChart data={topProductsChartData} layout="vertical" margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis type="number" />
                     <YAxis type="category" width={140} dataKey="name" tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Bar dataKey="unitsSold" fill="#1d4ed8" name="Unidades" radius={[0, 4, 4, 0]} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="unitsSold" fill="var(--color-unitsSold)" name="unitsSold" radius={[0, 4, 4, 0]} />
                   </BarChart>
-                </ResponsiveContainer>
+                </ChartContainer>
               )}
             </div>
           </article>
 
-          <article className="rounded-lg border bg-white p-4">
-            <h2 className="text-sm font-semibold text-gray-900">Productos ganadores vs perdedores (margen)</h2>
+          <article className="rounded-lg border bg-card p-4">
+            <h2 className="text-sm font-semibold text-foreground">Productos ganadores vs perdedores (margen)</h2>
             <div className="mt-3 h-72">
               {loading ? (
-                <div className="flex h-full items-center justify-center text-sm text-gray-400">Cargando...</div>
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
               ) : (
-                <ResponsiveContainer width="100%" height="100%">
+                <ChartContainer config={marginChartConfig} className="h-full w-full">
                   <BarChart data={marginProductsChartData} layout="vertical" margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis type="number" />
                     <YAxis type="category" width={150} dataKey="name" tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                    <Bar dataKey="margen" name="Margen">
+                    <ChartTooltip
+                      content={
+                        <ChartTooltipContent
+                          formatter={(value) => formatCurrency(Number(value))}
+                        />
+                      }
+                    />
+                    <Bar dataKey="margen" name="margen">
                       {marginProductsChartData.map((row) => (
-                        <Cell key={row.name} fill={row.margen >= 0 ? '#16a34a' : '#dc2626'} />
+                        <Cell
+                          key={row.name}
+                          fill={row.margen >= 0 ? 'var(--color-margenPositivo)' : 'var(--color-margenNegativo)'}
+                        />
                       ))}
                     </Bar>
                   </BarChart>
-                </ResponsiveContainer>
+                </ChartContainer>
               )}
             </div>
           </article>
 
-          <article className="rounded-lg border bg-white p-4">
-            <h2 className="text-sm font-semibold text-gray-900">Distribución de estado de stock</h2>
+          <article className="rounded-lg border bg-card p-4">
+            <h2 className="text-sm font-semibold text-foreground">Distribución de estado de stock</h2>
             <div className="mt-3 h-72">
               {loading ? (
-                <div className="flex h-full items-center justify-center text-sm text-gray-400">Cargando...</div>
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
               ) : (
-                <ResponsiveContainer width="100%" height="100%">
+                <ChartContainer config={stockDistributionChartConfig} className="h-full w-full">
                   <PieChart>
                     <Pie data={stockDistributionData} dataKey="value" nameKey="name" innerRadius={70} outerRadius={100} paddingAngle={2}>
                       {stockDistributionData.map((entry, index) => (
-                        <Cell key={`${entry.name}-${index}`} fill={pieColors[index % pieColors.length]} />
+                        <Cell key={`${entry.name}-${index}`} fill={entry.fill} />
                       ))}
                     </Pie>
-                    <Tooltip />
+                    <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
+                    <ChartLegend content={<ChartLegendContent />} />
                   </PieChart>
-                </ResponsiveContainer>
+                </ChartContainer>
               )}
             </div>
           </article>
 
-          <article className="rounded-lg border bg-white p-4 xl:col-span-2">
-            <h2 className="text-sm font-semibold text-gray-900">Top 5 productos más rentables y menos rentables</h2>
+          <article className="rounded-lg border bg-card p-4 xl:col-span-2">
+            <h2 className="text-sm font-semibold text-foreground">Top 5 productos más rentables y menos rentables</h2>
             <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-emerald-800">Ganadores</p>
@@ -423,21 +590,23 @@ export default function AnaliticaPage() {
             </div>
           </article>
 
-          <article className="rounded-lg border bg-white p-4 xl:col-span-2">
-            <h2 className="text-sm font-semibold text-gray-900">Valor de stock por categoría</h2>
+          <article className="rounded-lg border bg-card p-4 xl:col-span-2">
+            <h2 className="text-sm font-semibold text-foreground">Valor de stock por categoría</h2>
             <div className="mt-3 h-72">
               {loading ? (
-                <div className="flex h-full items-center justify-center text-sm text-gray-400">Cargando...</div>
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
               ) : (
-                <ResponsiveContainer width="100%" height="100%">
+                <ChartContainer config={categoryStockChartConfig} className="h-full w-full">
                   <BarChart data={categoryStockData} margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="category" tick={{ fontSize: 11 }} interval={0} angle={-15} textAnchor="end" height={64} />
                     <YAxis />
-                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                    <Bar dataKey="value" fill="#0f766e" radius={[4, 4, 0, 0]} name="Valor" />
+                    <ChartTooltip
+                      content={<ChartTooltipContent formatter={(value) => formatCurrency(Number(value))} />}
+                    />
+                    <Bar dataKey="value" fill="var(--color-value)" radius={[4, 4, 0, 0]} name="value" />
                   </BarChart>
-                </ResponsiveContainer>
+                </ChartContainer>
               )}
             </div>
           </article>
@@ -451,7 +620,7 @@ export default function AnaliticaPage() {
             <TabsTrigger value="bundles">Bundles</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="inventario" className="rounded-lg border bg-white p-0">
+          <TabsContent value="inventario" className="rounded-lg border bg-card p-0">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -465,10 +634,10 @@ export default function AnaliticaPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={6} className="py-8 text-center text-gray-400">Cargando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
                 ) : inventario.map((row) => (
                   <TableRow key={row.productId}>
-                    <TableCell>{row.productName} <span className="text-xs text-gray-500">({row.sku})</span></TableCell>
+                    <TableCell>{row.productName} <span className="text-xs text-muted-foreground">({row.sku})</span></TableCell>
                     <TableCell>{row.categoryName}</TableCell>
                     <TableCell>{row.currentQuantity}</TableCell>
                     <TableCell>{row.minimumStockLevel}</TableCell>
@@ -480,7 +649,7 @@ export default function AnaliticaPage() {
             </Table>
           </TabsContent>
 
-          <TabsContent value="velocidad" className="rounded-lg border bg-white p-0">
+          <TabsContent value="velocidad" className="rounded-lg border bg-card p-0">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -493,11 +662,11 @@ export default function AnaliticaPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={5} className="py-8 text-center text-gray-400">Cargando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
                 ) : velocidad.map((row, index) => (
                   <TableRow key={`${row.productId}-${row.movementDate}-${index}`}>
                     <TableCell>{new Date(row.movementDate).toLocaleDateString('es-ES')}</TableCell>
-                    <TableCell>{row.productName} <span className="text-xs text-gray-500">({row.sku})</span></TableCell>
+                    <TableCell>{row.productName} <span className="text-xs text-muted-foreground">({row.sku})</span></TableCell>
                     <TableCell>{row.categoryName}</TableCell>
                     <TableCell>{row.unitsSold}</TableCell>
                     <TableCell>{formatCurrency(row.revenue)}</TableCell>
@@ -507,7 +676,7 @@ export default function AnaliticaPage() {
             </Table>
           </TabsContent>
 
-          <TabsContent value="precios" className="rounded-lg border bg-white p-0">
+          <TabsContent value="precios" className="rounded-lg border bg-card p-0">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -521,11 +690,11 @@ export default function AnaliticaPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={6} className="py-8 text-center text-gray-400">Cargando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
                 ) : precios.map((row) => (
                   <TableRow key={row.historyId}>
                     <TableCell>{new Date(row.changedAt).toLocaleString('es-ES')}</TableCell>
-                    <TableCell>{row.productName} <span className="text-xs text-gray-500">({row.sku})</span></TableCell>
+                    <TableCell>{row.productName} <span className="text-xs text-muted-foreground">({row.sku})</span></TableCell>
                     <TableCell>{formatCurrency(row.oldPrice)}</TableCell>
                     <TableCell>{formatCurrency(row.newPrice)}</TableCell>
                     <TableCell>{formatCurrency(row.priceDelta)}</TableCell>
@@ -536,7 +705,7 @@ export default function AnaliticaPage() {
             </Table>
           </TabsContent>
 
-          <TabsContent value="bundles" className="rounded-lg border bg-white p-0">
+          <TabsContent value="bundles" className="rounded-lg border bg-card p-0">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -548,11 +717,11 @@ export default function AnaliticaPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={4} className="py-8 text-center text-gray-400">Cargando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
                 ) : bundles.map((row) => (
                   <TableRow key={`${row.productAId}-${row.productBId}`}>
-                    <TableCell>{row.productAName} <span className="text-xs text-gray-500">({row.productASku})</span></TableCell>
-                    <TableCell>{row.productBName} <span className="text-xs text-gray-500">({row.productBSku})</span></TableCell>
+                    <TableCell>{row.productAName} <span className="text-xs text-muted-foreground">({row.productASku})</span></TableCell>
+                    <TableCell>{row.productBName} <span className="text-xs text-muted-foreground">({row.productBSku})</span></TableCell>
                     <TableCell>{row.coOccurrenceCount}</TableCell>
                     <TableCell>{formatCurrency(row.combinedPrice)}</TableCell>
                   </TableRow>

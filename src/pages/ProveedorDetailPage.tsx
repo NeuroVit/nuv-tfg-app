@@ -35,7 +35,7 @@ export default function ProveedorDetailPage() {
   if (loading) {
     return (
       <div className="p-4 sm:p-6 lg:p-8">
-        <div className="mx-auto max-w-7xl text-sm text-gray-500">Cargando detalle del proveedor...</div>
+        <div className="mx-auto max-w-7xl text-sm text-muted-foreground">Cargando detalle del proveedor...</div>
       </div>
     )
   }
@@ -44,7 +44,7 @@ export default function ProveedorDetailPage() {
     return (
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="mx-auto max-w-7xl space-y-4">
-          <p className="text-sm text-gray-500">No se encontró el proveedor solicitado.</p>
+          <p className="text-sm text-muted-foreground">No se encontró el proveedor solicitado.</p>
           <Button variant="outline" onClick={() => navigate('/proveedores')}>Volver</Button>
         </div>
       </div>
@@ -56,8 +56,8 @@ export default function ProveedorDetailPage() {
       <div className="mx-auto max-w-7xl space-y-6">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{detalle.proveedor.nombre}</h1>
-            <p className="mt-1 text-sm text-gray-500">{detalle.proveedor.ubicacionAlmacen} · Lead time: {detalle.proveedor.diasEntrega} días</p>
+            <h1 className="text-2xl font-bold text-foreground">{detalle.proveedor.nombre}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{detalle.proveedor.ubicacionAlmacen} · Lead time: {detalle.proveedor.diasEntrega} días</p>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => navigate(`/pedidos?providerId=${detalle.proveedor.id}`)}>Ver pedidos</Button>
@@ -66,32 +66,32 @@ export default function ProveedorDetailPage() {
         </div>
 
         <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-sm text-gray-500">Total pedidos</p>
-            <p className="mt-2 text-2xl font-semibold text-gray-900">{detalle.kpis.totalPedidos}</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-sm text-muted-foreground">Total pedidos</p>
+            <p className="mt-2 text-2xl font-semibold text-foreground">{detalle.kpis.totalPedidos}</p>
           </article>
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-sm text-gray-500">Pedidos activos</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-sm text-muted-foreground">Pedidos activos</p>
             <p className="mt-2 text-2xl font-semibold text-amber-600">{detalle.kpis.pedidosActivos}</p>
           </article>
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-sm text-gray-500">Pedidos recibidos</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-sm text-muted-foreground">Pedidos recibidos</p>
             <p className="mt-2 text-2xl font-semibold text-green-700">{detalle.kpis.pedidosRecibidos}</p>
           </article>
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-sm text-gray-500">Fill rate</p>
-            <p className="mt-2 text-2xl font-semibold text-gray-900">{pct(detalle.kpis.fillRate)}</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-sm text-muted-foreground">Fill rate</p>
+            <p className="mt-2 text-2xl font-semibold text-foreground">{pct(detalle.kpis.fillRate)}</p>
           </article>
-          <article className="rounded-lg border bg-white p-4">
-            <p className="text-sm text-gray-500">On-time rate</p>
-            <p className="mt-2 text-2xl font-semibold text-gray-900">{pct(detalle.kpis.onTimeRate)}</p>
+          <article className="rounded-lg border bg-card p-4">
+            <p className="text-sm text-muted-foreground">On-time rate</p>
+            <p className="mt-2 text-2xl font-semibold text-foreground">{pct(detalle.kpis.onTimeRate)}</p>
           </article>
         </section>
 
         <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <div className="rounded-lg border bg-white">
+          <div className="rounded-lg border bg-card">
             <div className="border-b px-4 py-3">
-              <h2 className="text-base font-semibold text-gray-900">Productos del proveedor</h2>
+              <h2 className="text-base font-semibold text-foreground">Productos del proveedor</h2>
             </div>
             <Table>
               <TableHeader>
@@ -105,7 +105,7 @@ export default function ProveedorDetailPage() {
               <TableBody>
                 {detalle.productos.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="py-6 text-center text-gray-400">No hay productos asociados.</TableCell>
+                    <TableCell colSpan={4} className="py-6 text-center text-muted-foreground">No hay productos asociados.</TableCell>
                   </TableRow>
                 ) : (
                   detalle.productos.map((product) => (
@@ -121,9 +121,9 @@ export default function ProveedorDetailPage() {
             </Table>
           </div>
 
-          <div className="rounded-lg border bg-white">
+          <div className="rounded-lg border bg-card">
             <div className="border-b px-4 py-3">
-              <h2 className="text-base font-semibold text-gray-900">Pedidos recientes</h2>
+              <h2 className="text-base font-semibold text-foreground">Pedidos recientes</h2>
             </div>
             <Table>
               <TableHeader>
@@ -138,7 +138,7 @@ export default function ProveedorDetailPage() {
               <TableBody>
                 {detalle.pedidosRecientes.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-6 text-center text-gray-400">No hay pedidos recientes.</TableCell>
+                    <TableCell colSpan={5} className="py-6 text-center text-muted-foreground">No hay pedidos recientes.</TableCell>
                   </TableRow>
                 ) : (
                   detalle.pedidosRecientes.map((order) => (

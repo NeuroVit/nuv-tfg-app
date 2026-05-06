@@ -123,7 +123,7 @@ export default function MovimientosPage() {
   }, [productId, tipo, razon, desde, hasta])
 
   const reasons = useMemo(
-    () => ['SALE', 'PURCHASE', 'ADJUSTMENT', 'RETURN', 'DAMAGE', 'INITIAL'],
+    () => ['SALE', 'PURCHASE', 'RETURN', 'DAMAGE'],
     []
   )
 
@@ -183,13 +183,13 @@ export default function MovimientosPage() {
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Movimientos</h1>
-          <p className="mt-1 text-sm text-gray-500">Historico completo de entradas y salidas de stock.</p>
+          <h1 className="text-2xl font-bold text-foreground">Movimientos</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Historico completo de entradas y salidas de stock.</p>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 rounded-lg border bg-white p-4 md:grid-cols-2 xl:grid-cols-12">
+        <div className="grid grid-cols-1 gap-4 rounded-lg border bg-card p-4 md:grid-cols-2 xl:grid-cols-12">
           <div className="min-w-0 space-y-1 xl:col-span-3">
-            <p className="text-xs font-medium text-gray-600">Producto</p>
+            <p className="text-xs font-medium text-muted-foreground">Producto</p>
             <Select value={productId} onValueChange={setProductId}>
               <SelectTrigger className="w-full min-w-0">
                 <SelectValue placeholder="Selecciona producto" />
@@ -206,7 +206,7 @@ export default function MovimientosPage() {
           </div>
 
           <div className="min-w-0 space-y-1 xl:col-span-1">
-            <p className="text-xs font-medium text-gray-600 whitespace-nowrap">Tipo</p>
+            <p className="text-xs font-medium text-muted-foreground whitespace-nowrap">Tipo</p>
             <Select value={tipo} onValueChange={(value) => setTipo(value as 'all' | 'ENTRADA' | 'SALIDA')}>
               <SelectTrigger className="w-full min-w-0">
                 <SelectValue placeholder="Selecciona tipo" />
@@ -220,7 +220,7 @@ export default function MovimientosPage() {
           </div>
 
           <div className="min-w-0 space-y-1 xl:col-span-2">
-            <p className="text-xs font-medium text-gray-600 whitespace-nowrap">Razon</p>
+            <p className="text-xs font-medium text-muted-foreground whitespace-nowrap">Razon</p>
             <Select value={razon} onValueChange={setRazon}>
               <SelectTrigger className="w-full min-w-0">
                 <SelectValue placeholder="Selecciona razon" />
@@ -237,7 +237,7 @@ export default function MovimientosPage() {
           </div>
 
           <div className="min-w-0 space-y-1 xl:col-span-2">
-            <p className="text-xs font-medium text-gray-600">Desde (fecha)</p>
+            <p className="text-xs font-medium text-muted-foreground">Desde (fecha)</p>
             <Input
               type="date"
               min={MIN_DATE}
@@ -247,7 +247,7 @@ export default function MovimientosPage() {
             />
           </div>
           <div className="min-w-0 space-y-1 xl:col-span-2">
-            <p className="text-xs font-medium text-gray-600">Hasta (fecha)</p>
+            <p className="text-xs font-medium text-muted-foreground">Hasta (fecha)</p>
             <Input
               type="date"
               min={MIN_DATE}
@@ -257,23 +257,25 @@ export default function MovimientosPage() {
             />
           </div>
           <div className="min-w-0 space-y-1 xl:col-span-2">
-            <p className="text-xs font-medium text-gray-600">Acciones</p>
+            <p className="text-xs font-medium text-muted-foreground">Acciones</p>
             <Button className="w-full" variant="outline" onClick={resetFilters}>Limpiar filtros</Button>
           </div>
         </div>
 
-        {activeFilterChips.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {activeFilterChips.map((chip) => (
-              <Button key={chip.key} type="button" size="xs" variant="secondary" onClick={chip.onClear}>
-                {chip.label}
-                <X />
-              </Button>
-            ))}
-          </div>
-        )}
+        <div className="min-h-8">
+          {activeFilterChips.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {activeFilterChips.map((chip) => (
+                <Button key={chip.key} type="button" size="xs" variant="secondary" onClick={chip.onClear}>
+                  {chip.label}
+                  <X />
+                </Button>
+              ))}
+            </div>
+          )}
+        </div>
 
-        <div className="rounded-lg border bg-white">
+        <div className="rounded-lg border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
@@ -289,11 +291,11 @@ export default function MovimientosPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-gray-400">Cargando movimientos...</TableCell>
+                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Cargando movimientos...</TableCell>
                 </TableRow>
               ) : movimientos.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-gray-400">
+                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
                     {hasActiveFilters ? 'No hay movimientos para los filtros seleccionados.' : 'Aun no hay movimientos registrados.'}
                   </TableCell>
                 </TableRow>
@@ -319,7 +321,7 @@ export default function MovimientosPage() {
         </div>
 
         <div className="flex items-center justify-between">
-          <p className="text-sm text-gray-500">Pagina {currentPage} de {totalPages} · {total} registros</p>
+          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} · {total} registros</p>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"

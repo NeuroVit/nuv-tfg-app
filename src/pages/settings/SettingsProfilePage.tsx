@@ -71,7 +71,7 @@ export default function SettingsProfilePage() {
   if (loading) {
     return (
       <div className="p-4 sm:p-6 lg:p-8">
-        <div className="mx-auto max-w-3xl text-sm text-gray-500">Cargando perfil...</div>
+        <div className="mx-auto max-w-3xl text-sm text-muted-foreground">Cargando perfil...</div>
       </div>
     )
   }
@@ -80,11 +80,11 @@ export default function SettingsProfilePage() {
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-3xl space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
-          <p className="mt-1 text-sm text-gray-500">Gestiona tu información de cuenta.</p>
+          <h1 className="text-2xl font-bold text-foreground">Profile</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Gestiona tu información de cuenta.</p>
         </div>
 
-        <div className="rounded-lg border bg-white p-4 shadow-sm sm:p-6 space-y-5">
+        <div className="rounded-lg border bg-card p-4 shadow-sm sm:p-6 space-y-5">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="profile-username">Usuario</Label>
