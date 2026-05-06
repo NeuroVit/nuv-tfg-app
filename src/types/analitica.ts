@@ -110,3 +110,10 @@ export interface RentabilidadProductoRow {
   margen: number
   margenPct: number
 }
+
+export interface AnaliticaMeta {
+  source: string
+  seedEnabled: boolean
+  generatedAt: string
+  windowDays: number
+}

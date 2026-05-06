@@ -1,5 +1,6 @@
 import client from './client'
 import type {
+  AnaliticaMeta,
   BundleCandidateRow,
   FinanzasResumen,
   InventorySummaryRow,
@@ -18,7 +19,7 @@ export const getInventarioAnalitica = async (): Promise<InventorySummaryRow[]> =
 }
 
 export const getVelocidadAnalitica = async (limit = 120, days = 30): Promise<SalesVelocityRow[]> => {
-  const params = days > 0 ? { limit, days } : { limit }
+  const params = { limit, days }
   const { data } = await client.get<SalesVelocityRow[]>('/analitica/velocidad', { params })
   return data
 }
@@ -36,7 +37,7 @@ export const getBundleCandidatosAnalitica = async (limit = 120): Promise<BundleC
 }
 
 export const getVelocidadResumenAnalitica = async (days = 30): Promise<VelocitySummaryRow[]> => {
-  const params = days > 0 ? { days } : {}
+  const params = { days }
   const { data } = await client.get<VelocitySummaryRow[]>('/analitica/velocidad-resumen', {
     params,
   })
@@ -47,7 +48,7 @@ export const getTopProductosVelocidadAnalitica = async (
   days = 30,
   limit = 10,
 ): Promise<TopProductVelocityRow[]> => {
-  const params = days > 0 ? { days, limit } : { limit }
+  const params = { days, limit }
   const { data } = await client.get<TopProductVelocityRow[]>('/analitica/top-productos-velocidad', {
     params,
   })
@@ -65,7 +66,7 @@ export const getStockPorCategoriaAnalitica = async (): Promise<StockByCategoryRo
 }
 
 export const getFinanzasResumenAnalitica = async (days = 30): Promise<FinanzasResumen> => {
-  const params = days > 0 ? { days } : {}
+  const params = { days }
   const { data } = await client.get<FinanzasResumen>('/analitica/finanzas-resumen', {
     params,
   })
@@ -76,9 +77,15 @@ export const getRentabilidadProductosAnalitica = async (
   days = 30,
   limit = 12,
 ): Promise<RentabilidadProductoRow[]> => {
-  const params = days > 0 ? { days, limit } : { limit }
+  const params = { days, limit }
   const { data } = await client.get<RentabilidadProductoRow[]>('/analitica/rentabilidad-productos', {
     params,
   })
+  return data
+}
+
+export const getMetaAnalitica = async (days = 30): Promise<AnaliticaMeta> => {
+  const params = { days }
+  const { data } = await client.get<AnaliticaMeta>('/analitica/meta', { params })
   return data
 }

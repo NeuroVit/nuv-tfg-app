@@ -5,6 +5,7 @@ import {
   getDistribucionStockAnalitica,
   getFinanzasResumenAnalitica,
   getInventarioAnalitica,
+  getMetaAnalitica,
   getPreciosAnalitica,
   getRentabilidadProductosAnalitica,
   getStockPorCategoriaAnalitica,
@@ -13,6 +14,7 @@ import {
   getVelocidadResumenAnalitica,
 } from '@/api/analitica'
 import type {
+  AnaliticaMeta,
   BundleCandidateRow,
   FinanzasResumen,
   InventorySummaryRow,
@@ -24,9 +26,18 @@ import type {
   TopProductVelocityRow,
   VelocitySummaryRow,
 } from '@/types/analitica'
+import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import {
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from '@/components/ui/chart'
 import {
   Bar,
   BarChart,
@@ -36,8 +47,6 @@ import {
   LineChart,
   Pie,
   PieChart,
-  ResponsiveContainer,
-  Tooltip,
   XAxis,
   YAxis,
 } from 'recharts'
@@ -52,8 +61,6 @@ const statusLabels: Record<string, string> = {
   OVERSTOCK: 'Sobrestock',
 }
 
-const pieColors = ['#ef4444', '#f59e0b', '#22c55e', '#6366f1']
-
 type TimeRangeValue = 'all' | '180' | '90' | '30' | '7' | '1'
 
 const timeRangeOptions: Array<{ value: TimeRangeValue; label: string; days: number }> = [
@@ -65,8 +72,97 @@ const timeRangeOptions: Array<{ value: TimeRangeValue; label: string; days: numb
   { value: '1', label: 'Diario', days: 1 },
 ]
 
+const salesTrendChartConfig = {
+  unitsSold: {
+    label: 'Unidades',
+    color: '#2563eb',
+  },
+  revenue: {
+    label: 'Revenue',
+    color: '#16a34a',
+  },
+} satisfies ChartConfig
+
+const topProductsChartConfig = {
+  unitsSold: {
+    label: 'Unidades',
+    color: '#7c3aed',
+  },
+} satisfies ChartConfig
+
+const marginChartConfig = {
+  margenPositivo: {
+    label: 'Margen positivo',
+    color: '#22c55e',
+  },
+  margenNegativo: {
+    label: 'Margen negativo',
+    color: '#ef4444',
+  },
+  margen: {
+    label: 'Margen',
+    color: '#0ea5e9',
+  },
+} satisfies ChartConfig
+
+const stockDistributionChartConfig = {
+  outOfStock: {
+    label: 'Sin stock',
+    color: '#ef4444',
+  },
+  lowStock: {
+    label: 'Stock bajo',
+    color: '#f59e0b',
+  },
+  okStock: {
+    label: 'OK',
+    color: '#10b981',
+  },
+  overStock: {
+    label: 'Sobrestock',
+    color: '#6366f1',
+  },
+} satisfies ChartConfig
+
+const categoryStockChartConfig = {
+  value: {
+    label: 'Valor stock',
+    color: '#06b6d4',
+  },
+} satisfies ChartConfig
+
+function statusFillKey(status: string) {
+  switch (status) {
+    case 'OUT_OF_STOCK':
+      return 'outOfStock'
+    case 'LOW_STOCK':
+      return 'lowStock'
+    case 'OK':
+      return 'okStock'
+    case 'OVERSTOCK':
+      return 'overStock'
+    default:
+      return 'okStock'
+  }
+}
+
+function sourceLabel(meta: AnaliticaMeta | null) {
+  if (!meta) return 'API real'
+  if (meta.source === 'API_REAL_LOCAL_SEEDED') {
+    return 'API real (seed local activo)'
+  }
+  if (meta.source === 'API_REAL_SEED_PENDING') {
+    return 'API real (seed pendiente)'
+  }
+  return 'API real'
+}
+
 export default function AnaliticaPage() {
   const [loading, setLoading] = useState(true)
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading')
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
+  const [metadata, setMetadata] = useState<AnaliticaMeta | null>(null)
+
   const [inventario, setInventario] = useState<InventorySummaryRow[]>([])
   const [velocidad, setVelocidad] = useState<SalesVelocityRow[]>([])
   const [precios, setPrecios] = useState<PriceTrendRow[]>([])
@@ -87,8 +183,10 @@ export default function AnaliticaPage() {
   useEffect(() => {
     const load = async () => {
       setLoading(true)
+      setLoadState('loading')
+
       try {
-        const [inv, vel, pri, bun, velRes, topVel, dist, byCat, fin, rent] = await Promise.all([
+        const [inv, vel, pri, bun, velRes, topVel, dist, byCat, fin, rent, meta] = await Promise.all([
           getInventarioAnalitica(),
           getVelocidadAnalitica(120, selectedDays),
           getPreciosAnalitica(),
@@ -99,6 +197,7 @@ export default function AnaliticaPage() {
           getStockPorCategoriaAnalitica(),
           getFinanzasResumenAnalitica(selectedDays),
           getRentabilidadProductosAnalitica(selectedDays, 20),
+          getMetaAnalitica(selectedDays),
         ])
 
         setInventario(inv)
@@ -111,7 +210,11 @@ export default function AnaliticaPage() {
         setStockPorCategoria(byCat)
         setFinanzas(fin)
         setRentabilidad(rent)
+        setMetadata(meta)
+        setLastUpdatedAt(new Date())
+        setLoadState('ready')
       } catch {
+        setLoadState('error')
         toast.error('No se pudieron cargar los datos de analítica')
       } finally {
         setLoading(false)
@@ -189,10 +292,14 @@ export default function AnaliticaPage() {
 
   const stockDistributionData = useMemo(
     () =>
-      distribucionStock.map((row) => ({
-        name: statusLabels[row.stockStatus] ?? row.stockStatus,
-        value: row.products,
-      })),
+      distribucionStock.map((row) => {
+        const fillKey = statusFillKey(row.stockStatus)
+        return {
+          name: statusLabels[row.stockStatus] ?? row.stockStatus,
+          value: row.products,
+          fill: `var(--color-${fillKey})`,
+        }
+      }),
     [distribucionStock],
   )
 
@@ -215,6 +322,14 @@ export default function AnaliticaPage() {
     [rentabilidad],
   )
 
+  const rangeLabel =
+    selectedDays <= 0
+      ? 'Todo el tiempo'
+      : `${selectedDays} día${selectedDays === 1 ? '' : 's'}`
+
+  const loadStateLabel =
+    loadState === 'loading' ? 'Cargando' : loadState === 'error' ? 'Error' : 'Actualizado'
+
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -222,6 +337,23 @@ export default function AnaliticaPage() {
           <h1 className="text-2xl font-bold text-foreground">Analítica</h1>
           <p className="mt-1 text-sm text-muted-foreground">Métricas reales de ventas, costes y rentabilidad por producto.</p>
         </div>
+
+        <section className="rounded-lg border bg-white p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={loadState === 'error' ? 'destructive' : 'secondary'}>{sourceLabel(metadata)}</Badge>
+                <Badge variant="outline">Rango: {rangeLabel}</Badge>
+                <Badge variant="outline">Estado: {loadStateLabel}</Badge>
+              </div>
+              <p className="text-xs text-gray-500">
+                Seed local: {metadata?.seedEnabled ? 'Activo' : 'Inactivo'} · Última carga UI:{' '}
+                {lastUpdatedAt ? lastUpdatedAt.toLocaleString('es-ES') : 'Sin datos'} · Último movimiento backend:{' '}
+                {metadata?.generatedAt ? new Date(metadata.generatedAt).toLocaleString('es-ES') : 'Sin datos'}
+              </p>
+            </div>
+          </div>
+        </section>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
           <span className="text-sm text-muted-foreground">Rango temporal</span>
@@ -304,6 +436,14 @@ export default function AnaliticaPage() {
             <p className="text-xs uppercase tracking-wide text-gray-500">GMROI</p>
             <p className="mt-2 text-xl font-semibold text-violet-700">{kpis.gmroi.toFixed(2)}x</p>
           </article>
+          <article className="rounded-lg border bg-white p-4">
+            <p className="text-xs uppercase tracking-wide text-gray-500">Productos low stock</p>
+            <p className="mt-2 text-xl font-semibold text-amber-700">{formatCompact(kpis.lowStockCount)}</p>
+          </article>
+          <article className="rounded-lg border bg-white p-4">
+            <p className="text-xs uppercase tracking-wide text-gray-500">Productos sin stock</p>
+            <p className="mt-2 text-xl font-semibold text-red-700">{formatCompact(kpis.outOfStockCount)}</p>
+          </article>
         </section>
 
         <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -313,17 +453,34 @@ export default function AnaliticaPage() {
               {loading ? (
                 <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
               ) : (
-                <ResponsiveContainer width="100%" height="100%">
+                <ChartContainer config={salesTrendChartConfig} className="h-full w-full">
                   <LineChart data={salesLineData} margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" minTickGap={18} />
                     <YAxis yAxisId="left" />
                     <YAxis yAxisId="right" orientation="right" />
-                    <Tooltip />
-                    <Line yAxisId="left" type="monotone" dataKey="unitsSold" stroke="#2563eb" strokeWidth={2} dot={false} name="Unidades" />
-                    <Line yAxisId="right" type="monotone" dataKey="revenue" stroke="#059669" strokeWidth={2} dot={false} name="Revenue" />
+                    <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
+                    <ChartLegend content={<ChartLegendContent />} />
+                    <Line
+                      yAxisId="left"
+                      type="monotone"
+                      dataKey="unitsSold"
+                      stroke="var(--color-unitsSold)"
+                      strokeWidth={2}
+                      dot={false}
+                      name="unitsSold"
+                    />
+                    <Line
+                      yAxisId="right"
+                      type="monotone"
+                      dataKey="revenue"
+                      stroke="var(--color-revenue)"
+                      strokeWidth={2}
+                      dot={false}
+                      name="revenue"
+                    />
                   </LineChart>
-                </ResponsiveContainer>
+                </ChartContainer>
               )}
             </div>
           </article>
@@ -334,15 +491,15 @@ export default function AnaliticaPage() {
               {loading ? (
                 <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
               ) : (
-                <ResponsiveContainer width="100%" height="100%">
+                <ChartContainer config={topProductsChartConfig} className="h-full w-full">
                   <BarChart data={topProductsChartData} layout="vertical" margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis type="number" />
                     <YAxis type="category" width={140} dataKey="name" tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Bar dataKey="unitsSold" fill="#1d4ed8" name="Unidades" radius={[0, 4, 4, 0]} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="unitsSold" fill="var(--color-unitsSold)" name="unitsSold" radius={[0, 4, 4, 0]} />
                   </BarChart>
-                </ResponsiveContainer>
+                </ChartContainer>
               )}
             </div>
           </article>
@@ -353,19 +510,28 @@ export default function AnaliticaPage() {
               {loading ? (
                 <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
               ) : (
-                <ResponsiveContainer width="100%" height="100%">
+                <ChartContainer config={marginChartConfig} className="h-full w-full">
                   <BarChart data={marginProductsChartData} layout="vertical" margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis type="number" />
                     <YAxis type="category" width={150} dataKey="name" tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                    <Bar dataKey="margen" name="Margen">
+                    <ChartTooltip
+                      content={
+                        <ChartTooltipContent
+                          formatter={(value) => formatCurrency(Number(value))}
+                        />
+                      }
+                    />
+                    <Bar dataKey="margen" name="margen">
                       {marginProductsChartData.map((row) => (
-                        <Cell key={row.name} fill={row.margen >= 0 ? '#16a34a' : '#dc2626'} />
+                        <Cell
+                          key={row.name}
+                          fill={row.margen >= 0 ? 'var(--color-margenPositivo)' : 'var(--color-margenNegativo)'}
+                        />
                       ))}
                     </Bar>
                   </BarChart>
-                </ResponsiveContainer>
+                </ChartContainer>
               )}
             </div>
           </article>
@@ -376,16 +542,17 @@ export default function AnaliticaPage() {
               {loading ? (
                 <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
               ) : (
-                <ResponsiveContainer width="100%" height="100%">
+                <ChartContainer config={stockDistributionChartConfig} className="h-full w-full">
                   <PieChart>
                     <Pie data={stockDistributionData} dataKey="value" nameKey="name" innerRadius={70} outerRadius={100} paddingAngle={2}>
                       {stockDistributionData.map((entry, index) => (
-                        <Cell key={`${entry.name}-${index}`} fill={pieColors[index % pieColors.length]} />
+                        <Cell key={`${entry.name}-${index}`} fill={entry.fill} />
                       ))}
                     </Pie>
-                    <Tooltip />
+                    <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
+                    <ChartLegend content={<ChartLegendContent />} />
                   </PieChart>
-                </ResponsiveContainer>
+                </ChartContainer>
               )}
             </div>
           </article>
@@ -429,15 +596,17 @@ export default function AnaliticaPage() {
               {loading ? (
                 <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
               ) : (
-                <ResponsiveContainer width="100%" height="100%">
+                <ChartContainer config={categoryStockChartConfig} className="h-full w-full">
                   <BarChart data={categoryStockData} margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="category" tick={{ fontSize: 11 }} interval={0} angle={-15} textAnchor="end" height={64} />
                     <YAxis />
-                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                    <Bar dataKey="value" fill="#0f766e" radius={[4, 4, 0, 0]} name="Valor" />
+                    <ChartTooltip
+                      content={<ChartTooltipContent formatter={(value) => formatCurrency(Number(value))} />}
+                    />
+                    <Bar dataKey="value" fill="var(--color-value)" radius={[4, 4, 0, 0]} name="value" />
                   </BarChart>
-                </ResponsiveContainer>
+                </ChartContainer>
               )}
             </div>
           </article>

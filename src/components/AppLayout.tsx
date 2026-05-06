@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { toast } from 'sonner'
+import { getMetaAnalitica } from '@/api/analitica'
 import { getMe, logout as logoutRequest } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
 import type { UserProfile } from '@/types/auth'
+import type { AnaliticaMeta } from '@/types/analitica'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -55,6 +57,7 @@ export default function AppLayout() {
   const location = useLocation()
   const isSettingsRoute = location.pathname.startsWith('/settings')
   const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [analyticsMeta, setAnalyticsMeta] = useState<AnaliticaMeta | null>(null)
 
   const initials = user?.username ? user.username.slice(0, 2).toUpperCase() : 'U'
   const roleLabel = (user?.role ?? 'ROLE_VIEWER').replace('ROLE_', '')
@@ -123,6 +126,40 @@ export default function AppLayout() {
     }
   }, [user?.token])
 
+  useEffect(() => {
+    let isMounted = true
+
+    const loadMeta = async () => {
+      if (!user?.token) {
+        if (isMounted) setAnalyticsMeta(null)
+        return
+      }
+
+      try {
+        const meta = await getMetaAnalitica(30)
+        if (!isMounted) return
+        setAnalyticsMeta(meta)
+      } catch {
+        if (!isMounted) return
+        setAnalyticsMeta(null)
+      }
+    }
+
+    void loadMeta()
+
+    return () => {
+      isMounted = false
+    }
+  }, [user?.token])
+
+  const dataModeLabel = useMemo(() => {
+    if (!analyticsMeta) return null
+    const isMockMode =
+      analyticsMeta.source === 'API_REAL_LOCAL_SEEDED' ||
+      analyticsMeta.source === 'API_REAL_SEED_PENDING'
+    return isMockMode ? 'Mock data mode' : 'API real'
+  }, [analyticsMeta])
+
   const handleLogout = async () => {
     try {
       await logoutRequest()
@@ -167,6 +204,12 @@ export default function AppLayout() {
               </NavLink>
             ))}
           </nav>
+
+          {dataModeLabel ? (
+            <Badge variant={dataModeLabel === 'Mock data mode' ? 'outline' : 'secondary'} className="mr-1">
+              {dataModeLabel}
+            </Badge>
+          ) : null}
 
           <Button
             variant="ghost"
