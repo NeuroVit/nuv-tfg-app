@@ -2,7 +2,7 @@ import { AlertCircle, ArrowDown, ArrowUp, PackageSearch } from 'lucide-react'
 import { useInventarioDashboard } from '@/hooks/useInventarioDashboard'
 
 const formatCurrency = (value: number) =>
-  `€${Math.round(value).toLocaleString('es-ES')}`
+  `€${value.toLocaleString('es-ES', { maximumFractionDigits: 2 })}`
 
 const formatRelativeTime = (dateValue: string) => {
   const date = new Date(dateValue)
