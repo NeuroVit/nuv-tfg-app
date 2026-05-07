@@ -13,6 +13,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
 
 const emptyForm = { nombre: '', email: '', telefono: '', notas: '' }
 
@@ -25,8 +32,10 @@ export default function ClientesPage() {
   const [status, setStatus] = useState<'all' | 'active' | 'archived'>('active')
   const [search, setSearch] = useState('')
 
+  const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Cliente | null>(null)
   const [form, setForm] = useState(emptyForm)
+  const [saving, setSaving] = useState(false)
 
   const loadClients = async () => {
     setLoading(true)
@@ -65,6 +74,7 @@ export default function ClientesPage() {
   const openCreate = () => {
     setEditing(null)
     setForm(emptyForm)
+    setModalOpen(true)
   }
 
   const openEdit = (client: Cliente) => {
@@ -75,6 +85,13 @@ export default function ClientesPage() {
       telefono: client.telefono ?? '',
       notas: client.notas ?? '',
     })
+    setModalOpen(true)
+  }
+
+  const closeModal = () => {
+    setModalOpen(false)
+    setEditing(null)
+    setForm(emptyForm)
   }
 
   const submit = async () => {
@@ -84,6 +101,7 @@ export default function ClientesPage() {
       return
     }
 
+    setSaving(true)
     try {
       const payload = {
         nombre: form.nombre.trim(),
@@ -100,11 +118,12 @@ export default function ClientesPage() {
         toast.success('Cliente creado')
       }
 
-      setEditing(null)
-      setForm(emptyForm)
+      closeModal()
       await loadClients()
     } catch {
       toast.error('No se pudo guardar el cliente')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -131,14 +150,15 @@ export default function ClientesPage() {
           <p className="mt-1 text-sm text-muted-foreground">Gestión de cartera de clientes para ventas.</p>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 rounded-lg border bg-card p-4 md:grid-cols-4">
+        <div className="flex flex-wrap items-center gap-3">
           <Input
             placeholder="Buscar por nombre, email o teléfono"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
+            className="max-w-xs"
           />
-          <Select value={status} onValueChange={(value) => setStatus(value as 'all' | 'active' | 'archived')}>
-            <SelectTrigger>
+          <Select value={status} onValueChange={(v) => setStatus(v as 'all' | 'active' | 'archived')}>
+            <SelectTrigger className="w-36">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -147,68 +167,101 @@ export default function ClientesPage() {
               <SelectItem value="archived">Archivados</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" onClick={openCreate}>Nuevo cliente</Button>
-          <Button variant="outline" onClick={() => void loadClients()}>Recargar</Button>
+          <div className="ml-auto flex gap-2">
+            <Button variant="outline" onClick={() => void loadClients()}>Recargar</Button>
+            {canEdit && <Button onClick={openCreate}>+ Nuevo cliente</Button>}
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-          <div className="xl:col-span-2 rounded-lg border bg-card">
-            <Table>
-              <TableHeader>
+        <div className="rounded-lg border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nombre</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Teléfono</TableHead>
+                <TableHead>Estado</TableHead>
+                {canEdit && <TableHead className="text-right">Acciones</TableHead>}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
                 <TableRow>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Teléfono</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
+                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                    Cargando clientes...
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Cargando clientes...</TableCell></TableRow>
-                ) : filteredClients.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No hay clientes para mostrar.</TableCell></TableRow>
-                ) : (
-                  filteredClients.map((client) => (
-                    <TableRow key={client.id}>
-                      <TableCell className="font-medium">{client.nombre}</TableCell>
-                      <TableCell>{client.email ?? '—'}</TableCell>
-                      <TableCell>{client.telefono ?? '—'}</TableCell>
-                      <TableCell>{client.activo ? 'Activo' : 'Archivado'}</TableCell>
+              ) : filteredClients.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                    No hay clientes para mostrar.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredClients.map((client) => (
+                  <TableRow key={client.id}>
+                    <TableCell className="font-medium">{client.nombre}</TableCell>
+                    <TableCell>{client.email ?? '—'}</TableCell>
+                    <TableCell>{client.telefono ?? '—'}</TableCell>
+                    <TableCell>{client.activo ? 'Activo' : 'Archivado'}</TableCell>
+                    {canEdit && (
                       <TableCell className="text-right">
                         <div className="inline-flex gap-2">
-                          {canEdit && (
-                            <>
-                              <Button variant="outline" size="sm" onClick={() => openEdit(client)}>Editar</Button>
-                              <Button variant="outline" size="sm" onClick={() => void toggleArchive(client)}>
-                                {client.activo ? 'Archivar' : 'Restaurar'}
-                              </Button>
-                            </>
-                          )}
+                          <Button variant="outline" size="sm" onClick={() => openEdit(client)}>
+                            Editar
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => void toggleArchive(client)}>
+                            {client.activo ? 'Archivar' : 'Restaurar'}
+                          </Button>
                         </div>
                       </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-
-          <div className="rounded-lg border bg-card p-4">
-            <h2 className="text-sm font-semibold text-foreground">{editing ? 'Editar cliente' : 'Nuevo cliente'}</h2>
-            <div className="mt-4 space-y-3">
-              <Input placeholder="Nombre" value={form.nombre} onChange={(event) => setForm((prev) => ({ ...prev, nombre: event.target.value }))} />
-              <Input placeholder="Email" value={form.email} onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))} />
-              <Input placeholder="Teléfono" value={form.telefono} onChange={(event) => setForm((prev) => ({ ...prev, telefono: event.target.value }))} />
-              <Input placeholder="Notas" value={form.notas} onChange={(event) => setForm((prev) => ({ ...prev, notas: event.target.value }))} />
-              <div className="flex items-center gap-2">
-                <Button onClick={() => void submit()} disabled={!canEdit}>Guardar</Button>
-                <Button variant="outline" onClick={() => { setEditing(null); setForm(emptyForm) }}>Cancelar</Button>
-              </div>
-            </div>
-          </div>
+                    )}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
       </div>
+
+      <Dialog open={modalOpen} onOpenChange={(open) => { if (!open) closeModal() }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editing ? 'Editar cliente' : 'Nuevo cliente'}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <Input
+              placeholder="Nombre *"
+              value={form.nombre}
+              onChange={(e) => setForm((prev) => ({ ...prev, nombre: e.target.value }))}
+            />
+            <Input
+              placeholder="Email"
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+            />
+            <Input
+              placeholder="Teléfono"
+              value={form.telefono}
+              onChange={(e) => setForm((prev) => ({ ...prev, telefono: e.target.value }))}
+            />
+            <Input
+              placeholder="Notas"
+              value={form.notas}
+              onChange={(e) => setForm((prev) => ({ ...prev, notas: e.target.value }))}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeModal}>Cancelar</Button>
+            <Button onClick={() => void submit()} disabled={saving || !canEdit}>
+              {saving ? 'Guardando...' : 'Guardar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

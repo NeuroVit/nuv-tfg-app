@@ -1,39 +1,27 @@
 import { useEffect, useMemo, useState } from 'react'
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
-import { toast } from 'sonner'
+import { Outlet, useLocation, useNavigate } from 'react-router'
 import { getMetaAnalitica } from '@/api/analitica'
-import { getMe, logout as logoutRequest } from '@/api/auth'
+import { getMe } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
 import type { UserProfile } from '@/types/auth'
 import type { AnaliticaMeta } from '@/types/analitica'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Separator } from '@/components/ui/separator'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { AppSidebar } from '@/components/AppSidebar'
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar'
-import { ChevronsUpDown, LogOut, Moon, Settings, Sun } from 'lucide-react'
-import { useTheme } from 'next-themes'
+import { BarChart3, Package, ReceiptText, Sparkles, UserCircle2 } from 'lucide-react'
 import { useProfileStore } from '@/store/profileStore'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 const toTitleCase = (str: string) =>
   str.toLowerCase().replace(/\b\p{L}/gu, (c) => c.toUpperCase())
 
-type TopTab = {
-  to: string
-  label: string
-}
+type TopTab = { to: string; label: string }
 
 const productosTabs: TopTab[] = [
   { to: '/productos', label: 'Productos' },
@@ -49,31 +37,41 @@ const proveedoresTabs: TopTab[] = [
 const inRouteGroup = (pathname: string, routes: string[]) =>
   routes.some((route) => pathname === route || pathname.startsWith(`${route}/`))
 
+const latestFeatures = [
+  {
+    icon: UserCircle2,
+    title: 'Perfil en el sidebar',
+    description: 'Accede a tu cuenta, modo oscuro y ajustes desde el pie del menú lateral.',
+  },
+  {
+    icon: Sparkles,
+    title: 'Historial de novedades',
+    description: 'Consulta los últimos cambios y mejoras de NeuralStock en cualquier momento.',
+  },
+  {
+    icon: ReceiptText,
+    title: 'Modales de creación',
+    description: 'Nueva venta y nuevo cliente se abren en un modal limpio sin perder el contexto.',
+  },
+]
+
 export default function AppLayout() {
-  const { user, logout: clearSession } = useAuthStore()
+  const { user } = useAuthStore()
   const setDisplayName = useProfileStore((s) => s.setDisplayName)
-  const { theme, setTheme } = useTheme()
   const navigate = useNavigate()
   const location = useLocation()
   const isSettingsRoute = location.pathname.startsWith('/settings')
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [analyticsMeta, setAnalyticsMeta] = useState<AnaliticaMeta | null>(null)
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false)
 
-  const initials = user?.username ? user.username.slice(0, 2).toUpperCase() : 'U'
-  const roleLabel = (user?.role ?? 'ROLE_VIEWER').replace('ROLE_', '')
   const topTabs = useMemo(() => {
     if (isSettingsRoute) return []
-
-    if (inRouteGroup(location.pathname, ['/productos', '/categorias', '/bundles'])) {
-      return productosTabs
-    }
-
-    if (inRouteGroup(location.pathname, ['/proveedores', '/pedidos'])) {
-      return proveedoresTabs
-    }
-
+    if (inRouteGroup(location.pathname, ['/productos', '/categorias', '/bundles'])) return productosTabs
+    if (inRouteGroup(location.pathname, ['/proveedores', '/pedidos'])) return proveedoresTabs
     return []
   }, [isSettingsRoute, location.pathname])
+
   const accountLabel = useMemo(() => {
     const fullName = [profile?.nombre?.trim(), profile?.apellidos?.trim()]
       .filter(Boolean)
@@ -102,13 +100,8 @@ export default function AppLayout() {
 
   useEffect(() => {
     let isMounted = true
-
     const loadProfile = async () => {
-      if (!user?.token) {
-        if (isMounted) setProfile(null)
-        return
-      }
-
+      if (!user?.token) { if (isMounted) setProfile(null); return }
       try {
         const me = await getMe()
         if (!isMounted) return
@@ -118,23 +111,14 @@ export default function AppLayout() {
         setProfile(null)
       }
     }
-
     void loadProfile()
-
-    return () => {
-      isMounted = false
-    }
+    return () => { isMounted = false }
   }, [user?.token])
 
   useEffect(() => {
     let isMounted = true
-
     const loadMeta = async () => {
-      if (!user?.token) {
-        if (isMounted) setAnalyticsMeta(null)
-        return
-      }
-
+      if (!user?.token) { if (isMounted) setAnalyticsMeta(null); return }
       try {
         const meta = await getMetaAnalitica(30)
         if (!isMounted) return
@@ -144,12 +128,8 @@ export default function AppLayout() {
         setAnalyticsMeta(null)
       }
     }
-
     void loadMeta()
-
-    return () => {
-      isMounted = false
-    }
+    return () => { isMounted = false }
   }, [user?.token])
 
   const dataModeLabel = useMemo(() => {
@@ -160,111 +140,128 @@ export default function AppLayout() {
     return isMockMode ? 'Mock data mode' : 'API real'
   }, [analyticsMeta])
 
-  const handleLogout = async () => {
-    try {
-      await logoutRequest()
-      toast.success('Sesión cerrada correctamente.')
-    } catch {
-      // Si falla la llamada remota, igualmente cerramos sesión local.
-      toast.error('No se pudo cerrar sesión en el servidor. Se cerrará localmente.')
-    }
-    clearSession()
-    navigate('/login')
-  }
-
   return (
     <SidebarProvider>
       <AppSidebar isSettingsRoute={isSettingsRoute} />
       <SidebarInset className="min-w-0 overflow-x-hidden">
-        <header className="flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b bg-background px-3 py-2 sm:px-4">
-          <SidebarTrigger className="-ml-1" />
-          {sectionLabel && (
-            <span className="ml-1 text-sm font-medium text-foreground">{sectionLabel}</span>
-          )}
-          {topTabs.length > 0 && (
-            <Separator
-              orientation="vertical"
-              className="mx-2 data-[orientation=vertical]:h-4"
-            />
-          )}
-          <nav className="flex min-w-0 flex-1 flex-wrap items-center gap-1 overflow-hidden">
-            {topTabs.map((tab) => (
-              <NavLink
-                key={tab.to}
-                to={tab.to}
-                className={({ isActive }) =>
-                  `rounded-md px-3 py-1.5 text-sm whitespace-nowrap transition-colors ${
-                    isActive
-                      ? 'bg-accent text-accent-foreground'
-                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                  }`
-                }
-              >
-                {tab.label}
-              </NavLink>
-            ))}
-          </nav>
+        <header className="shrink-0 border-b bg-background">
+          <div className="flex min-h-14 items-center gap-2 px-3 sm:px-4">
+            <SidebarTrigger className="-ml-1" />
+            {topTabs.length > 0 ? (
+              <Tabs value={location.pathname} className="flex-1">
+                <TabsList
+                  variant="line"
+                  className="h-auto w-auto justify-start gap-0 rounded-none bg-transparent"
+                >
+                  {topTabs.map((tab) => (
+                    <TabsTrigger
+                      key={tab.to}
+                      value={tab.to}
+                      onClick={() => navigate(tab.to)}
+                      className="flex-none rounded-none px-3 py-2 text-sm"
+                    >
+                      {tab.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            ) : (
+              <>
+                {sectionLabel && (
+                  <span className="ml-1 text-sm font-medium text-foreground">{sectionLabel}</span>
+                )}
+                <div className="flex-1" />
+              </>
+            )}
 
-          {dataModeLabel ? (
-            <Badge variant={dataModeLabel === 'Mock data mode' ? 'outline' : 'secondary'} className="mr-1">
-              {dataModeLabel}
-            </Badge>
-          ) : null}
+            {dataModeLabel ? (
+              <Badge variant={dataModeLabel === 'Mock data mode' ? 'outline' : 'secondary'} className="mr-1">
+                {dataModeLabel}
+              </Badge>
+            ) : null}
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          >
-            <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-            <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-            <span className="sr-only">Cambiar tema</span>
-          </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                className="h-auto gap-2 px-1.5 py-1 data-[state=open]:bg-accent sm:px-2"
-              >
-                <Avatar className="h-7 w-7 rounded-full">
-                  <AvatarFallback className="rounded-full bg-muted text-muted-foreground text-[10px]">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="hidden text-left text-sm leading-tight sm:grid">
-                  <span className="max-w-44 truncate font-medium">{accountLabel}</span>
-                  <Badge variant="secondary" className="mt-1 w-fit px-1.5 py-0 text-[10px]">
-                    {roleLabel}
-                  </Badge>
-                </div>
-                <ChevronsUpDown className="size-4 text-muted-foreground" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="min-w-56 rounded-lg" align="end" side="bottom" sideOffset={8}>
-              <DropdownMenuItem onSelect={() => navigate('/settings/general')}>
-                <Settings className="h-4 w-4" />
-                Ajustes
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                variant="destructive"
-                onSelect={() => {
-                  void handleLogout()
-                }}
-              >
-                <LogOut className="h-4 w-4" />
-                Cerrar sesión
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+              onClick={() => setWhatsNewOpen(true)}
+            >
+              <Sparkles className="h-4 w-4" />
+              <span className="hidden sm:inline">Novedades</span>
+            </Button>
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto overflow-x-hidden">
           <Outlet />
         </main>
       </SidebarInset>
+
+      {/* What's New modal */}
+      <Dialog open={whatsNewOpen} onOpenChange={setWhatsNewOpen}>
+        <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-md">
+          <DialogTitle className="sr-only">Novedades de NeuralStock</DialogTitle>
+
+          {/* Hero */}
+          <div className="relative overflow-hidden bg-gradient-to-br from-primary/15 via-primary/5 to-background px-8 pb-6 pt-8">
+            {/* Decorative blur */}
+            <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-primary/20 blur-3xl" />
+            <div className="absolute -left-10 bottom-0 h-32 w-32 rounded-full bg-primary/10 blur-2xl" />
+
+            {/* Connected icons */}
+            <div className="relative mb-6 flex items-center justify-center">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl border bg-background shadow-sm">
+                <Package className="h-5 w-5 text-foreground" />
+              </div>
+              <div className="h-px w-14 bg-gradient-to-r from-border to-primary/60" />
+              <div className="flex h-13 w-13 items-center justify-center rounded-xl border-2 border-primary bg-background shadow-lg ring-4 ring-primary/10">
+                <Sparkles className="h-6 w-6 text-primary" />
+              </div>
+              <div className="h-px w-14 bg-gradient-to-r from-primary/60 to-border" />
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+                <BarChart3 className="h-5 w-5" />
+              </div>
+            </div>
+
+            <p className="mb-1.5 text-center text-[11px] font-semibold uppercase tracking-widest text-primary">
+              Nueva actualización · v1.2
+            </p>
+            <h2 className="text-center text-2xl font-bold tracking-tight text-foreground">
+              Tu espacio de trabajo,<br />renovado
+            </h2>
+          </div>
+
+          {/* Feature list */}
+          <div className="space-y-1 px-6 py-5">
+            {latestFeatures.map((feat) => (
+              <div key={feat.title} className="flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/50">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border bg-muted">
+                  <feat.icon className="h-4 w-4 text-foreground" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground">{feat.title}</p>
+                  <p className="text-xs text-muted-foreground">{feat.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between border-t px-6 py-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => setWhatsNewOpen(false)}
+            >
+              Más tarde
+            </Button>
+            <Button size="sm" onClick={() => setWhatsNewOpen(false)}>
+              Entendido →
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   )
 }
