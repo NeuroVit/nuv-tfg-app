@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { getMovimientos } from '@/api/movimiento'
@@ -52,11 +52,6 @@ export default function MovimientosPage() {
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1
   const hasActiveFilters =
     productId !== 'all' || tipo !== 'all' || razon !== 'all' || Boolean(desde) || Boolean(hasta)
-  const invalidDateRange = Boolean(desde && hasta && desde > hasta)
-  const invalidYear = Boolean(
-    (desde && (desde < MIN_DATE || desde > MAX_DATE)) ||
-    (hasta && (hasta < MIN_DATE || hasta > MAX_DATE))
-  )
   const debouncedInvalidDateRange = Boolean(
     debouncedFilters.desde && debouncedFilters.hasta && debouncedFilters.desde > debouncedFilters.hasta
   )
@@ -148,7 +143,7 @@ export default function MovimientosPage() {
     if (razonParam) setRazon(razonParam)
     if (desdeParam) setDesde(desdeParam)
     if (hastaParam) setHasta(hastaParam)
-    // Hidratación inicial desde URL.
+    // Hidratacion inicial desde URL.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -177,15 +172,15 @@ export default function MovimientosPage() {
       <div className="mx-auto max-w-7xl space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Movimientos</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Histórico completo de entradas y salidas de stock.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Historico completo de entradas y salidas de stock.</p>
         </div>
 
-        {invalidDateRange ? (
+        {debouncedInvalidDateRange ? (
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            El rango de fechas no es válido: "Desde" no puede ser mayor que "Hasta".
+            El rango de fechas no es valido: "Desde" no puede ser mayor que "Hasta".
           </div>
         ) : null}
-        {invalidYear ? (
+        {debouncedInvalidYear ? (
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             Las fechas deben estar dentro del rango permitido ({MIN_DATE} a {MAX_DATE}).
           </div>
@@ -224,7 +219,7 @@ export default function MovimientosPage() {
           </div>
 
           <div className="min-w-0 space-y-1 xl:col-span-2">
-            <p className="text-xs font-medium text-muted-foreground whitespace-nowrap">Razón</p>
+            <p className="text-xs font-medium text-muted-foreground whitespace-nowrap">Razon</p>
             <Select value={razon} onValueChange={setRazon}>
               <SelectTrigger className="w-full min-w-0">
                 <SelectValue placeholder="Selecciona razon" />
@@ -267,16 +262,16 @@ export default function MovimientosPage() {
         </div>
 
         <div className="rounded-lg border bg-card">
-          <Table>
+          <Table className="min-w-[980px] table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Producto</TableHead>
-                <TableHead>SKU</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Razón</TableHead>
-                <TableHead>Cantidad</TableHead>
-                <TableHead>Notas</TableHead>
+                <TableHead className="w-[180px]">Fecha</TableHead>
+                <TableHead className="w-[190px]">Producto</TableHead>
+                <TableHead className="w-[110px]">SKU</TableHead>
+                <TableHead className="w-[110px]">Tipo</TableHead>
+                <TableHead className="w-[120px]">Razon</TableHead>
+                <TableHead className="w-[90px] text-right">Cantidad</TableHead>
+                <TableHead className="w-[260px] text-center">Notas</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -287,14 +282,14 @@ export default function MovimientosPage() {
               ) : movimientos.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
-                    {hasActiveFilters ? 'No hay movimientos para los filtros seleccionados.' : 'Aún no hay movimientos registrados.'}
+                    {hasActiveFilters ? 'No hay movimientos para los filtros seleccionados.' : 'Aun no hay movimientos registrados.'}
                   </TableCell>
                 </TableRow>
               ) : (
                 movimientos.map((movimiento) => (
                   <TableRow key={movimiento.id}>
                     <TableCell>{formatDate(movimiento.fecha)}</TableCell>
-                    <TableCell>{movimiento.productoNombre}</TableCell>
+                    <TableCell className="font-medium">{movimiento.productoNombre}</TableCell>
                     <TableCell className="font-mono text-xs">{movimiento.productoSku}</TableCell>
                     <TableCell>
                       <span className={movimiento.tipo === 'ENTRADA' ? 'text-green-700' : 'text-red-700'}>
@@ -302,8 +297,14 @@ export default function MovimientosPage() {
                       </span>
                     </TableCell>
                     <TableCell>{formatReason(movimiento.razon)}</TableCell>
-                    <TableCell>{movimiento.cantidad}</TableCell>
-                    <TableCell>{movimiento.notas ?? '-'}</TableCell>
+                    <TableCell className="text-right">{movimiento.cantidad}</TableCell>
+                    <TableCell className="max-w-[260px] text-center">
+                      <p className="truncate text-foreground" title={movimiento.notas ?? '-'}>
+                        {(movimiento.notas ?? '-').length > 20
+                          ? `${(movimiento.notas ?? '-').slice(0, 20)}...`
+                          : (movimiento.notas ?? '-')}
+                      </p>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -312,9 +313,7 @@ export default function MovimientosPage() {
         </div>
 
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Página {currentPage} de {totalPages} · {total} registros · mostrando {movimientos.length}
-          </p>
+          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} | {total} registros</p>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
