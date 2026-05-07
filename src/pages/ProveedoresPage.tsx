@@ -37,6 +37,7 @@ const emptyProviderForm: ProviderFormState = {
   ubicacionAlmacen: '',
   diasEntrega: '0',
 }
+const PAGE_SIZE = 20
 
 const parseApiError = (error: unknown, fallback: string): string => {
   if (!isAxiosError(error)) return fallback
@@ -63,6 +64,7 @@ export default function ProveedoresPage() {
 
   const [providerSearch, setProviderSearch] = useState('')
   const [providerStatusFilter, setProviderStatusFilter] = useState<'all' | 'active' | 'archived'>('active')
+  const [offset, setOffset] = useState(0)
 
   const [providerDialogOpen, setProviderDialogOpen] = useState(false)
   const [providerDialogMode, setProviderDialogMode] = useState<'create' | 'edit'>('create')
@@ -102,6 +104,24 @@ export default function ProveedoresPage() {
       return statusOk && textOk
     })
   }, [providers, providerSearch, providerStatusFilter])
+
+  const total = filteredProviders.length
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const currentPage = Math.floor(offset / PAGE_SIZE) + 1
+  const paginatedProviders = useMemo(
+    () => filteredProviders.slice(offset, offset + PAGE_SIZE),
+    [filteredProviders, offset]
+  )
+
+  useEffect(() => {
+    setOffset(0)
+  }, [providerSearch, providerStatusFilter])
+
+  useEffect(() => {
+    if (offset >= total && total > 0) {
+      setOffset(Math.max(0, (Math.ceil(total / PAGE_SIZE) - 1) * PAGE_SIZE))
+    }
+  }, [offset, total])
 
   const openCreateProvider = () => {
     setProviderDialogMode('create')
@@ -235,14 +255,14 @@ export default function ProveedoresPage() {
                     Cargando proveedores...
                   </TableCell>
                 </TableRow>
-              ) : filteredProviders.length === 0 ? (
+              ) : paginatedProviders.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                     No hay proveedores para mostrar.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredProviders.map((provider) => (
+                paginatedProviders.map((provider) => (
                   <TableRow
                     key={provider.id}
                     className={`cursor-pointer hover:bg-accent ${selectedProviderId === provider.id ? 'bg-muted' : ''}`}
@@ -307,6 +327,26 @@ export default function ProveedoresPage() {
             </TableBody>
           </Table>
         </div>
+
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} · {total} registros</p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setOffset((prev) => Math.max(0, prev - PAGE_SIZE))}
+              disabled={offset === 0}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setOffset((prev) => (prev + PAGE_SIZE >= total ? prev : prev + PAGE_SIZE))}
+              disabled={offset + PAGE_SIZE >= total}
+            >
+              Siguiente
+            </Button>
+          </div>
+        </div>
       </div>
 
       <Dialog open={providerDialogOpen} onOpenChange={setProviderDialogOpen}>
@@ -360,3 +400,4 @@ export default function ProveedoresPage() {
     </div>
   )
 }
+

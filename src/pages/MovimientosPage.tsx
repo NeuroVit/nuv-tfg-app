@@ -50,11 +50,6 @@ export default function MovimientosPage() {
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1
   const hasActiveFilters =
     productId !== 'all' || tipo !== 'all' || razon !== 'all' || Boolean(desde) || Boolean(hasta)
-  const invalidDateRange = Boolean(desde && hasta && desde > hasta)
-  const invalidYear = Boolean(
-    (desde && (desde < MIN_DATE || desde > MAX_DATE)) ||
-    (hasta && (hasta < MIN_DATE || hasta > MAX_DATE))
-  )
   const debouncedInvalidDateRange = Boolean(
     debouncedFilters.desde && debouncedFilters.hasta && debouncedFilters.desde > debouncedFilters.hasta
   )
@@ -219,16 +214,16 @@ export default function MovimientosPage() {
         </div>
 
         <div className="rounded-lg border bg-card">
-          <Table>
+          <Table className="min-w-[980px] table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Producto</TableHead>
-                <TableHead>SKU</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Razon</TableHead>
-                <TableHead>Cantidad</TableHead>
-                <TableHead>Notas</TableHead>
+                <TableHead className="w-[180px]">Fecha</TableHead>
+                <TableHead className="w-[190px]">Producto</TableHead>
+                <TableHead className="w-[110px]">SKU</TableHead>
+                <TableHead className="w-[110px]">Tipo</TableHead>
+                <TableHead className="w-[120px]">Razon</TableHead>
+                <TableHead className="w-[90px] text-right">Cantidad</TableHead>
+                <TableHead className="w-[260px] text-center">Notas</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -246,7 +241,7 @@ export default function MovimientosPage() {
                 movimientos.map((movimiento) => (
                   <TableRow key={movimiento.id}>
                     <TableCell>{formatDate(movimiento.fecha)}</TableCell>
-                    <TableCell>{movimiento.productoNombre}</TableCell>
+                    <TableCell className="font-medium">{movimiento.productoNombre}</TableCell>
                     <TableCell className="font-mono text-xs">{movimiento.productoSku}</TableCell>
                     <TableCell>
                       <span className={movimiento.tipo === 'ENTRADA' ? 'text-green-700' : 'text-red-700'}>
@@ -254,8 +249,14 @@ export default function MovimientosPage() {
                       </span>
                     </TableCell>
                     <TableCell>{formatReason(movimiento.razon)}</TableCell>
-                    <TableCell>{movimiento.cantidad}</TableCell>
-                    <TableCell>{movimiento.notas ?? '-'}</TableCell>
+                    <TableCell className="text-right">{movimiento.cantidad}</TableCell>
+                    <TableCell className="max-w-[260px] text-center">
+                      <p className="truncate text-foreground" title={movimiento.notas ?? '-'}>
+                        {(movimiento.notas ?? '-').length > 20
+                          ? `${(movimiento.notas ?? '-').slice(0, 20)}...`
+                          : (movimiento.notas ?? '-')}
+                      </p>
+                    </TableCell>
                   </TableRow>
                 ))
               )}

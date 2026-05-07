@@ -21,6 +21,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 
+const PAGE_SIZE = 20
 const emptyForm = { nombre: '', email: '', telefono: '', notas: '' }
 
 export default function ClientesPage() {
@@ -31,6 +32,7 @@ export default function ClientesPage() {
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState<'all' | 'active' | 'archived'>('active')
   const [search, setSearch] = useState('')
+  const [offset, setOffset] = useState(0)
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Cliente | null>(null)
@@ -70,6 +72,24 @@ export default function ClientesPage() {
       return statusOk && textOk
     })
   }, [clients, search, status])
+
+  const total = filteredClients.length
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const currentPage = Math.floor(offset / PAGE_SIZE) + 1
+  const paginatedClients = useMemo(
+    () => filteredClients.slice(offset, offset + PAGE_SIZE),
+    [filteredClients, offset]
+  )
+
+  useEffect(() => {
+    setOffset(0)
+  }, [search, status])
+
+  useEffect(() => {
+    if (offset >= total && total > 0) {
+      setOffset(Math.max(0, (Math.ceil(total / PAGE_SIZE) - 1) * PAGE_SIZE))
+    }
+  }, [offset, total])
 
   const openCreate = () => {
     setEditing(null)
@@ -147,12 +167,12 @@ export default function ClientesPage() {
       <div className="mx-auto max-w-7xl space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Clientes</h1>
-          <p className="mt-1 text-sm text-muted-foreground">GestiÃ³n de cartera de clientes para ventas.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Gestión de cartera de clientes para ventas.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
           <Input
-            placeholder="Buscar por nombre, email o telÃ©fono"
+            placeholder="Buscar por nombre, email o teléfono"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="max-w-xs"
@@ -179,7 +199,7 @@ export default function ClientesPage() {
               <TableRow>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>TelÃ©fono</TableHead>
+                <TableHead>Teléfono</TableHead>
                 <TableHead>Estado</TableHead>
                 {canEdit && <TableHead className="text-right">Acciones</TableHead>}
               </TableRow>
@@ -187,22 +207,22 @@ export default function ClientesPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={canEdit ? 5 : 4} className="py-8 text-center text-muted-foreground">
                     Cargando clientes...
                   </TableCell>
                 </TableRow>
-              ) : filteredClients.length === 0 ? (
+              ) : paginatedClients.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={canEdit ? 5 : 4} className="py-8 text-center text-muted-foreground">
                     No hay clientes para mostrar.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredClients.map((client) => (
+                paginatedClients.map((client) => (
                   <TableRow key={client.id}>
                     <TableCell className="font-medium">{client.nombre}</TableCell>
-                    <TableCell>{client.email ?? 'â€”'}</TableCell>
-                    <TableCell>{client.telefono ?? 'â€”'}</TableCell>
+                    <TableCell>{client.email ?? '—'}</TableCell>
+                    <TableCell>{client.telefono ?? '—'}</TableCell>
                     <TableCell>{client.activo ? 'Activo' : 'Archivado'}</TableCell>
                     {canEdit && (
                       <TableCell className="text-right">
@@ -221,6 +241,26 @@ export default function ClientesPage() {
               )}
             </TableBody>
           </Table>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} | {total} registros</p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setOffset((prev) => Math.max(0, prev - PAGE_SIZE))}
+              disabled={offset === 0}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setOffset((prev) => (prev + PAGE_SIZE >= total ? prev : prev + PAGE_SIZE))}
+              disabled={offset + PAGE_SIZE >= total}
+            >
+              Siguiente
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -243,7 +283,7 @@ export default function ClientesPage() {
               onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
             />
             <Input
-              placeholder="TelÃ©fono"
+              placeholder="Teléfono"
               value={form.telefono}
               onChange={(e) => setForm((prev) => ({ ...prev, telefono: e.target.value }))}
             />
@@ -265,3 +305,4 @@ export default function ClientesPage() {
     </div>
   )
 }
+
