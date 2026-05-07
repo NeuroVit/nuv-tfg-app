@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { isAxiosError } from 'axios'
 import { useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { Archive, MoreHorizontal, Plus, RotateCcw, Truck } from 'lucide-react'
@@ -25,6 +24,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { parseApiError } from '@/lib/apiError'
 
 type ProviderFormState = {
   nombre: string
@@ -36,18 +36,6 @@ const emptyProviderForm: ProviderFormState = {
   nombre: '',
   ubicacionAlmacen: '',
   diasEntrega: '0',
-}
-
-const parseApiError = (error: unknown, fallback: string): string => {
-  if (!isAxiosError(error)) return fallback
-  const payload = error.response?.data
-  if (typeof payload === 'string') return payload
-  if (payload && typeof payload === 'object') {
-    const data = payload as { message?: string; error?: string }
-    if (data.message) return data.message
-    if (data.error) return data.error
-  }
-  return fallback
 }
 
 export default function ProveedoresPage() {
@@ -183,7 +171,7 @@ export default function ProveedoresPage() {
       <div className="mx-auto max-w-7xl space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Proveedores</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Selecciona un proveedor para ver sus pedidos en la pestaña superior "Pedidos".</p>
+          <p className="mt-1 text-sm text-muted-foreground">Haz clic en una fila para abrir el detalle del proveedor o usa acciones para ver pedidos.</p>
         </div>
 
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -246,7 +234,7 @@ export default function ProveedoresPage() {
                   <TableRow
                     key={provider.id}
                     className={`cursor-pointer hover:bg-accent ${selectedProviderId === provider.id ? 'bg-muted' : ''}`}
-                    onClick={() => goToPedidosForProvider(provider)}
+                    onClick={() => goToProviderDetail(provider)}
                   >
                     <TableCell className="font-medium">{provider.nombre}</TableCell>
                     <TableCell>{provider.ubicacionAlmacen}</TableCell>

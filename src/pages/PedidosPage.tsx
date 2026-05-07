@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { isAxiosError } from 'axios'
 import { useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { Check, Eye, MoreHorizontal, PackagePlus, Plus, Send, X } from 'lucide-react'
@@ -29,6 +28,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
+import { parseApiError } from '@/lib/apiError'
 
 type OrderItemForm = {
   productoId: string
@@ -36,20 +36,17 @@ type OrderItemForm = {
   precioUnitario: number
 }
 
-const parseApiError = (error: unknown, fallback: string): string => {
-  if (!isAxiosError(error)) return fallback
-  const payload = error.response?.data
-  if (typeof payload === 'string') return payload
-  if (payload && typeof payload === 'object') {
-    const data = payload as { message?: string; error?: string }
-    if (data.message) return data.message
-    if (data.error) return data.error
-  }
-  return fallback
-}
-
 const formatDateTime = (value: string | null) =>
   value ? new Date(value).toLocaleString('es-ES') : '—'
+const formatDate = (value: string | null) =>
+  value ? new Date(value).toLocaleDateString('es-ES') : '—'
+
+const statusLabelMap: Record<PedidoProveedor['status'], string> = {
+  DRAFT: 'Borrador',
+  SENT: 'Enviado',
+  RECEIVED: 'Recibido',
+  CANCELLED: 'Cancelado',
+}
 
 const toDateInputValue = (date: Date) => date.toISOString().split('T')[0]
 
@@ -108,6 +105,25 @@ export default function PedidosPage() {
       return statusOk && textOk
     })
   }, [orders, orderSearch, orderStatusFilter])
+
+  const orderSummary = useMemo(() => {
+    return {
+      total: filteredOrders.length,
+      DRAFT: filteredOrders.filter((order) => order.status === 'DRAFT').length,
+      SENT: filteredOrders.filter((order) => order.status === 'SENT').length,
+      RECEIVED: filteredOrders.filter((order) => order.status === 'RECEIVED').length,
+      CANCELLED: filteredOrders.filter((order) => order.status === 'CANCELLED').length,
+    }
+  }, [filteredOrders])
+
+  const computeDelayDays = (order: PedidoProveedor): number | null => {
+    if (!order.recibidoEn || !order.fechaLlegadaDeseada) return null
+    const desired = new Date(order.fechaLlegadaDeseada)
+    const received = new Date(order.recibidoEn)
+    if (Number.isNaN(desired.getTime()) || Number.isNaN(received.getTime())) return null
+    const diffMs = received.getTime() - desired.getTime()
+    return Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  }
 
   const loadProviders = async () => {
     setLoadingProviders(true)
@@ -300,10 +316,10 @@ export default function PedidosPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="DRAFT">DRAFT</SelectItem>
-              <SelectItem value="SENT">SENT</SelectItem>
-              <SelectItem value="RECEIVED">RECEIVED</SelectItem>
-              <SelectItem value="CANCELLED">CANCELLED</SelectItem>
+              <SelectItem value="DRAFT">Borrador</SelectItem>
+              <SelectItem value="SENT">Enviado</SelectItem>
+              <SelectItem value="RECEIVED">Recibido</SelectItem>
+              <SelectItem value="CANCELLED">Cancelado</SelectItem>
             </SelectContent>
           </Select>
 
@@ -321,6 +337,14 @@ export default function PedidosPage() {
           </div>
         ) : (
           <>
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+              <div className="rounded-lg border bg-card p-3 text-sm"><span className="text-muted-foreground">Total</span><p className="text-xl font-semibold">{orderSummary.total}</p></div>
+              <div className="rounded-lg border bg-card p-3 text-sm"><span className="text-muted-foreground">Borrador</span><p className="text-xl font-semibold">{orderSummary.DRAFT}</p></div>
+              <div className="rounded-lg border bg-card p-3 text-sm"><span className="text-muted-foreground">Enviados</span><p className="text-xl font-semibold">{orderSummary.SENT}</p></div>
+              <div className="rounded-lg border bg-card p-3 text-sm"><span className="text-muted-foreground">Recibidos</span><p className="text-xl font-semibold">{orderSummary.RECEIVED}</p></div>
+              <div className="rounded-lg border bg-card p-3 text-sm"><span className="text-muted-foreground">Cancelados</span><p className="text-xl font-semibold">{orderSummary.CANCELLED}</p></div>
+            </div>
+
             <div className="rounded-lg border bg-card p-3 text-sm text-muted-foreground">
               Proveedor seleccionado: <span className="font-medium text-foreground">{selectedProvider.nombre}</span>
               {' · '}
@@ -359,15 +383,22 @@ export default function PedidosPage() {
                       <TableRow key={order.id}>
                         <TableCell className="font-mono text-xs">#{order.id}</TableCell>
                         <TableCell>
-                          <Badge variant={order.status === 'CANCELLED' ? 'secondary' : 'default'}>
-                            {order.status}
+                          <Badge variant={order.status === 'CANCELLED' ? 'secondary' : order.status === 'RECEIVED' ? 'default' : 'outline'}>
+                            {statusLabelMap[order.status] ?? order.status}
                           </Badge>
                         </TableCell>
-                        <TableCell>{order.fechaLlegadaDeseada}</TableCell>
-                        <TableCell>{order.fechaPedidoRecomendada}</TableCell>
+                        <TableCell>{formatDate(order.fechaLlegadaDeseada)}</TableCell>
+                        <TableCell>{formatDate(order.fechaPedidoRecomendada)}</TableCell>
                         <TableCell>{formatDateTime(order.creadoEn)}</TableCell>
                         <TableCell>{formatDateTime(order.enviadoEn)}</TableCell>
-                        <TableCell>{formatDateTime(order.recibidoEn)}</TableCell>
+                        <TableCell>
+                          {formatDateTime(order.recibidoEn)}
+                          {computeDelayDays(order) !== null ? (
+                            <span className={`ml-2 text-xs ${computeDelayDays(order)! > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                              {computeDelayDays(order)! > 0 ? `Retraso: +${computeDelayDays(order)}d` : 'En plazo'}
+                            </span>
+                          ) : null}
+                        </TableCell>
                         <TableCell className="text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -540,7 +571,7 @@ export default function PedidosPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3 rounded-md border p-3 text-sm">
                 <p><span className="text-muted-foreground">Proveedor:</span> {detailOrder.providerNombre}</p>
-                <p><span className="text-muted-foreground">Estado:</span> {detailOrder.status}</p>
+                <p><span className="text-muted-foreground">Estado:</span> {statusLabelMap[detailOrder.status] ?? detailOrder.status}</p>
                 <p><span className="text-muted-foreground">Llegada deseada:</span> {detailOrder.fechaLlegadaDeseada}</p>
                 <p><span className="text-muted-foreground">Pedido recomendado:</span> {detailOrder.fechaPedidoRecomendada}</p>
               </div>

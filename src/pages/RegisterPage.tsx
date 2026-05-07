@@ -77,7 +77,12 @@ export default function RegisterPage() {
         email: data.email,
         password: data.password,
         })
-        setUser({ username: res.username, role: res.role, token: res.token })
+        setUser({
+          username: res.username,
+          role: res.role,
+          token: res.token,
+          mustChangePassword: res.mustChangePassword,
+        })
         toast.success(`Cuenta creada correctamente. Bienvenido, ${res.username}.`)
         navigate('/dashboard')
     } catch (err: unknown) {
@@ -97,7 +102,12 @@ const handleGoogleSuccess = async (response: CredentialResponse) => {
     setIsGoogleSubmitting(true)
     try {
         const res = await googleLogin(response.credential)
-        setUser({ username: res.username, role: res.role, token: res.token })
+        setUser({
+          username: res.username,
+          role: res.role,
+          token: res.token,
+          mustChangePassword: res.mustChangePassword,
+        })
         toast.success(`Bienvenido, ${res.username}.`)
         navigate('/dashboard')
     } catch {

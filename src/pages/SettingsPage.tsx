@@ -8,8 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 const roles = [
   { value: 'ROLE_ADMIN', label: 'Administrador' },
-  { value: 'ROLE_MANAGER', label: 'Manager' },
-  { value: 'ROLE_VIEWER', label: 'Viewer' },
+  { value: 'ROLE_MANAGER', label: 'Gestor' },
+  { value: 'ROLE_VIEWER', label: 'Visualizador' },
 ]
 
 export default function SettingsPage() {
@@ -35,7 +35,12 @@ export default function SettingsPage() {
 
     try {
       const data = await switchRole(selectedRole)
-      setUser({ username: data.username, role: data.role, token: data.token })
+      setUser({
+        username: data.username,
+        role: data.role,
+        token: data.token,
+        mustChangePassword: data.mustChangePassword,
+      })
       toast.success('Rol actualizado correctamente. Los permisos ya están activos.')
     } catch {
       toast.error('No se pudo actualizar el rol. Revisa tu sesión e inténtalo de nuevo.')
