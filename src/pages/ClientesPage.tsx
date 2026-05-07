@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import {
   archivarCliente,
@@ -11,6 +12,7 @@ import type { Cliente } from '@/types/cliente'
 import { useAuthStore } from '@/store/authStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import {
@@ -25,6 +27,7 @@ const PAGE_SIZE = 20
 const emptyForm = { nombre: '', email: '', telefono: '', notas: '' }
 
 export default function ClientesPage() {
+  const navigate = useNavigate()
   const { hasRole } = useAuthStore()
   const canEdit = hasRole('ROLE_ADMIN') || hasRole('ROLE_MANAGER')
 
@@ -118,6 +121,14 @@ export default function ClientesPage() {
     if (!canEdit) return
     if (!form.nombre.trim()) {
       toast.error('El nombre es obligatorio')
+      return
+    }
+    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      toast.error('El formato del email no es válido')
+      return
+    }
+    if (form.telefono.trim() && !/^[+\d\s()-]{7,25}$/.test(form.telefono.trim())) {
+      toast.error('El formato del teléfono no es válido')
       return
     }
 
@@ -227,6 +238,9 @@ export default function ClientesPage() {
                     {canEdit && (
                       <TableCell className="text-right">
                         <div className="inline-flex gap-2">
+                          <Button variant="outline" size="sm" onClick={() => navigate(`/ventas?clientId=${client.id}`)}>
+                            Ver ventas
+                          </Button>
                           <Button variant="outline" size="sm" onClick={() => openEdit(client)}>
                             Editar
                           </Button>
@@ -287,8 +301,9 @@ export default function ClientesPage() {
               value={form.telefono}
               onChange={(e) => setForm((prev) => ({ ...prev, telefono: e.target.value }))}
             />
-            <Input
+            <Textarea
               placeholder="Notas"
+              rows={3}
               value={form.notas}
               onChange={(e) => setForm((prev) => ({ ...prev, notas: e.target.value }))}
             />

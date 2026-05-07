@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import {
   activarUsuario,
@@ -11,12 +11,19 @@ import {
 import type { UsuarioAdmin, UsuarioRoleAudit } from '@/types/usuario'
 import { useAuthStore } from '@/store/authStore'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { parseApiError } from '@/lib/apiError'
 
 const roles = ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_VIEWER']
+const roleLabelMap: Record<string, string> = {
+  ROLE_ADMIN: 'Administrador',
+  ROLE_MANAGER: 'Manager',
+  ROLE_VIEWER: 'Viewer',
+}
 
 export default function UsuariosPage() {
   const user = useAuthStore((state) => state.user)
@@ -31,6 +38,12 @@ export default function UsuariosPage() {
     apellidos: '',
     role: 'ROLE_VIEWER',
   })
+  const [inviteCredential, setInviteCredential] = useState<{ username: string; temporaryPassword: string } | null>(null)
+  const [credentialOpen, setCredentialOpen] = useState(false)
+  const [auditSearch, setAuditSearch] = useState('')
+  const [auditRoleFilter, setAuditRoleFilter] = useState<'all' | string>('all')
+  const [auditFrom, setAuditFrom] = useState('')
+  const [auditTo, setAuditTo] = useState('')
 
   const load = async () => {
     setLoading(true)
@@ -69,11 +82,16 @@ export default function UsuariosPage() {
 
     try {
       const response = await invitarUsuario(invite)
-      toast.success(`Usuario invitado. Contraseña temporal: ${response.temporaryPassword}`)
+      setInviteCredential({
+        username: response.usuario.username,
+        temporaryPassword: response.temporaryPassword,
+      })
+      setCredentialOpen(true)
+      toast.success('Usuario invitado correctamente')
       setInvite({ username: '', email: '', nombre: '', apellidos: '', role: 'ROLE_VIEWER' })
       await load()
-    } catch {
-      toast.error('No se pudo invitar al usuario')
+    } catch (error: unknown) {
+      toast.error(parseApiError(error, 'No se pudo invitar al usuario'))
     }
   }
 
@@ -82,8 +100,8 @@ export default function UsuariosPage() {
       await actualizarRolUsuario(id, role)
       toast.success('Rol actualizado')
       await load()
-    } catch {
-      toast.error('No se pudo actualizar el rol')
+    } catch (error: unknown) {
+      toast.error(parseApiError(error, 'No se pudo actualizar el rol'))
     }
   }
 
@@ -96,8 +114,35 @@ export default function UsuariosPage() {
       }
       toast.success('Estado de usuario actualizado')
       await load()
+    } catch (error: unknown) {
+      toast.error(parseApiError(error, 'No se pudo actualizar el estado del usuario'))
+    }
+  }
+
+  const auditoriaFiltrada = useMemo(() => {
+    const term = auditSearch.trim().toLowerCase()
+    return auditoria.filter((row) => {
+      const rowDate = new Date(row.changedAt)
+      const rowDateOnly = rowDate.toISOString().slice(0, 10)
+      const textOk =
+        !term ||
+        row.username.toLowerCase().includes(term) ||
+        (row.changedByUsername ?? 'sistema').toLowerCase().includes(term) ||
+        (row.reason ?? '').toLowerCase().includes(term)
+      const roleOk = auditRoleFilter === 'all' || row.newRole === auditRoleFilter
+      const fromOk = !auditFrom || rowDateOnly >= auditFrom
+      const toOk = !auditTo || rowDateOnly <= auditTo
+      return textOk && roleOk && fromOk && toOk
+    })
+  }, [auditoria, auditFrom, auditRoleFilter, auditSearch, auditTo])
+
+  const copyTemporaryPassword = async () => {
+    if (!inviteCredential?.temporaryPassword) return
+    try {
+      await navigator.clipboard.writeText(inviteCredential.temporaryPassword)
+      toast.success('Contraseña temporal copiada')
     } catch {
-      toast.error('No se pudo actualizar el estado del usuario')
+      toast.error('No se pudo copiar automáticamente. Cópiala manualmente.')
     }
   }
 
@@ -122,7 +167,7 @@ export default function UsuariosPage() {
               </SelectTrigger>
               <SelectContent>
                 {roles.map((role) => (
-                  <SelectItem key={role} value={role}>{role}</SelectItem>
+                  <SelectItem key={role} value={role}>{roleLabelMap[role] ?? role}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -164,7 +209,7 @@ export default function UsuariosPage() {
                         </SelectTrigger>
                         <SelectContent>
                           {roles.map((role) => (
-                            <SelectItem key={role} value={role}>{role}</SelectItem>
+                            <SelectItem key={role} value={role}>{roleLabelMap[role] ?? role}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -181,7 +226,33 @@ export default function UsuariosPage() {
             </Table>
           </TabsContent>
 
-          <TabsContent value="auditoria" className="rounded-lg border bg-card">
+          <TabsContent value="auditoria" className="space-y-3">
+            <div className="rounded-lg border bg-card p-3">
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
+                <Input
+                  placeholder="Buscar usuario, actor o motivo"
+                  value={auditSearch}
+                  onChange={(event) => setAuditSearch(event.target.value)}
+                />
+                <Select value={auditRoleFilter} onValueChange={setAuditRoleFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filtrar por rol" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los roles</SelectItem>
+                    {roles.map((role) => (
+                      <SelectItem key={role} value={role}>
+                        {roleLabelMap[role] ?? role}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input type="date" value={auditFrom} onChange={(event) => setAuditFrom(event.target.value)} />
+                <Input type="date" value={auditTo} onChange={(event) => setAuditTo(event.target.value)} />
+              </div>
+            </div>
+
+            <div className="rounded-lg border bg-card">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -195,7 +266,9 @@ export default function UsuariosPage() {
               <TableBody>
                 {loading ? (
                   <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
-                ) : auditoria.map((row) => (
+                ) : auditoriaFiltrada.length === 0 ? (
+                  <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No hay eventos de auditoría para los filtros seleccionados.</TableCell></TableRow>
+                ) : auditoriaFiltrada.map((row) => (
                   <TableRow key={row.id}>
                     <TableCell>{new Date(row.changedAt).toLocaleString('es-ES')}</TableCell>
                     <TableCell>{row.username}</TableCell>
@@ -206,9 +279,37 @@ export default function UsuariosPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog
+        open={credentialOpen}
+        onOpenChange={(open) => {
+          setCredentialOpen(open)
+          if (!open) setInviteCredential(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Credencial temporal generada</DialogTitle>
+            <DialogDescription>
+              Guarda esta contraseña ahora. Por seguridad solo se muestra una vez y el usuario deberá cambiarla en su primer acceso.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 rounded-md border bg-muted/20 p-3 text-sm">
+            <p><span className="font-medium">Usuario:</span> {inviteCredential?.username}</p>
+            <p className="break-all"><span className="font-medium">Contraseña temporal:</span> {inviteCredential?.temporaryPassword}</p>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => void copyTemporaryPassword()}>Copiar contraseña</Button>
+            <Button onClick={() => setCredentialOpen(false)}>Entendido</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

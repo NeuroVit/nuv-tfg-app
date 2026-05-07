@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+ï»¿import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { getAlertas, resolverAlerta } from '@/api/alerta'
 import type { AlertaStock } from '@/types/alerta'
@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 const PAGE_SIZE = 20
-const formatDate = (value: string | null) => (value ? new Date(value).toLocaleString('es-ES') : '—')
+const formatDate = (value: string | null) => (value ? new Date(value).toLocaleString('es-ES') : 'â€”')
 
 export default function AlertasPage() {
   const { hasRole } = useAuthStore()
@@ -19,12 +19,14 @@ export default function AlertasPage() {
   const [alerts, setAlerts] = useState<AlertaStock[]>([])
   const [loading, setLoading] = useState(true)
   const [offset, setOffset] = useState(0)
+  const [selectedAlertIds, setSelectedAlertIds] = useState<number[]>([])
 
   const loadAlerts = async () => {
     setLoading(true)
     try {
       const data = await getAlertas(filter === 'all' ? undefined : filter === 'resolved')
       setAlerts(data)
+      setSelectedAlertIds([])
     } catch {
       toast.error('No se pudieron cargar las alertas')
     } finally {
@@ -46,6 +48,17 @@ export default function AlertasPage() {
     }
   }
 
+  const resolveSelected = async () => {
+    if (selectedAlertIds.length === 0) return
+    try {
+      await Promise.all(selectedAlertIds.map((id) => resolverAlerta(id)))
+      toast.success(`${selectedAlertIds.length} alertas marcadas como resueltas`)
+      await loadAlerts()
+    } catch {
+      toast.error('No se pudieron resolver todas las alertas seleccionadas')
+    }
+  }
+
   const counters = useMemo(() => {
     const open = alerts.filter((alert) => !alert.resuelta).length
     const resolved = alerts.filter((alert) => alert.resuelta).length
@@ -56,6 +69,8 @@ export default function AlertasPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1
   const paginatedAlerts = useMemo(() => alerts.slice(offset, offset + PAGE_SIZE), [alerts, offset])
+  const openAlerts = useMemo(() => alerts.filter((alert) => !alert.resuelta), [alerts])
+  const allOpenSelected = openAlerts.length > 0 && openAlerts.every((alert) => selectedAlertIds.includes(alert.id))
 
   useEffect(() => {
     setOffset(0)
@@ -73,7 +88,7 @@ export default function AlertasPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Alertas</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Gestiona alertas de stock y anomalías.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Gestiona alertas de stock y anomalÃ­as.</p>
           </div>
           <div className="flex items-center gap-3">
             <Badge variant="destructive">Abiertas: {counters.open}</Badge>
@@ -88,6 +103,16 @@ export default function AlertasPage() {
                 <SelectItem value="all">Todas</SelectItem>
               </SelectContent>
             </Select>
+            {canResolve ? (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={selectedAlertIds.length === 0}
+                onClick={() => void resolveSelected()}
+              >
+                Resolver seleccionadas ({selectedAlertIds.length})
+              </Button>
+            ) : null}
           </div>
         </div>
 
@@ -95,27 +120,59 @@ export default function AlertasPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  {canResolve ? (
+                    <input
+                      type="checkbox"
+                      checked={allOpenSelected}
+                      onChange={(event) => {
+                        if (event.target.checked) {
+                          setSelectedAlertIds(openAlerts.map((alert) => alert.id))
+                        } else {
+                          setSelectedAlertIds([])
+                        }
+                      }}
+                      aria-label="Seleccionar alertas abiertas"
+                    />
+                  ) : null}
+                </TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Producto</TableHead>
                 <TableHead>SKU</TableHead>
                 <TableHead>Mensaje</TableHead>
                 <TableHead>Creada</TableHead>
                 <TableHead>Resuelta</TableHead>
-                <TableHead className="text-right">Acción</TableHead>
+                <TableHead className="text-right">AcciÃ³n</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Cargando alertas...</TableCell>
+                  <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">Cargando alertas...</TableCell>
                 </TableRow>
               ) : paginatedAlerts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">No hay alertas para mostrar.</TableCell>
+                  <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">No hay alertas para mostrar.</TableCell>
                 </TableRow>
               ) : (
                 paginatedAlerts.map((alert) => (
                   <TableRow key={alert.id}>
+                    <TableCell>
+                      {!alert.resuelta && canResolve ? (
+                        <input
+                          type="checkbox"
+                          checked={selectedAlertIds.includes(alert.id)}
+                          onChange={(event) => {
+                            setSelectedAlertIds((current) =>
+                              event.target.checked
+                                ? [...current, alert.id]
+                                : current.filter((id) => id !== alert.id)
+                            )
+                          }}
+                          aria-label={`Seleccionar alerta ${alert.id}`}
+                        />
+                      ) : null}
+                    </TableCell>
                     <TableCell>
                       <Badge variant={alert.resuelta ? 'secondary' : 'destructive'}>{alert.tipo}</Badge>
                     </TableCell>
@@ -130,7 +187,7 @@ export default function AlertasPage() {
                           Resolver
                         </Button>
                       ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
+                        <span className="text-xs text-muted-foreground">â€”</span>
                       )}
                     </TableCell>
                   </TableRow>
@@ -163,4 +220,3 @@ export default function AlertasPage() {
     </div>
   )
 }
-

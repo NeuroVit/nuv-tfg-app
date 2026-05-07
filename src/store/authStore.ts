@@ -36,6 +36,7 @@ const isTokenExpired = (token: string): boolean => {
 interface AuthState {
   user: AuthUser | null
   setUser: (user: AuthUser) => void
+  setMustChangePassword: (value: boolean) => void
   logout: () => void
   isAuthenticated: () => boolean
   hasRole: (role: string) => boolean
@@ -46,6 +47,11 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       user: null,
       setUser: (user) => set({ user }),
+      setMustChangePassword: (value) =>
+        set((state) => {
+          if (!state.user) return state
+          return { user: { ...state.user, mustChangePassword: value } }
+        }),
       logout: () => set({ user: null }),
       isAuthenticated: () => {
         const token = get().user?.token

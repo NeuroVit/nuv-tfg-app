@@ -85,6 +85,7 @@ client.interceptors.response.use(
               username: response.data.username,
               role: response.data.role,
               token: response.data.token,
+              mustChangePassword: response.data.mustChangePassword,
             }
             useAuthStore.getState().setUser(refreshedUser)
             return response.data.token

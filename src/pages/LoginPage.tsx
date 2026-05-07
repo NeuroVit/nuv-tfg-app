@@ -50,7 +50,12 @@ export default function LoginPage() {
   const onSubmit = async (data: FormData) => {
     try {
       const res = await login(data)
-      setUser({ username: res.username, role: res.role, token: res.token })
+      setUser({
+        username: res.username,
+        role: res.role,
+        token: res.token,
+        mustChangePassword: res.mustChangePassword,
+      })
       toast.success(`Bienvenido, ${res.username}.`)
       navigate('/dashboard')
     } catch {
@@ -64,7 +69,12 @@ export default function LoginPage() {
     setIsGoogleSubmitting(true)
     try {
       const res = await googleLogin(response.credential)
-      setUser({ username: res.username, role: res.role, token: res.token })
+      setUser({
+        username: res.username,
+        role: res.role,
+        token: res.token,
+        mustChangePassword: res.mustChangePassword,
+      })
       toast.success(`Bienvenido, ${res.username}.`)
       navigate('/dashboard')
     } catch {

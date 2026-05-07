@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Navigate, Outlet } from 'react-router'
+import { Navigate, Outlet, useLocation } from 'react-router'
 import { useAuthStore } from '../store/authStore'
 
 interface Props {
@@ -7,7 +7,8 @@ interface Props {
 }
 
 export default function ProtectedRoute({ allowedRoles }: Props) {
-  const { isAuthenticated, hasRole } = useAuthStore()
+  const { user, isAuthenticated, hasRole } = useAuthStore()
+  const location = useLocation()
   const [heartbeat, setHeartbeat] = useState(0)
 
   useEffect(() => {
@@ -29,6 +30,12 @@ export default function ProtectedRoute({ allowedRoles }: Props) {
   void heartbeat
 
   if (!isAuthenticated()) return <Navigate to="/login" replace />
+
+  const mustChangePassword = Boolean(user?.mustChangePassword)
+  const isSecurityRoute = location.pathname.startsWith('/settings/security')
+  if (mustChangePassword && !isSecurityRoute) {
+    return <Navigate to="/settings/security" replace />
+  }
 
   if (allowedRoles && !allowedRoles.some(hasRole)) {
     return <Navigate to="/dashboard" replace />

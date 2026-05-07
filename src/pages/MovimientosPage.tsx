@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { getMovimientos } from '@/api/movimiento'
 import { getProductos } from '@/api/producto'
@@ -19,14 +20,15 @@ const formatReason = (reason: string) => {
     SALE: 'Venta',
     PURCHASE: 'Compra',
     ADJUSTMENT: 'Ajuste',
-    RETURN: 'Devolucion',
-    DAMAGE: 'Dano',
+    RETURN: 'Devolución',
+    DAMAGE: 'Daño',
     INITIAL: 'Inicial',
   }
   return reasonLabels[reason] ?? reason
 }
 
 export default function MovimientosPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [productos, setProductos] = useState<Producto[]>([])
   const [movimientos, setMovimientos] = useState<MovimientoStock[]>([])
   const [total, setTotal] = useState(0)
@@ -130,6 +132,41 @@ export default function MovimientosPage() {
     setOffset(0)
   }
 
+  useEffect(() => {
+    const product = searchParams.get('productId')
+    const tipoParam = searchParams.get('tipo')
+    const razonParam = searchParams.get('razon')
+    const desdeParam = searchParams.get('desde')
+    const hastaParam = searchParams.get('hasta')
+    if (product) setProductId(product)
+    if (tipoParam === 'all' || tipoParam === 'ENTRADA' || tipoParam === 'SALIDA') setTipo(tipoParam)
+    if (razonParam) setRazon(razonParam)
+    if (desdeParam) setDesde(desdeParam)
+    if (hastaParam) setHasta(hastaParam)
+    // Hidratacion inicial desde URL.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams)
+    if (productId !== 'all') next.set('productId', productId)
+    else next.delete('productId')
+    if (tipo !== 'all') next.set('tipo', tipo)
+    else next.delete('tipo')
+    if (razon !== 'all') next.set('razon', razon)
+    else next.delete('razon')
+    if (desde) next.set('desde', desde)
+    else next.delete('desde')
+    if (hasta) next.set('hasta', hasta)
+    else next.delete('hasta')
+
+    const prevSerialized = searchParams.toString()
+    const nextSerialized = next.toString()
+    if (prevSerialized !== nextSerialized) {
+      setSearchParams(next, { replace: true })
+    }
+  }, [desde, hasta, productId, razon, searchParams, setSearchParams, tipo])
+
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -137,6 +174,17 @@ export default function MovimientosPage() {
           <h1 className="text-2xl font-bold text-foreground">Movimientos</h1>
           <p className="mt-1 text-sm text-muted-foreground">Historico completo de entradas y salidas de stock.</p>
         </div>
+
+        {debouncedInvalidDateRange ? (
+          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            El rango de fechas no es valido: "Desde" no puede ser mayor que "Hasta".
+          </div>
+        ) : null}
+        {debouncedInvalidYear ? (
+          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            Las fechas deben estar dentro del rango permitido ({MIN_DATE} a {MAX_DATE}).
+          </div>
+        ) : null}
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-12">
           <div className="min-w-0 space-y-1 xl:col-span-3">
@@ -265,7 +313,7 @@ export default function MovimientosPage() {
         </div>
 
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} · {total} registros</p>
+          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} | {total} registros</p>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"

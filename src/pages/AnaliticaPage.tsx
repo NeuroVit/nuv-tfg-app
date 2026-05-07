@@ -65,7 +65,7 @@ const formatCompact = (value: number) => value.toLocaleString('es-ES')
 const statusLabels: Record<string, string> = {
   OUT_OF_STOCK: 'Sin stock',
   LOW_STOCK: 'Stock bajo',
-  OK: 'OK',
+  OK: 'Óptimo',
   OVERSTOCK: 'Sobrestock',
 }
 
@@ -123,7 +123,7 @@ const stockDistributionChartConfig = {
     color: '#f59e0b',
   },
   okStock: {
-    label: 'OK',
+    label: 'Óptimo',
     color: '#10b981',
   },
   overStock: {
@@ -664,7 +664,7 @@ export default function AnaliticaPage() {
             <TabsTrigger value="inventario">Inventario</TabsTrigger>
             <TabsTrigger value="velocidad">Velocidad</TabsTrigger>
             <TabsTrigger value="precios">Precios</TabsTrigger>
-            <TabsTrigger value="bundles">Bundles</TabsTrigger>
+            <TabsTrigger value="bundles">Sugerencias bundle</TabsTrigger>
           </TabsList>
 
           <TabsContent value="inventario" className="rounded-lg border bg-card p-0">
@@ -704,7 +704,7 @@ export default function AnaliticaPage() {
                   <TableHead>Producto</TableHead>
                   <TableHead>Categoría</TableHead>
                   <TableHead>Unidades</TableHead>
-                  <TableHead>Revenue</TableHead>
+                  <TableHead>Ingresos</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

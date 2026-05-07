@@ -15,7 +15,6 @@ import MovimientosPage from '../pages/MovimientosPage'
 import AlertasPage from '../pages/AlertasPage'
 import AnaliticaPage from '../pages/AnaliticaPage'
 import ProveedorDetailPage from '../pages/ProveedorDetailPage'
-import UsuariosPage from '../pages/UsuariosPage'
 import ClientesPage from '../pages/ClientesPage'
 import VentasPage from '../pages/VentasPage'
 import SettingsProfilePage from '../pages/settings/SettingsProfilePage'
@@ -49,7 +48,7 @@ export const router = createBrowserRouter([
           { path: '/movimientos', element: <MovimientosPage /> },
           { path: '/alertas', element: <AlertasPage /> },
           { path: '/analitica', element: <AnaliticaPage /> },
-          { path: '/usuarios', element: <UsuariosPage /> },
+          { path: '/usuarios', element: <Navigate to="/settings/users" replace /> },
           { path: '/clientes', element: <ClientesPage /> },
           { path: '/ventas', element: <VentasPage /> },
           { path: '/settings', element: <Navigate to="/settings/general" replace /> },

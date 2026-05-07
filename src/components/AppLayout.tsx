@@ -137,7 +137,7 @@ export default function AppLayout() {
     const isMockMode =
       analyticsMeta.source === 'API_REAL_LOCAL_SEEDED' ||
       analyticsMeta.source === 'API_REAL_SEED_PENDING'
-    return isMockMode ? 'Mock data mode' : 'API real'
+    return isMockMode ? 'Modo de datos de prueba' : 'API real'
   }, [analyticsMeta])
 
   return (
@@ -175,7 +175,7 @@ export default function AppLayout() {
             )}
 
             {dataModeLabel ? (
-              <Badge variant={dataModeLabel === 'Mock data mode' ? 'outline' : 'secondary'} className="mr-1">
+              <Badge variant={dataModeLabel === 'Modo de datos de prueba' ? 'outline' : 'secondary'} className="mr-1">
                 {dataModeLabel}
               </Badge>
             ) : null}
