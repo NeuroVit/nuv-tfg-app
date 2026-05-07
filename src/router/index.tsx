@@ -3,6 +3,7 @@ import ProtectedRoute from './ProtectedRoute'
 import AppLayout from '../components/AppLayout'
 import LoginPage from '../pages/LoginPage'
 import RegisterPage from '../pages/RegisterPage'
+import CreateOrganizationPage from '../pages/CreateOrganizationPage'
 import ProductosPage from '../pages/ProductosPage'
 import CategoriasPage from '../pages/CategoriasPage'
 import BundlesPage from '../pages/BundlesPage'
@@ -20,6 +21,7 @@ import VentasPage from '../pages/VentasPage'
 import SettingsProfilePage from '../pages/settings/SettingsProfilePage'
 import SettingsSecurityPage from '../pages/settings/SettingsSecurityPage'
 import SettingsUsersPage from '../pages/settings/SettingsUsersPage'
+import SettingsOrganizationPage from '../pages/settings/SettingsOrganizationPage'
 
 export const router = createBrowserRouter([
   {
@@ -33,6 +35,10 @@ export const router = createBrowserRouter([
   {
     element: <ProtectedRoute />,
     children: [
+      {
+        path: '/onboarding/organization',
+        element: <CreateOrganizationPage />,
+      },
       {
         element: <AppLayout />,
         children: [
@@ -53,6 +59,7 @@ export const router = createBrowserRouter([
           { path: '/ventas', element: <VentasPage /> },
           { path: '/settings', element: <Navigate to="/settings/general" replace /> },
           { path: '/settings/profile', element: <SettingsProfilePage /> },
+          { path: '/settings/organization', element: <SettingsOrganizationPage /> },
           { path: '/settings/users', element: <SettingsUsersPage /> },
           { path: '/settings/general', element: <SettingsPage /> },
           { path: '/settings/security', element: <SettingsSecurityPage /> },
