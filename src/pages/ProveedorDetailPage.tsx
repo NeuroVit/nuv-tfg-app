@@ -61,7 +61,7 @@ export default function ProveedorDetailPage() {
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => navigate(`/pedidos?providerId=${detalle.proveedor.id}`)}>Ver pedidos</Button>
-            <Button variant="outline" onClick={() => navigate('/proveedores')}>Volver</Button>
+            <Button variant="outline" onClick={() => navigate(`/proveedores?providerId=${detalle.proveedor.id}`)}>Volver</Button>
           </div>
         </div>
 

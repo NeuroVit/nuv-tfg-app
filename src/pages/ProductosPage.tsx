@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { isAxiosError } from 'axios'
 import { toast } from 'sonner'
 import {
   useReactTable,
@@ -60,6 +60,7 @@ import { AlertTriangle, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-reac
 import { HugeiconsIcon } from '@hugeicons/react'
 import { PackageSearchIcon } from '@hugeicons/core-free-icons'
 import ProductoModal from '@/components/ProductoModal'
+import { parseApiError } from '@/lib/apiError'
 
 const productoSchema = z.object({
   nombre: z.string().min(1, 'El nombre es obligatorio'),
@@ -88,24 +89,8 @@ const defaultProductoValues: ProductoFormValues = {
   providerId: '',
 }
 
-const parseApiError = (error: unknown, fallback: string): string => {
-  if (!isAxiosError(error)) return fallback
-  const payload = error.response?.data
-  if (typeof payload === 'string') return payload
-  if (payload && typeof payload === 'object') {
-    const data = payload as {
-      message?: string
-      error?: string
-      errors?: Array<{ message?: string }>
-    }
-    if (data.message) return data.message
-    if (data.error) return data.error
-    if (Array.isArray(data.errors) && data.errors[0]?.message) return data.errors[0].message
-  }
-  return fallback
-}
-
 export default function ProductosPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const { hasRole } = useAuthStore()
   const canEdit = hasRole('ROLE_ADMIN') || hasRole('ROLE_MANAGER')
 
@@ -168,6 +153,44 @@ export default function ProductosPage() {
   useEffect(() => {
     void cargarDatos()
   }, [])
+
+  useEffect(() => {
+    const search = searchParams.get('search')
+    const categoria = searchParams.get('categoria')
+    const proveedor = searchParams.get('proveedor')
+    const estado = searchParams.get('estado')
+
+    if (search) setGlobalFilter(search)
+    if (categoria) setFiltroCategoria(categoria)
+    if (proveedor) setFiltroProveedor(proveedor)
+    if (estado === 'all' || estado === 'low' || estado === 'normal') {
+      setFiltroEstado(estado)
+    }
+    // Se carga una sola vez para hidratar estado inicial desde URL.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams)
+
+    if (globalFilter.trim()) next.set('search', globalFilter.trim())
+    else next.delete('search')
+
+    if (filtroCategoria !== 'all') next.set('categoria', filtroCategoria)
+    else next.delete('categoria')
+
+    if (filtroProveedor !== 'all') next.set('proveedor', filtroProveedor)
+    else next.delete('proveedor')
+
+    if (filtroEstado !== 'all') next.set('estado', filtroEstado)
+    else next.delete('estado')
+
+    const prevSerialized = searchParams.toString()
+    const nextSerialized = next.toString()
+    if (prevSerialized !== nextSerialized) {
+      setSearchParams(next, { replace: true })
+    }
+  }, [filtroCategoria, filtroEstado, filtroProveedor, globalFilter, searchParams, setSearchParams])
 
   const handleOpenStock = (producto: Producto) => {
     setSelectedProducto(producto)

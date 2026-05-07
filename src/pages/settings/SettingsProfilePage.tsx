@@ -1,23 +1,11 @@
 import { useEffect, useState } from 'react'
-import { isAxiosError } from 'axios'
 import { toast } from 'sonner'
 import { getMe, updateMe } from '@/api/auth'
 import type { UserProfile } from '@/types/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-
-const parseApiError = (error: unknown, fallback: string): string => {
-  if (!isAxiosError(error)) return fallback
-  const payload = error.response?.data
-  if (typeof payload === 'string') return payload
-  if (payload && typeof payload === 'object') {
-    const data = payload as { message?: string; error?: string }
-    if (data.message) return data.message
-    if (data.error) return data.error
-  }
-  return fallback
-}
+import { parseApiError } from '@/lib/apiError'
 
 export default function SettingsProfilePage() {
   const [loading, setLoading] = useState(true)
@@ -80,7 +68,7 @@ export default function SettingsProfilePage() {
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-3xl space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Profile</h1>
+          <h1 className="text-2xl font-bold text-foreground">Perfil</h1>
           <p className="mt-1 text-sm text-muted-foreground">Gestiona tu información de cuenta.</p>
         </div>
 

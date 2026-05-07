@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react'
-import { isAxiosError } from 'axios'
+import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import {
   actualizarBundle,
@@ -37,6 +36,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
+import { parseApiError } from '@/lib/apiError'
 
 type BundleFormItem = {
   productoId: string
@@ -59,18 +59,6 @@ const emptyBundleForm: BundleFormState = {
   items: [{ productoId: '', cantidad: 1 }],
 }
 
-const parseApiError = (error: unknown, fallback: string): string => {
-  if (!isAxiosError(error)) return fallback
-  const payload = error.response?.data
-  if (typeof payload === 'string') return payload
-  if (payload && typeof payload === 'object') {
-    const data = payload as { message?: string; error?: string }
-    if (data.message) return data.message
-    if (data.error) return data.error
-  }
-  return fallback
-}
-
 export default function BundlesPage() {
   const { hasRole } = useAuthStore()
   const canEdit = hasRole('ROLE_ADMIN') || hasRole('ROLE_MANAGER')
@@ -78,6 +66,8 @@ export default function BundlesPage() {
   const [bundles, setBundles] = useState<BundleSummary[]>([])
   const [productos, setProductos] = useState<Producto[]>([])
   const [loading, setLoading] = useState(true)
+  const [bundleSearch, setBundleSearch] = useState('')
+  const [bundleStatus, setBundleStatus] = useState<'all' | 'active' | 'inactive'>('all')
 
   const [detailOpen, setDetailOpen] = useState(false)
   const [selectedBundle, setSelectedBundle] = useState<BundleSummary | null>(null)
@@ -110,6 +100,21 @@ export default function BundlesPage() {
   useEffect(() => {
     void cargarDatos()
   }, [])
+
+  const bundlesFiltrados = useMemo(() => {
+    const term = bundleSearch.trim().toLowerCase()
+    return bundles.filter((bundle) => {
+      const textOk =
+        !term ||
+        bundle.nombre.toLowerCase().includes(term) ||
+        (bundle.descripcion ?? '').toLowerCase().includes(term)
+      const statusOk =
+        bundleStatus === 'all' ||
+        (bundleStatus === 'active' && bundle.activo) ||
+        (bundleStatus === 'inactive' && !bundle.activo)
+      return textOk && statusOk
+    })
+  }, [bundleSearch, bundleStatus, bundles])
 
   const openBundleDetail = async (bundle: BundleSummary) => {
     setSelectedBundle(bundle)
@@ -281,7 +286,7 @@ export default function BundlesPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Bundles</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{bundles.length} bundles creados</p>
+            <p className="mt-1 text-sm text-muted-foreground">{bundlesFiltrados.length} bundles visibles</p>
           </div>
           {canEdit && (
             <Button className="w-full sm:w-auto" onClick={openCreateDialog}>
@@ -289,6 +294,25 @@ export default function BundlesPage() {
               Nuevo bundle
             </Button>
           )}
+        </div>
+
+        <div className="flex flex-col gap-3 md:flex-row md:items-center">
+          <Input
+            value={bundleSearch}
+            onChange={(event) => setBundleSearch(event.target.value)}
+            placeholder="Buscar por nombre o descripción"
+            className="w-full md:max-w-sm"
+          />
+          <Select value={bundleStatus} onValueChange={(value) => setBundleStatus(value as 'all' | 'active' | 'inactive')}>
+            <SelectTrigger className="w-full md:w-52">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="active">Activos</SelectItem>
+              <SelectItem value="inactive">Inactivos</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="rounded-lg border bg-card">
@@ -311,14 +335,14 @@ export default function BundlesPage() {
                     Cargando bundles...
                   </TableCell>
                 </TableRow>
-              ) : bundles.length === 0 ? (
+              ) : bundlesFiltrados.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
                     No hay bundles para mostrar.
                   </TableCell>
                 </TableRow>
               ) : (
-                bundles.map((bundle) => (
+                bundlesFiltrados.map((bundle) => (
                   <TableRow
                     key={bundle.id}
                     className="cursor-pointer hover:bg-accent"
@@ -509,31 +533,46 @@ export default function BundlesPage() {
 
               <div className="space-y-2">
                 {bundleForm.items.map((item, index) => (
-                  <div key={index} className="grid grid-cols-1 gap-2 rounded-md border p-3 md:grid-cols-[1fr_120px_auto]">
-                    <Select value={item.productoId} onValueChange={(value) => updateItemProducto(index, value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona un producto" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {productos.map((producto) => (
-                          <SelectItem key={producto.id} value={String(producto.id)}>
-                            {producto.nombre} ({producto.sku})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  (() => {
+                    const selectedProduct = productos.find((producto) => String(producto.id) === item.productoId) ?? null
+                    const basePrice = selectedProduct?.precioUnitario ?? 0
+                    const discount = Number(bundleForm.descuentoPct)
+                    const safeDiscount = Number.isFinite(discount) ? Math.min(100, Math.max(0, discount)) : 0
+                    const subtotal = basePrice * item.cantidad * (1 - safeDiscount / 100)
 
-                    <Input
-                      type="number"
-                      min="1"
-                      value={item.cantidad}
-                      onChange={(event) => updateItemCantidad(index, Number(event.target.value))}
-                    />
+                    return (
+                      <div key={index} className="space-y-2 rounded-md border p-3">
+                        <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_120px_auto]">
+                          <Select value={item.productoId} onValueChange={(value) => updateItemProducto(index, value)}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecciona un producto" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {productos.map((producto) => (
+                                <SelectItem key={producto.id} value={String(producto.id)}>
+                                  {producto.nombre} ({producto.sku})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
 
-                    <Button type="button" variant="ghost" onClick={() => removeItemRow(index)}>
-                      Quitar
-                    </Button>
-                  </div>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={item.cantidad}
+                            onChange={(event) => updateItemCantidad(index, Number(event.target.value))}
+                          />
+
+                          <Button type="button" variant="ghost" onClick={() => removeItemRow(index)}>
+                            Quitar
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Precio base: €{basePrice.toFixed(2)} · Subtotal estimado línea: €{subtotal.toFixed(2)}
+                        </p>
+                      </div>
+                    )
+                  })()
                 ))}
               </div>
             </div>

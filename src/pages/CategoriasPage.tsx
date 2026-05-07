@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { isAxiosError } from 'axios'
 import { toast } from 'sonner'
 import { MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
@@ -51,6 +50,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { parseApiError } from '@/lib/apiError'
 
 const categoriaSchema = z.object({
   nombre: z.string().min(1, 'El nombre es obligatorio').max(100, 'Máximo 100 caracteres'),
@@ -67,25 +67,6 @@ const defaultFormValues: CategoriaFormValues = {
 }
 
 const normalizarTexto = (text: string): string => text.trim().toLocaleLowerCase('es-ES')
-
-const parseApiError = (error: unknown, fallback: string): string => {
-  if (!isAxiosError(error)) return fallback
-  const payload = error.response?.data
-
-  if (typeof payload === 'string') return payload
-  if (payload && typeof payload === 'object') {
-    const data = payload as {
-      message?: string
-      error?: string
-      errors?: Array<{ message?: string }>
-    }
-    if (data.message) return data.message
-    if (data.error) return data.error
-    if (Array.isArray(data.errors) && data.errors[0]?.message) return data.errors[0].message
-  }
-
-  return fallback
-}
 
 export default function CategoriasPage() {
   const { hasRole } = useAuthStore()
@@ -228,7 +209,10 @@ export default function CategoriasPage() {
       setDeletingCategory(null)
       toast.success(`Categoría "${deletedName}" eliminada correctamente.`)
     } catch (error: unknown) {
-      const errorMessage = parseApiError(error, 'No se pudo eliminar la categoría')
+      const rawMessage = parseApiError(error, 'No se pudo eliminar la categoría')
+      const errorMessage = /foreign key|constraint|referenc/i.test(rawMessage)
+        ? 'No puedes eliminar esta categoría porque tiene productos asociados.'
+        : rawMessage
       form.setError('root', {
         message: errorMessage,
       })
