@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { isAxiosError } from 'axios'
 import { useNavigate, Link } from 'react-router'
 import { toast } from 'sonner'
 import { type CredentialResponse } from '@react-oauth/google'
@@ -77,9 +78,14 @@ export default function LoginPage() {
       })
       toast.success(`Bienvenido, ${res.username}.`)
       navigate('/dashboard')
-    } catch {
-      form.setError('root', { message: 'Error al iniciar sesión con Google' })
-      toast.error('Error al iniciar sesión con Google')
+    } catch (err: unknown) {
+      const msg = isAxiosError<{ message?: string; mensaje?: string }>(err)
+        ? (err.response?.data?.message ??
+          err.response?.data?.mensaje ??
+          'Error al iniciar sesión con Google')
+        : 'Error al iniciar sesión con Google'
+      form.setError('root', { message: msg })
+      toast.error(msg)
     } finally {
       setIsGoogleSubmitting(false)
     }
