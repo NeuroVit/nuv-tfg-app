@@ -1,10 +1,13 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
+import { MoreHorizontal } from 'lucide-react'
+import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { getAlertas, resolverAlerta } from '@/api/alerta'
 import type { AlertaStock } from '@/types/alerta'
 import { useAuthStore } from '@/store/authStore'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
@@ -12,12 +15,14 @@ const PAGE_SIZE = 20
 const formatDate = (value: string | null) => (value ? new Date(value).toLocaleString('es-ES') : '—')
 
 export default function AlertasPage() {
+  const navigate = useNavigate()
   const { hasRole } = useAuthStore()
   const canResolve = hasRole('ROLE_ADMIN') || hasRole('ROLE_MANAGER')
 
   const [filter, setFilter] = useState<'all' | 'open' | 'resolved'>('open')
   const [alerts, setAlerts] = useState<AlertaStock[]>([])
   const [loading, setLoading] = useState(true)
+  const [resolving, setResolving] = useState(false)
   const [offset, setOffset] = useState(0)
   const [selectedAlertIds, setSelectedAlertIds] = useState<number[]>([])
 
@@ -39,23 +44,43 @@ export default function AlertasPage() {
   }, [filter])
 
   const resolve = async (id: number) => {
+    setResolving(true)
     try {
       await resolverAlerta(id)
       toast.success('Alerta marcada como resuelta')
       await loadAlerts()
     } catch {
       toast.error('No se pudo resolver la alerta')
+    } finally {
+      setResolving(false)
     }
   }
 
   const resolveSelected = async () => {
     if (selectedAlertIds.length === 0) return
+    setResolving(true)
     try {
       await Promise.all(selectedAlertIds.map((id) => resolverAlerta(id)))
       toast.success(`${selectedAlertIds.length} alertas marcadas como resueltas`)
       await loadAlerts()
     } catch {
       toast.error('No se pudieron resolver todas las alertas seleccionadas')
+    } finally {
+      setResolving(false)
+    }
+  }
+
+  const requestProviderAndResolve = async (alert: AlertaStock) => {
+    setResolving(true)
+    try {
+      await resolverAlerta(alert.id)
+      toast.success('Alerta resuelta. Abriendo pedidos para gestionar proveedor')
+      await loadAlerts()
+      navigate('/pedidos')
+    } catch {
+      toast.error('No se pudo gestionar la alerta')
+    } finally {
+      setResolving(false)
     }
   }
 
@@ -69,8 +94,13 @@ export default function AlertasPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1
   const paginatedAlerts = useMemo(() => alerts.slice(offset, offset + PAGE_SIZE), [alerts, offset])
-  const openAlerts = useMemo(() => alerts.filter((alert) => !alert.resuelta), [alerts])
-  const allOpenSelected = openAlerts.length > 0 && openAlerts.every((alert) => selectedAlertIds.includes(alert.id))
+  const openAlertsInPage = useMemo(
+    () => paginatedAlerts.filter((alert) => !alert.resuelta),
+    [paginatedAlerts]
+  )
+  const allOpenSelectedInPage =
+    openAlertsInPage.length > 0 && openAlertsInPage.every((alert) => selectedAlertIds.includes(alert.id))
+  const showSelection = canResolve && filter !== 'resolved'
 
   useEffect(() => {
     setOffset(0)
@@ -107,10 +137,10 @@ export default function AlertasPage() {
               <Button
                 variant="outline"
                 size="sm"
-                disabled={selectedAlertIds.length === 0}
+                disabled={selectedAlertIds.length === 0 || resolving}
                 onClick={() => void resolveSelected()}
               >
-                Resolver seleccionadas ({selectedAlertIds.length})
+                {resolving ? 'Resolviendo...' : `Resolver seleccionadas (${selectedAlertIds.length})`}
               </Button>
             ) : null}
           </div>
@@ -121,47 +151,53 @@ export default function AlertasPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10">
-                  {canResolve ? (
+                  {showSelection ? (
                     <input
                       type="checkbox"
-                      checked={allOpenSelected}
+                      checked={allOpenSelectedInPage}
+                      disabled={resolving}
                       onChange={(event) => {
                         if (event.target.checked) {
-                          setSelectedAlertIds(openAlerts.map((alert) => alert.id))
+                          setSelectedAlertIds((current) => {
+                            const next = new Set(current)
+                            openAlertsInPage.forEach((alert) => next.add(alert.id))
+                            return Array.from(next)
+                          })
                         } else {
-                          setSelectedAlertIds([])
+                          setSelectedAlertIds((current) =>
+                            current.filter((id) => !openAlertsInPage.some((alert) => alert.id === id))
+                          )
                         }
                       }}
-                      aria-label="Seleccionar alertas abiertas"
+                      aria-label="Seleccionar alertas abiertas de esta página"
                     />
                   ) : null}
                 </TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Producto</TableHead>
-                <TableHead>SKU</TableHead>
                 <TableHead>Mensaje</TableHead>
                 <TableHead>Creada</TableHead>
-                <TableHead>Resuelta</TableHead>
                 <TableHead className="text-right">Acción</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">Cargando alertas...</TableCell>
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Cargando alertas...</TableCell>
                 </TableRow>
               ) : paginatedAlerts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">No hay alertas para mostrar.</TableCell>
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">No hay alertas para mostrar.</TableCell>
                 </TableRow>
               ) : (
                 paginatedAlerts.map((alert) => (
                   <TableRow key={alert.id}>
                     <TableCell>
-                      {!alert.resuelta && canResolve ? (
+                      {!alert.resuelta && showSelection ? (
                         <input
                           type="checkbox"
                           checked={selectedAlertIds.includes(alert.id)}
+                          disabled={resolving}
                           onChange={(event) => {
                             setSelectedAlertIds((current) =>
                               event.target.checked
@@ -177,15 +213,25 @@ export default function AlertasPage() {
                       <Badge variant={alert.resuelta ? 'secondary' : 'destructive'}>{alert.tipo}</Badge>
                     </TableCell>
                     <TableCell>{alert.productoNombre}</TableCell>
-                    <TableCell className="font-mono text-xs">{alert.productoSku}</TableCell>
                     <TableCell>{alert.mensaje}</TableCell>
                     <TableCell>{formatDate(alert.creadaEn)}</TableCell>
-                    <TableCell>{formatDate(alert.resueltaEn)}</TableCell>
                     <TableCell className="text-right">
                       {!alert.resuelta && canResolve ? (
-                        <Button size="sm" variant="outline" onClick={() => void resolve(alert.id)}>
-                          Resolver
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="icon" variant="ghost" disabled={resolving} aria-label="Acciones de alerta">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onSelect={() => void resolve(alert.id)}>
+                              Resolver
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => void requestProviderAndResolve(alert)}>
+                              Pedir a proveedor
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
