@@ -29,6 +29,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   BarChart3,
+  Building2,
   ChevronsUpDown,
   LayoutDashboard,
   LogOut,
@@ -79,6 +80,7 @@ const navGroups: { label?: string; items: NavItem[] }[] = [
 
 const settingsNavItems: NavItem[] = [
   { to: '/settings/profile', label: 'Perfil', icon: UserCircle2 },
+  { to: '/settings/organization', label: 'Organización', icon: Building2 },
   { to: '/settings/users', label: 'Usuarios', icon: Users },
   { to: '/settings/general', label: 'General', icon: SlidersHorizontal },
   { to: '/settings/security', label: 'Seguridad', icon: ShieldCheck },
@@ -91,12 +93,14 @@ type AppSidebarProps = {
 export function AppSidebar({ isSettingsRoute = false }: AppSidebarProps) {
   const { user, logout: clearSession } = useAuthStore()
   const displayName = useProfileStore((s) => s.displayName)
+  const organizationName = useProfileStore((s) => s.organizationName)
   const { theme, setTheme } = useTheme()
   const navigate = useNavigate()
 
   const initials = user?.username ? user.username.slice(0, 2).toUpperCase() : 'U'
   const roleLabel = (user?.role ?? 'ROLE_VIEWER').replace('ROLE_', '')
   const accountLabel = displayName || user?.username || 'Usuario'
+  const organizationLabel = organizationName || 'Organización'
 
   const handleLogout = async () => {
     try {
@@ -134,8 +138,8 @@ export function AppSidebar({ isSettingsRoute = false }: AppSidebarProps) {
                   NS
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">NeuralStock</span>
-                  <span className="truncate text-xs text-muted-foreground">Logo próximamente</span>
+                  <span className="truncate font-medium">{organizationLabel}</span>
+                  <span className="truncate text-xs text-muted-foreground">NeuralStock</span>
                 </div>
               </SidebarMenuButton>
             )}

@@ -48,3 +48,30 @@ export interface ChangePasswordRequest {
   currentPassword: string
   newPassword: string
 }
+
+export interface SessionUser {
+  id: number
+  email: string
+  username: string
+}
+
+export interface SessionOrganization {
+  id: number
+  name: string
+  slug: string
+}
+
+export interface SessionContext {
+  user: SessionUser
+  organization: SessionOrganization | null
+  role: string | null
+  requiresOrganizationOnboarding: boolean
+}
+
+export interface CreateOrganizationRequest {
+  name: string
+}
+
+export interface UpdateOrganizationRequest {
+  name: string
+}
