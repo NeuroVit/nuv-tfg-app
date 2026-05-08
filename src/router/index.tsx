@@ -3,6 +3,7 @@ import ProtectedRoute from './ProtectedRoute'
 import AppLayout from '../components/AppLayout'
 import LoginPage from '../pages/LoginPage'
 import RegisterPage from '../pages/RegisterPage'
+import CreateOrganizationPage from '../pages/CreateOrganizationPage'
 import ProductosPage from '../pages/ProductosPage'
 import CategoriasPage from '../pages/CategoriasPage'
 import BundlesPage from '../pages/BundlesPage'
@@ -13,14 +14,17 @@ import SettingsPage from '../pages/SettingsPage'
 import Inicio from '../pages/Inicio'
 import MovimientosPage from '../pages/MovimientosPage'
 import AlertasPage from '../pages/AlertasPage'
-import AnaliticaPage from '../pages/AnaliticaPage'
+import AnaliticaResumenPage from '../pages/analytics/AnaliticaResumenPage'
+import AnaliticaVentasRentabilidadPage from '../pages/analytics/AnaliticaVentasRentabilidadPage'
+import AnaliticaInventarioPage from '../pages/analytics/AnaliticaInventarioPage'
+import AnaliticaPreciosBundlesPage from '../pages/analytics/AnaliticaPreciosBundlesPage'
 import ProveedorDetailPage from '../pages/ProveedorDetailPage'
-import UsuariosPage from '../pages/UsuariosPage'
 import ClientesPage from '../pages/ClientesPage'
 import VentasPage from '../pages/VentasPage'
 import SettingsProfilePage from '../pages/settings/SettingsProfilePage'
 import SettingsSecurityPage from '../pages/settings/SettingsSecurityPage'
 import SettingsUsersPage from '../pages/settings/SettingsUsersPage'
+import SettingsOrganizationPage from '../pages/settings/SettingsOrganizationPage'
 
 export const router = createBrowserRouter([
   {
@@ -35,6 +39,10 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute />,
     children: [
       {
+        path: '/onboarding/organization',
+        element: <CreateOrganizationPage />,
+      },
+      {
         element: <AppLayout />,
         children: [
           { path: '/', element: <Inicio /> },
@@ -48,12 +56,17 @@ export const router = createBrowserRouter([
           { path: '/pedidos', element: <PedidosPage /> },
           { path: '/movimientos', element: <MovimientosPage /> },
           { path: '/alertas', element: <AlertasPage /> },
-          { path: '/analitica', element: <AnaliticaPage /> },
-          { path: '/usuarios', element: <UsuariosPage /> },
+          { path: '/analitica', element: <Navigate to="/analitica/resumen" replace /> },
+          { path: '/analitica/resumen', element: <AnaliticaResumenPage /> },
+          { path: '/analitica/ventas-rentabilidad', element: <AnaliticaVentasRentabilidadPage /> },
+          { path: '/analitica/inventario', element: <AnaliticaInventarioPage /> },
+          { path: '/analitica/precios-bundles', element: <AnaliticaPreciosBundlesPage /> },
+          { path: '/usuarios', element: <Navigate to="/settings/users" replace /> },
           { path: '/clientes', element: <ClientesPage /> },
           { path: '/ventas', element: <VentasPage /> },
           { path: '/settings', element: <Navigate to="/settings/general" replace /> },
           { path: '/settings/profile', element: <SettingsProfilePage /> },
+          { path: '/settings/organization', element: <SettingsOrganizationPage /> },
           { path: '/settings/users', element: <SettingsUsersPage /> },
           { path: '/settings/general', element: <SettingsPage /> },
           { path: '/settings/security', element: <SettingsSecurityPage /> },

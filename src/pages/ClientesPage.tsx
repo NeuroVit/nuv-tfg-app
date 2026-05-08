@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import {
   archivarCliente,
@@ -11,6 +12,7 @@ import type { Cliente } from '@/types/cliente'
 import { useAuthStore } from '@/store/authStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import {
@@ -21,9 +23,11 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 
+const PAGE_SIZE = 20
 const emptyForm = { nombre: '', email: '', telefono: '', notas: '' }
 
 export default function ClientesPage() {
+  const navigate = useNavigate()
   const { hasRole } = useAuthStore()
   const canEdit = hasRole('ROLE_ADMIN') || hasRole('ROLE_MANAGER')
 
@@ -31,6 +35,7 @@ export default function ClientesPage() {
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState<'all' | 'active' | 'archived'>('active')
   const [search, setSearch] = useState('')
+  const [offset, setOffset] = useState(0)
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Cliente | null>(null)
@@ -71,6 +76,24 @@ export default function ClientesPage() {
     })
   }, [clients, search, status])
 
+  const total = filteredClients.length
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const currentPage = Math.floor(offset / PAGE_SIZE) + 1
+  const paginatedClients = useMemo(
+    () => filteredClients.slice(offset, offset + PAGE_SIZE),
+    [filteredClients, offset]
+  )
+
+  useEffect(() => {
+    setOffset(0)
+  }, [search, status])
+
+  useEffect(() => {
+    if (offset >= total && total > 0) {
+      setOffset(Math.max(0, (Math.ceil(total / PAGE_SIZE) - 1) * PAGE_SIZE))
+    }
+  }, [offset, total])
+
   const openCreate = () => {
     setEditing(null)
     setForm(emptyForm)
@@ -98,6 +121,14 @@ export default function ClientesPage() {
     if (!canEdit) return
     if (!form.nombre.trim()) {
       toast.error('El nombre es obligatorio')
+      return
+    }
+    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      toast.error('El formato del email no es v√°lido')
+      return
+    }
+    if (form.telefono.trim() && !/^[+\d\s()-]{7,25}$/.test(form.telefono.trim())) {
+      toast.error('El formato del tel√©fono no es v√°lido')
       return
     }
 
@@ -147,12 +178,12 @@ export default function ClientesPage() {
       <div className="mx-auto max-w-7xl space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Clientes</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Gesti√≥n de cartera de clientes para ventas.</p>
+          <p className="mt-1 text-sm text-muted-foreground">GestiÛn de cartera de clientes para ventas.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
           <Input
-            placeholder="Buscar por nombre, email o tel√©fono"
+            placeholder="Buscar por nombre, email o telÈfono"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="max-w-xs"
@@ -179,7 +210,7 @@ export default function ClientesPage() {
               <TableRow>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Tel√©fono</TableHead>
+                <TableHead>TelÈfono</TableHead>
                 <TableHead>Estado</TableHead>
                 {canEdit && <TableHead className="text-right">Acciones</TableHead>}
               </TableRow>
@@ -187,26 +218,29 @@ export default function ClientesPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={canEdit ? 5 : 4} className="py-8 text-center text-muted-foreground">
                     Cargando clientes...
                   </TableCell>
                 </TableRow>
-              ) : filteredClients.length === 0 ? (
+              ) : paginatedClients.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={canEdit ? 5 : 4} className="py-8 text-center text-muted-foreground">
                     No hay clientes para mostrar.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredClients.map((client) => (
+                paginatedClients.map((client) => (
                   <TableRow key={client.id}>
                     <TableCell className="font-medium">{client.nombre}</TableCell>
-                    <TableCell>{client.email ?? '‚Äî'}</TableCell>
-                    <TableCell>{client.telefono ?? '‚Äî'}</TableCell>
+                    <TableCell>{client.email ?? 'ó'}</TableCell>
+                    <TableCell>{client.telefono ?? 'ó'}</TableCell>
                     <TableCell>{client.activo ? 'Activo' : 'Archivado'}</TableCell>
                     {canEdit && (
                       <TableCell className="text-right">
                         <div className="inline-flex gap-2">
+                          <Button variant="outline" size="sm" onClick={() => navigate(`/ventas?clientId=${client.id}`)}>
+                            Ver ventas
+                          </Button>
                           <Button variant="outline" size="sm" onClick={() => openEdit(client)}>
                             Editar
                           </Button>
@@ -221,6 +255,26 @@ export default function ClientesPage() {
               )}
             </TableBody>
           </Table>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} | {total} registros</p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setOffset((prev) => Math.max(0, prev - PAGE_SIZE))}
+              disabled={offset === 0}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setOffset((prev) => (prev + PAGE_SIZE >= total ? prev : prev + PAGE_SIZE))}
+              disabled={offset + PAGE_SIZE >= total}
+            >
+              Siguiente
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -243,12 +297,13 @@ export default function ClientesPage() {
               onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
             />
             <Input
-              placeholder="Tel√©fono"
+              placeholder="TelÈfono"
               value={form.telefono}
               onChange={(e) => setForm((prev) => ({ ...prev, telefono: e.target.value }))}
             />
-            <Input
+            <Textarea
               placeholder="Notas"
+              rows={3}
               value={form.notas}
               onChange={(e) => setForm((prev) => ({ ...prev, notas: e.target.value }))}
             />
@@ -265,3 +320,4 @@ export default function ClientesPage() {
     </div>
   )
 }
+

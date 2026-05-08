@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router'
 import { getMetaAnalitica } from '@/api/analitica'
+import { getAlertas } from '@/api/alerta'
 import { getMe } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
 import type { UserProfile } from '@/types/auth'
 import type { AnaliticaMeta } from '@/types/analitica'
+import type { AlertaStock } from '@/types/alerta'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
@@ -14,9 +16,10 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar'
-import { BarChart3, Package, ReceiptText, Sparkles, UserCircle2 } from 'lucide-react'
+import { BarChart3, Bell, Package, ReceiptText, Sparkles, UserCircle2 } from 'lucide-react'
 import { useProfileStore } from '@/store/profileStore'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 
 const toTitleCase = (str: string) =>
   str.toLowerCase().replace(/\b\p{L}/gu, (c) => c.toUpperCase())
@@ -32,6 +35,13 @@ const productosTabs: TopTab[] = [
 const proveedoresTabs: TopTab[] = [
   { to: '/proveedores', label: 'Proveedores' },
   { to: '/pedidos', label: 'Pedidos' },
+]
+
+const analiticaTabs: TopTab[] = [
+  { to: '/analitica/resumen', label: 'Resumen' },
+  { to: '/analitica/ventas-rentabilidad', label: 'Ventas y Rentabilidad' },
+  { to: '/analitica/inventario', label: 'Inventario' },
+  { to: '/analitica/precios-bundles', label: 'Precios y Bundles' },
 ]
 
 const inRouteGroup = (pathname: string, routes: string[]) =>
@@ -63,12 +73,16 @@ export default function AppLayout() {
   const isSettingsRoute = location.pathname.startsWith('/settings')
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [analyticsMeta, setAnalyticsMeta] = useState<AnaliticaMeta | null>(null)
+  const [openAlertsCount, setOpenAlertsCount] = useState(0)
+  const [recentOpenAlerts, setRecentOpenAlerts] = useState<AlertaStock[]>([])
+  const [alertsDrawerOpen, setAlertsDrawerOpen] = useState(false)
   const [whatsNewOpen, setWhatsNewOpen] = useState(false)
 
   const topTabs = useMemo(() => {
     if (isSettingsRoute) return []
     if (inRouteGroup(location.pathname, ['/productos', '/categorias', '/bundles'])) return productosTabs
     if (inRouteGroup(location.pathname, ['/proveedores', '/pedidos'])) return proveedoresTabs
+    if (inRouteGroup(location.pathname, ['/analitica'])) return analiticaTabs
     return []
   }, [isSettingsRoute, location.pathname])
 
@@ -132,12 +146,45 @@ export default function AppLayout() {
     return () => { isMounted = false }
   }, [user?.token])
 
+  useEffect(() => {
+    let isMounted = true
+    const loadOpenAlerts = async () => {
+      if (!user?.token) {
+        if (isMounted) {
+          setOpenAlertsCount(0)
+          setRecentOpenAlerts([])
+        }
+        return
+      }
+      try {
+        const openAlerts = await getAlertas(false)
+        if (!isMounted) return
+        setOpenAlertsCount(openAlerts.length)
+        setRecentOpenAlerts(openAlerts.slice(0, 5))
+      } catch {
+        if (!isMounted) return
+        setOpenAlertsCount(0)
+        setRecentOpenAlerts([])
+      }
+    }
+
+    void loadOpenAlerts()
+    const timer = window.setInterval(() => {
+      void loadOpenAlerts()
+    }, 30000)
+
+    return () => {
+      isMounted = false
+      window.clearInterval(timer)
+    }
+  }, [user?.token])
+
   const dataModeLabel = useMemo(() => {
     if (!analyticsMeta) return null
     const isMockMode =
       analyticsMeta.source === 'API_REAL_LOCAL_SEEDED' ||
       analyticsMeta.source === 'API_REAL_SEED_PENDING'
-    return isMockMode ? 'Mock data mode' : 'API real'
+    return isMockMode ? 'Modo de datos de prueba' : 'API real'
   }, [analyticsMeta])
 
   return (
@@ -157,7 +204,13 @@ export default function AppLayout() {
                     <TabsTrigger
                       key={tab.to}
                       value={tab.to}
-                      onClick={() => navigate(tab.to)}
+                      onClick={() => {
+                        const shouldKeepSearch = location.pathname.startsWith('/analitica')
+                        navigate({
+                          pathname: tab.to,
+                          search: shouldKeepSearch ? location.search : '',
+                        })
+                      }}
                       className="flex-none rounded-none px-3 py-2 text-sm"
                     >
                       {tab.label}
@@ -174,8 +227,65 @@ export default function AppLayout() {
               </>
             )}
 
+            <Sheet open={alertsDrawerOpen} onOpenChange={setAlertsDrawerOpen}>
+              <SheetTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative h-8 w-8"
+                  aria-label="Notificaciones de alertas"
+                >
+                  <Bell className="h-4 w-4" />
+                  {openAlertsCount > 0 ? (
+                    <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold leading-none text-white">
+                      {openAlertsCount > 99 ? '99+' : openAlertsCount}
+                    </span>
+                  ) : null}
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-full sm:max-w-md">
+                <SheetHeader className="pb-2">
+                  <SheetTitle>Notificaciones</SheetTitle>
+                  <SheetDescription>Alertas abiertas ({openAlertsCount})</SheetDescription>
+                </SheetHeader>
+                <div className="flex-1 space-y-2 overflow-y-auto px-6 pb-4">
+                  {recentOpenAlerts.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No hay alertas abiertas.</p>
+                  ) : (
+                    recentOpenAlerts.map((alert) => (
+                      <button
+                        key={alert.id}
+                        type="button"
+                        className="w-full rounded-md border p-3 text-left transition-colors hover:bg-muted"
+                        onClick={() => {
+                          setAlertsDrawerOpen(false)
+                          navigate('/alertas')
+                        }}
+                      >
+                        <p className="text-sm font-medium">{alert.productoNombre} · {alert.tipo}</p>
+                        <p className="truncate text-xs text-muted-foreground">{alert.mensaje}</p>
+                      </button>
+                    ))
+                  )}
+                </div>
+                <div className="border-t p-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => {
+                      setAlertsDrawerOpen(false)
+                      navigate('/alertas')
+                    }}
+                  >
+                    Ver alertas
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
+
             {dataModeLabel ? (
-              <Badge variant={dataModeLabel === 'Mock data mode' ? 'outline' : 'secondary'} className="mr-1">
+              <Badge variant={dataModeLabel === 'Modo de datos de prueba' ? 'outline' : 'secondary'} className="mr-1">
                 {dataModeLabel}
               </Badge>
             ) : null}

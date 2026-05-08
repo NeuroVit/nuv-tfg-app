@@ -77,7 +77,12 @@ export default function RegisterPage() {
         email: data.email,
         password: data.password,
         })
-        setUser({ username: res.username, role: res.role, token: res.token })
+        setUser({
+          username: res.username,
+          role: res.role,
+          token: res.token,
+          mustChangePassword: res.mustChangePassword,
+        })
         toast.success(`Cuenta creada correctamente. Bienvenido, ${res.username}.`)
         navigate('/dashboard')
     } catch (err: unknown) {
@@ -97,12 +102,22 @@ const handleGoogleSuccess = async (response: CredentialResponse) => {
     setIsGoogleSubmitting(true)
     try {
         const res = await googleLogin(response.credential)
-        setUser({ username: res.username, role: res.role, token: res.token })
+        setUser({
+          username: res.username,
+          role: res.role,
+          token: res.token,
+          mustChangePassword: res.mustChangePassword,
+        })
         toast.success(`Bienvenido, ${res.username}.`)
         navigate('/dashboard')
-    } catch {
-        setServerError('Error al registrarse con Google')
-        toast.error('Error al registrarse con Google')
+    } catch (err: unknown) {
+        const msg = isAxiosError<{ message?: string; mensaje?: string }>(err)
+          ? (err.response?.data?.message ??
+            err.response?.data?.mensaje ??
+            'Error al registrarse con Google')
+          : 'Error al registrarse con Google'
+        setServerError(msg)
+        toast.error(msg)
     } finally {
         setIsGoogleSubmitting(false)
     }

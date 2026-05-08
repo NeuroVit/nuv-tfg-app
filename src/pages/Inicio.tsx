@@ -1,8 +1,12 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { AlertCircle, ArrowDown, ArrowUp, PackageSearch } from 'lucide-react'
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
+import { getFinanzasResumenAnalitica, getTopProductosVelocidadAnalitica, getVelocidadResumenAnalitica } from '@/api/analitica'
 import { useInventarioDashboard } from '@/hooks/useInventarioDashboard'
 import { useProfileStore } from '@/store/profileStore'
+import type { TopProductVelocityRow, VelocitySummaryRow } from '@/types/analitica'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   ChartContainer,
@@ -12,9 +16,12 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const formatCurrency = (value: number) =>
   `€${value.toLocaleString('es-ES', { maximumFractionDigits: 2 })}`
+const formatPercent = (value: number) =>
+  `${value.toLocaleString('es-ES', { maximumFractionDigits: 1, minimumFractionDigits: 1 })}%`
 
 const formatRelativeTime = (dateValue: string) => {
   const date = new Date(dateValue)
@@ -37,13 +44,56 @@ const getGreeting = () => {
   return 'Buenas noches'
 }
 
-const chartConfig = {
+const movementsChartConfig = {
   Entradas: { label: 'Entradas', color: 'hsl(142, 71%, 45%)' },
   Salidas: { label: 'Salidas', color: 'hsl(0, 84%, 60%)' },
 } satisfies ChartConfig
 
+const revenueChartConfig = {
+  unitsSold: { label: 'Unidades', color: '#2563eb' },
+  revenue: { label: 'Ingresos', color: '#16a34a' },
+} satisfies ChartConfig
+
+const winnersChartConfig = {
+  revenue: { label: 'Ingresos', color: 'hsl(142, 71%, 45%)' },
+} satisfies ChartConfig
+
+type TimeRange = 'daily' | 'weekly' | 'monthly' | 'all'
+type DashboardChart = 'movements' | 'revenue' | 'winners'
+
+const timeRangeOptions: Array<{ value: TimeRange; label: string; days: number; spanLabel: string }> = [
+  { value: 'daily', label: 'Diario', days: 1, spanLabel: 'últimas 24 horas' },
+  { value: 'weekly', label: 'Semanal', days: 7, spanLabel: 'semana actual' },
+  { value: 'monthly', label: 'Mensual', days: 30, spanLabel: 'mes actual' },
+  { value: 'all', label: 'Histórico', days: 0, spanLabel: 'todo el histórico' },
+]
+
+const chartOptions: Array<{ value: DashboardChart; label: string }> = [
+  { value: 'movements', label: 'Movimientos de stock' },
+  { value: 'revenue', label: 'Tendencia de ingresos' },
+  { value: 'winners', label: 'Productos ganadores' },
+]
+
+const toDayKey = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+
+const toHourKey = (date: Date) => `${toDayKey(date)}-${String(date.getHours()).padStart(2, '0')}`
+
+const toMonthKey = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+
 export default function Inicio() {
+  const navigate = useNavigate()
   const displayName = useProfileStore((s) => s.displayName)
+  const [timeRange, setTimeRange] = useState<TimeRange>('weekly')
+  const [selectedChart, setSelectedChart] = useState<DashboardChart>('movements')
+  const [revenueSummary, setRevenueSummary] = useState<VelocitySummaryRow[]>([])
+  const [winningProducts, setWinningProducts] = useState<TopProductVelocityRow[]>([])
+  const [marginCurrent, setMarginCurrent] = useState(0)
+  const [marginPrevious, setMarginPrevious] = useState<number | null>(null)
+  const [criticalStockPrevious, setCriticalStockPrevious] = useState<number | null>(null)
+  const [chartInsightsLoading, setChartInsightsLoading] = useState(false)
+  const [chartInsightsError, setChartInsightsError] = useState<string | null>(null)
   const {
     valorTotal,
     totalProductos,
@@ -56,25 +106,333 @@ export default function Inicio() {
 
   const movimientosPreview = movimientos.slice(0, 5)
   const stockBajoPreview = productosStockBajo.slice(0, 5)
+  const selectedRange = timeRangeOptions.find((option) => option.value === timeRange) ?? timeRangeOptions[1]!
+  const selectedDays = selectedRange.days
+  const dataWindowDays = useMemo(() => {
+    if (timeRange !== 'monthly') return selectedDays
+    const now = new Date()
+    const daysInCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+    return Math.max(selectedDays, daysInCurrentMonth)
+  }, [selectedDays, timeRange])
+  const prefsKey = useMemo(
+    () => `nuv-dashboard-prefs:${(displayName || 'usuario').toLowerCase()}`,
+    [displayName],
+  )
+  const stockSnapshotKey = useMemo(
+    () => `nuv-dashboard-stock-snapshot:${(displayName || 'usuario').toLowerCase()}`,
+    [displayName],
+  )
 
-  const chartData = useMemo(() => {
-    const days: Record<string, { fecha: string; Entradas: number; Salidas: number }> = {}
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date()
-      d.setDate(d.getDate() - i)
-      const key = d.toISOString().split('T')[0]!
-      const label = d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' })
-      days[key] = { fecha: label, Entradas: 0, Salidas: 0 }
+  useEffect(() => {
+    const raw = localStorage.getItem(prefsKey)
+    if (!raw) return
+    try {
+      const parsed = JSON.parse(raw) as { timeRange?: TimeRange; selectedChart?: DashboardChart }
+      if (parsed.timeRange) setTimeRange(parsed.timeRange)
+      if (parsed.selectedChart) setSelectedChart(parsed.selectedChart)
+    } catch {
+      // Ignore malformed local storage payloads.
     }
-    movimientos.forEach((m) => {
-      const key = m.fecha.split('T')[0]!
-      if (key in days) {
-        if (m.tipo === 'ENTRADA') days[key]!.Entradas += m.cantidad
-        else days[key]!.Salidas += m.cantidad
+  }, [prefsKey])
+
+  useEffect(() => {
+    localStorage.setItem(
+      prefsKey,
+      JSON.stringify({ timeRange, selectedChart })
+    )
+  }, [prefsKey, selectedChart, timeRange])
+
+  useEffect(() => {
+    const raw = localStorage.getItem(stockSnapshotKey)
+    if (raw !== null) {
+      const previousValue = Number(raw)
+      if (Number.isFinite(previousValue)) {
+        setCriticalStockPrevious(previousValue)
       }
+    }
+    localStorage.setItem(stockSnapshotKey, String(productosStockBajo.length))
+  }, [productosStockBajo.length, stockSnapshotKey])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadChartInsights = async () => {
+      setChartInsightsLoading(true)
+      setChartInsightsError(null)
+
+      try {
+        const compareWindowDays = dataWindowDays > 0 ? dataWindowDays * 2 : 180
+        const [revenueRows, winnerRows, finanzasCurrent] = await Promise.all([
+          getVelocidadResumenAnalitica(dataWindowDays),
+          getTopProductosVelocidadAnalitica(dataWindowDays, 8),
+          getFinanzasResumenAnalitica(dataWindowDays),
+        ])
+        const velocityRowsForComparison = await getVelocidadResumenAnalitica(compareWindowDays)
+
+        if (cancelled) return
+        setRevenueSummary(revenueRows)
+        setWinningProducts(winnerRows)
+        setMarginCurrent(finanzasCurrent.margenReal30d)
+
+        const sorted = velocityRowsForComparison
+          .slice()
+          .sort((a, b) => new Date(a.movementDate).getTime() - new Date(b.movementDate).getTime())
+        if (sorted.length >= 2) {
+          const midpoint = Math.floor(sorted.length / 2)
+          const previousMarginLike = sorted
+            .slice(0, midpoint)
+            .reduce((sum, row) => sum + row.revenue, 0)
+          setMarginPrevious(previousMarginLike)
+        } else {
+          setMarginPrevious(null)
+        }
+      } catch {
+        if (cancelled) return
+        setRevenueSummary([])
+        setWinningProducts([])
+        setChartInsightsError('No se pudieron cargar las gráficas de analítica.')
+        setMarginCurrent(0)
+        setMarginPrevious(null)
+      } finally {
+        if (!cancelled) setChartInsightsLoading(false)
+      }
+    }
+
+    void loadChartInsights()
+
+    return () => {
+      cancelled = true
+    }
+  }, [dataWindowDays])
+
+  const movementsChartData = useMemo(() => {
+    const now = new Date()
+    const safeMovimientos = movimientos
+      .map((movimiento) => ({
+        ...movimiento,
+        parsedDate: new Date(movimiento.fecha),
+      }))
+      .filter((movimiento) => !Number.isNaN(movimiento.parsedDate.getTime()))
+
+    if (timeRange === 'daily') {
+      const hours: Record<string, { fecha: string; Entradas: number; Salidas: number }> = {}
+      for (let i = 23; i >= 0; i--) {
+        const d = new Date(now)
+        d.setMinutes(0, 0, 0)
+        d.setHours(d.getHours() - i)
+        const key = toHourKey(d)
+        hours[key] = {
+          fecha: d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+          Entradas: 0,
+          Salidas: 0,
+        }
+      }
+
+      safeMovimientos.forEach((movimiento) => {
+        const key = toHourKey(movimiento.parsedDate)
+        if (!(key in hours)) return
+        if (movimiento.tipo === 'ENTRADA') hours[key]!.Entradas += movimiento.cantidad
+        else hours[key]!.Salidas += movimiento.cantidad
+      })
+
+      return Object.values(hours)
+    }
+
+    if (timeRange === 'weekly' || timeRange === 'monthly') {
+      const daysToInclude = timeRange === 'weekly' ? 7 : 30
+      const days: Record<string, { fecha: string; Entradas: number; Salidas: number }> = {}
+      for (let i = daysToInclude - 1; i >= 0; i--) {
+        const d = new Date(now)
+        d.setHours(0, 0, 0, 0)
+        d.setDate(d.getDate() - i)
+        const key = toDayKey(d)
+        days[key] = {
+          fecha: d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }),
+          Entradas: 0,
+          Salidas: 0,
+        }
+      }
+
+      safeMovimientos.forEach((movimiento) => {
+        const key = toDayKey(movimiento.parsedDate)
+        if (!(key in days)) return
+        if (movimiento.tipo === 'ENTRADA') days[key]!.Entradas += movimiento.cantidad
+        else days[key]!.Salidas += movimiento.cantidad
+      })
+
+      return Object.values(days)
+    }
+
+    if (safeMovimientos.length === 0) return []
+
+    const firstMovementDate = safeMovimientos.reduce(
+      (minDate, movimiento) =>
+        movimiento.parsedDate < minDate ? movimiento.parsedDate : minDate,
+      safeMovimientos[0]!.parsedDate
+    )
+
+    const months: Record<string, { fecha: string; Entradas: number; Salidas: number }> = {}
+    const cursor = new Date(firstMovementDate.getFullYear(), firstMovementDate.getMonth(), 1)
+    const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+
+    while (cursor <= currentMonth) {
+      const key = toMonthKey(cursor)
+      months[key] = {
+        fecha: cursor.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }),
+        Entradas: 0,
+        Salidas: 0,
+      }
+      cursor.setMonth(cursor.getMonth() + 1)
+    }
+
+    safeMovimientos.forEach((movimiento) => {
+      const key = toMonthKey(movimiento.parsedDate)
+      if (!(key in months)) return
+      if (movimiento.tipo === 'ENTRADA') months[key]!.Entradas += movimiento.cantidad
+      else months[key]!.Salidas += movimiento.cantidad
     })
-    return Object.values(days)
-  }, [movimientos])
+
+    return Object.values(months)
+  }, [movimientos, timeRange])
+
+  const revenueChartData = useMemo(() => {
+    const now = new Date()
+    const safeRows = revenueSummary
+      .map((row) => ({
+        ...row,
+        parsedDate: new Date(row.movementDate),
+      }))
+      .filter((row) => !Number.isNaN(row.parsedDate.getTime()))
+
+    if (timeRange === 'daily') {
+      const hours: Record<string, { date: string; unitsSold: number; revenue: number }> = {}
+      for (let i = 23; i >= 0; i--) {
+        const d = new Date(now)
+        d.setMinutes(0, 0, 0)
+        d.setHours(d.getHours() - i)
+        const key = toHourKey(d)
+        hours[key] = {
+          date: d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+          unitsSold: 0,
+          revenue: 0,
+        }
+      }
+
+      safeRows.forEach((row) => {
+        const key = toHourKey(row.parsedDate)
+        if (!(key in hours)) return
+        hours[key]!.unitsSold += row.unitsSold
+        hours[key]!.revenue += row.revenue
+      })
+
+      return Object.values(hours)
+    }
+
+    if (timeRange === 'weekly' || timeRange === 'monthly') {
+      const days: Record<string, { date: string; unitsSold: number; revenue: number }> = {}
+      if (timeRange === 'weekly') {
+        const weekStart = new Date(now)
+        weekStart.setHours(0, 0, 0, 0)
+        const mondayOffset = (weekStart.getDay() + 6) % 7
+        weekStart.setDate(weekStart.getDate() - mondayOffset)
+
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(weekStart)
+          d.setDate(weekStart.getDate() + i)
+          const key = toDayKey(d)
+          days[key] = {
+            date: d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit' }),
+            unitsSold: 0,
+            revenue: 0,
+          }
+        }
+      } else {
+        const monthCursor = new Date(now.getFullYear(), now.getMonth(), 1)
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+
+        while (monthCursor <= monthEnd) {
+          const key = toDayKey(monthCursor)
+          days[key] = {
+            date: monthCursor.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+            unitsSold: 0,
+            revenue: 0,
+          }
+          monthCursor.setDate(monthCursor.getDate() + 1)
+        }
+      }
+
+      safeRows.forEach((row) => {
+        const key = toDayKey(row.parsedDate)
+        if (!(key in days)) return
+        days[key]!.unitsSold += row.unitsSold
+        days[key]!.revenue += row.revenue
+      })
+
+      return Object.values(days)
+    }
+
+    return safeRows
+      .slice()
+      .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime())
+      .map((row) => ({
+        date: row.parsedDate.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }),
+        unitsSold: row.unitsSold,
+        revenue: row.revenue,
+      }))
+  }, [revenueSummary, timeRange])
+
+  const winnersChartData = useMemo(
+    () =>
+      winningProducts.map((row) => ({
+        producto: row.productName.length > 24 ? `${row.productName.slice(0, 24)}...` : row.productName,
+        revenue: row.revenue,
+      })),
+    [winningProducts],
+  )
+
+  const chartTitleByType: Record<DashboardChart, string> = {
+    movements: `Movimientos de stock - ${selectedRange.spanLabel}`,
+    revenue: `Ingresos por ventas - ${selectedRange.spanLabel}`,
+    winners: `Productos ganadores - ${selectedRange.spanLabel}`,
+  }
+
+  const chartDescriptionByType: Record<DashboardChart, string> = {
+    movements: selectedDays === 1 ? 'Entradas y salidas por hora' : 'Entradas y salidas agregadas por periodo',
+    revenue: 'Tendencia de ingresos para el rango seleccionado',
+    winners: 'Productos con mayor facturación en el rango seleccionado',
+  }
+
+  const salesComparison = useMemo(() => {
+    if (revenueSummary.length < 2) return null
+    const sorted = revenueSummary
+      .slice()
+      .sort((a, b) => new Date(a.movementDate).getTime() - new Date(b.movementDate).getTime())
+    const midpoint = Math.floor(sorted.length / 2)
+    if (midpoint === 0 || midpoint >= sorted.length) return null
+    const previous = sorted.slice(0, midpoint).reduce((sum, row) => sum + row.revenue, 0)
+    const current = sorted.slice(midpoint).reduce((sum, row) => sum + row.revenue, 0)
+    return { previous, current }
+  }, [revenueSummary])
+
+  const unitsComparison = useMemo(() => {
+    if (revenueSummary.length < 2) return null
+    const sorted = revenueSummary
+      .slice()
+      .sort((a, b) => new Date(a.movementDate).getTime() - new Date(b.movementDate).getTime())
+    const midpoint = Math.floor(sorted.length / 2)
+    if (midpoint === 0 || midpoint >= sorted.length) return null
+    const previous = sorted.slice(0, midpoint).reduce((sum, row) => sum + row.unitsSold, 0)
+    const current = sorted.slice(midpoint).reduce((sum, row) => sum + row.unitsSold, 0)
+    return { previous, current }
+  }, [revenueSummary])
+
+  const formatDelta = (current: number, previous: number | null, isCurrency = false) => {
+    if (previous === null || previous === 0) return 'Sin base comparable'
+    const delta = current - previous
+    const pct = (delta / Math.abs(previous)) * 100
+    const value = isCurrency ? formatCurrency(Math.abs(delta)) : Math.abs(delta).toLocaleString('es-ES')
+    return `${delta >= 0 ? '+' : '-'}${value} (${formatPercent(Math.abs(pct))})`
+  }
 
   if (loading) {
     return (
@@ -126,74 +484,191 @@ export default function Inicio() {
               <p className={`text-2xl font-semibold ${productosStockBajo.length > 0 ? 'text-red-600' : 'text-green-600'}`}>
                 {productosStockBajo.length}
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">requieren reposición</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {formatDelta(productosStockBajo.length, criticalStockPrevious)}
+              </p>
+              <Button size="sm" variant="link" className="px-0" onClick={() => navigate('/alertas')}>
+                Ver alertas abiertas
+              </Button>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Categorías activas</CardDescription>
+              <CardDescription>Ingresos del rango</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-semibold text-green-600">{totalCategorias}</p>
-              <p className="mt-1 text-xs text-muted-foreground">en inventario</p>
+              <p className="text-2xl font-semibold text-green-600">{formatCurrency(salesComparison?.current ?? 0)}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {formatDelta(salesComparison?.current ?? 0, salesComparison?.previous ?? null, true)}
+              </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Movimientos recientes</CardDescription>
+              <CardDescription>Margen / Unidades</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-semibold text-amber-600">{movimientos.length}</p>
-              <p className="mt-1 text-xs text-muted-foreground">últimas entradas/salidas</p>
+              <p className="text-2xl font-semibold text-amber-600">{formatCurrency(marginCurrent)}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Margen: {formatDelta(marginCurrent, marginPrevious, true)}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Unidades: {formatDelta(unitsComparison?.current ?? 0, unitsComparison?.previous ?? null)}
+              </p>
             </CardContent>
           </Card>
         </section>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Movimientos de stock — últimos 7 días</CardTitle>
-            <CardDescription>Entradas y salidas registradas por día</CardDescription>
+          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-2">
+              <div>
+                <CardTitle className="text-base">{chartTitleByType[selectedChart]}</CardTitle>
+                <CardDescription>{chartDescriptionByType[selectedChart]}</CardDescription>
+              </div>
+              <div className="w-full sm:w-[220px]">
+                <Select
+                  value={selectedChart}
+                  onValueChange={(value) => setSelectedChart(value as DashboardChart)}
+                >
+                  <SelectTrigger aria-label="Seleccionar gráfica principal">
+                    <SelectValue placeholder="Selecciona una gráfica" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {chartOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+              {timeRangeOptions.map((option) => (
+                <Button
+                  key={option.value}
+                  type="button"
+                  size="sm"
+                  variant={timeRange === option.value ? 'default' : 'outline'}
+                  onClick={() => setTimeRange(option.value)}
+                >
+                  {option.label}
+                </Button>
+              ))}
+            </div>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={chartConfig} className="h-[220px] w-full">
-              <AreaChart data={chartData} margin={{ top: 4, right: 12, left: -16, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="fillEntradas" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--color-Entradas)" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="var(--color-Entradas)" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="fillSalidas" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--color-Salidas)" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="var(--color-Salidas)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                <XAxis dataKey="fecha" tickLine={false} axisLine={false} tickMargin={8} />
-                <YAxis tickLine={false} axisLine={false} allowDecimals={false} />
-                <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
-                <ChartLegend content={<ChartLegendContent />} />
-                <Area
-                  type="monotone"
-                  dataKey="Entradas"
-                  stroke="var(--color-Entradas)"
-                  strokeWidth={2}
-                  fill="url(#fillEntradas)"
-                  dot={false}
-                  activeDot={{ r: 4 }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="Salidas"
-                  stroke="var(--color-Salidas)"
-                  strokeWidth={2}
-                  fill="url(#fillSalidas)"
-                  dot={false}
-                  activeDot={{ r: 4 }}
-                />
-              </AreaChart>
-            </ChartContainer>
+            {selectedChart === 'movements' ? (
+              <ChartContainer config={movementsChartConfig} className="h-[220px] w-full">
+                <AreaChart data={movementsChartData} margin={{ top: 4, right: 12, left: -16, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="fillEntradas" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--color-Entradas)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="var(--color-Entradas)" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="fillSalidas" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--color-Salidas)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="var(--color-Salidas)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                  <XAxis dataKey="fecha" tickLine={false} axisLine={false} tickMargin={8} />
+                  <YAxis tickLine={false} axisLine={false} allowDecimals={false} />
+                  <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
+                  <ChartLegend content={<ChartLegendContent />} />
+                  <Area
+                    type="monotone"
+                    dataKey="Entradas"
+                    stroke="var(--color-Entradas)"
+                    strokeWidth={2}
+                    fill="url(#fillEntradas)"
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="Salidas"
+                    stroke="var(--color-Salidas)"
+                    strokeWidth={2}
+                    fill="url(#fillSalidas)"
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                  />
+                </AreaChart>
+              </ChartContainer>
+            ) : chartInsightsLoading ? (
+              <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
+                Cargando gráfica...
+              </div>
+            ) : chartInsightsError ? (
+              <div className="flex h-[220px] flex-col items-center justify-center gap-2 text-sm text-red-600">
+                <span>{chartInsightsError}</span>
+                <Button size="sm" variant="outline" onClick={() => navigate('/analitica')}>Ir a Analítica</Button>
+              </div>
+            ) : selectedChart === 'revenue' ? (
+              revenueChartData.length === 0 ? (
+                <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
+                  No hay datos de ingresos para este rango.
+                </div>
+              ) : (
+                <ChartContainer config={revenueChartConfig} className="h-[220px] w-full">
+                  <LineChart data={revenueChartData} margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" minTickGap={18} />
+                    <YAxis yAxisId="left" />
+                    <YAxis yAxisId="right" orientation="right" />
+                    <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
+                    <ChartLegend content={<ChartLegendContent />} />
+                    <Line
+                      yAxisId="left"
+                      type="monotone"
+                      dataKey="unitsSold"
+                      stroke="var(--color-unitsSold)"
+                      strokeWidth={2}
+                      dot={false}
+                      name="unitsSold"
+                    />
+                    <Line
+                      yAxisId="right"
+                      type="monotone"
+                      dataKey="revenue"
+                      stroke="var(--color-revenue)"
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: 4 }}
+                      name="revenue"
+                    />
+                  </LineChart>
+                </ChartContainer>
+              )
+            ) : winnersChartData.length === 0 ? (
+              <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
+                No hay productos ganadores en este rango.
+              </div>
+            ) : (
+              <ChartContainer config={winnersChartConfig} className="h-[220px] w-full">
+                <BarChart data={winnersChartData} layout="vertical" margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
+                  <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+                  <XAxis type="number" tickLine={false} axisLine={false} />
+                  <YAxis
+                    type="category"
+                    dataKey="producto"
+                    tickLine={false}
+                    axisLine={false}
+                    width={130}
+                  />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent formatter={(value) => formatCurrency(Number(value))} />
+                    }
+                  />
+                  <Bar dataKey="revenue" fill="var(--color-revenue)" radius={6} name="revenue" />
+                </BarChart>
+              </ChartContainer>
+            )}
           </CardContent>
         </Card>
 
@@ -205,7 +680,12 @@ export default function Inicio() {
             <CardContent>
               <div className={`space-y-3 ${movimientos.length > 5 ? 'max-h-[360px] overflow-y-auto pr-1' : ''}`}>
                 {movimientosPreview.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No hay movimientos recientes.</p>
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    <p>No hay movimientos recientes.</p>
+                    <Button size="sm" variant="outline" onClick={() => navigate('/movimientos')}>
+                      Revisar histórico de movimientos
+                    </Button>
+                  </div>
                 ) : (
                   movimientosPreview.map((movimiento) => {
                     const isEntrada = movimiento.tipo === 'ENTRADA'
@@ -278,7 +758,33 @@ export default function Inicio() {
                     )
                   })
                 )}
+                {stockBajoPreview.length > 0 ? (
+                  <Button size="sm" variant="outline" className="w-full" onClick={() => navigate('/productos?estado=low')}>
+                    Ver productos con stock bajo
+                  </Button>
+                ) : null}
               </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Categorías activas</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-semibold text-green-600">{totalCategorias}</p>
+              <p className="mt-1 text-xs text-muted-foreground">en inventario</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Movimientos recientes</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-semibold text-amber-600">{movimientos.length}</p>
+              <p className="mt-1 text-xs text-muted-foreground">últimas entradas/salidas</p>
             </CardContent>
           </Card>
         </section>

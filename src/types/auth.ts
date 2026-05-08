@@ -16,12 +16,14 @@ export interface AuthResponse {
   username: string
   role: string
   expiresIn: number
+  mustChangePassword: boolean
 }
 
 export interface AuthUser {
   username: string
   role: string
   token: string
+  mustChangePassword: boolean
 }
 
 export interface UserProfile {
@@ -33,6 +35,7 @@ export interface UserProfile {
   role: string
   activo: boolean
   avatarUrl: string | null
+  mustChangePassword: boolean
 }
 
 export interface UpdateProfileRequest {
@@ -44,4 +47,31 @@ export interface UpdateProfileRequest {
 export interface ChangePasswordRequest {
   currentPassword: string
   newPassword: string
+}
+
+export interface SessionUser {
+  id: number
+  email: string
+  username: string
+}
+
+export interface SessionOrganization {
+  id: number
+  name: string
+  slug: string
+}
+
+export interface SessionContext {
+  user: SessionUser
+  organization: SessionOrganization | null
+  role: string | null
+  requiresOrganizationOnboarding: boolean
+}
+
+export interface CreateOrganizationRequest {
+  name: string
+}
+
+export interface UpdateOrganizationRequest {
+  name: string
 }

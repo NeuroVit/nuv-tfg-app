@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { isAxiosError } from 'axios'
 import { useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { Archive, MoreHorizontal, Plus, RotateCcw, Truck } from 'lucide-react'
@@ -25,6 +24,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { parseApiError } from '@/lib/apiError'
 
 type ProviderFormState = {
   nombre: string
@@ -37,18 +37,7 @@ const emptyProviderForm: ProviderFormState = {
   ubicacionAlmacen: '',
   diasEntrega: '0',
 }
-
-const parseApiError = (error: unknown, fallback: string): string => {
-  if (!isAxiosError(error)) return fallback
-  const payload = error.response?.data
-  if (typeof payload === 'string') return payload
-  if (payload && typeof payload === 'object') {
-    const data = payload as { message?: string; error?: string }
-    if (data.message) return data.message
-    if (data.error) return data.error
-  }
-  return fallback
-}
+const PAGE_SIZE = 20
 
 export default function ProveedoresPage() {
   const navigate = useNavigate()
@@ -63,6 +52,7 @@ export default function ProveedoresPage() {
 
   const [providerSearch, setProviderSearch] = useState('')
   const [providerStatusFilter, setProviderStatusFilter] = useState<'all' | 'active' | 'archived'>('active')
+  const [offset, setOffset] = useState(0)
 
   const [providerDialogOpen, setProviderDialogOpen] = useState(false)
   const [providerDialogMode, setProviderDialogMode] = useState<'create' | 'edit'>('create')
@@ -102,6 +92,24 @@ export default function ProveedoresPage() {
       return statusOk && textOk
     })
   }, [providers, providerSearch, providerStatusFilter])
+
+  const total = filteredProviders.length
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const currentPage = Math.floor(offset / PAGE_SIZE) + 1
+  const paginatedProviders = useMemo(
+    () => filteredProviders.slice(offset, offset + PAGE_SIZE),
+    [filteredProviders, offset]
+  )
+
+  useEffect(() => {
+    setOffset(0)
+  }, [providerSearch, providerStatusFilter])
+
+  useEffect(() => {
+    if (offset >= total && total > 0) {
+      setOffset(Math.max(0, (Math.ceil(total / PAGE_SIZE) - 1) * PAGE_SIZE))
+    }
+  }, [offset, total])
 
   const openCreateProvider = () => {
     setProviderDialogMode('create')
@@ -183,7 +191,7 @@ export default function ProveedoresPage() {
       <div className="mx-auto max-w-7xl space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Proveedores</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Selecciona un proveedor para ver sus pedidos en la pestaña superior "Pedidos".</p>
+          <p className="mt-1 text-sm text-muted-foreground">Haz clic en una fila para abrir el detalle del proveedor o usa acciones para ver pedidos.</p>
         </div>
 
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -235,18 +243,18 @@ export default function ProveedoresPage() {
                     Cargando proveedores...
                   </TableCell>
                 </TableRow>
-              ) : filteredProviders.length === 0 ? (
+              ) : paginatedProviders.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                     No hay proveedores para mostrar.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredProviders.map((provider) => (
+                paginatedProviders.map((provider) => (
                   <TableRow
                     key={provider.id}
                     className={`cursor-pointer hover:bg-accent ${selectedProviderId === provider.id ? 'bg-muted' : ''}`}
-                    onClick={() => goToPedidosForProvider(provider)}
+                    onClick={() => goToProviderDetail(provider)}
                   >
                     <TableCell className="font-medium">{provider.nombre}</TableCell>
                     <TableCell>{provider.ubicacionAlmacen}</TableCell>
@@ -307,6 +315,26 @@ export default function ProveedoresPage() {
             </TableBody>
           </Table>
         </div>
+
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} · {total} registros</p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setOffset((prev) => Math.max(0, prev - PAGE_SIZE))}
+              disabled={offset === 0}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setOffset((prev) => (prev + PAGE_SIZE >= total ? prev : prev + PAGE_SIZE))}
+              disabled={offset + PAGE_SIZE >= total}
+            >
+              Siguiente
+            </Button>
+          </div>
+        </div>
       </div>
 
       <Dialog open={providerDialogOpen} onOpenChange={setProviderDialogOpen}>
@@ -360,3 +388,4 @@ export default function ProveedoresPage() {
     </div>
   )
 }
+

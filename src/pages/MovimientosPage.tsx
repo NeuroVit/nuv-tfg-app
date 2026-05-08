@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { X } from 'lucide-react'
+﻿import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { getMovimientos } from '@/api/movimiento'
 import { getProductos } from '@/api/producto'
@@ -14,20 +14,47 @@ const PAGE_SIZE = 20
 const MIN_DATE = '2000-01-01'
 const MAX_DATE = '2100-12-31'
 
-const formatDate = (value: string) => new Date(value).toLocaleString('es-ES')
+const formatDate = (value: string) => {
+  const date = new Date(value)
+  const today = new Date()
+  const yesterday = new Date()
+  yesterday.setDate(today.getDate() - 1)
+
+  const isSameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+
+  const time = date.toLocaleTimeString('es-ES', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+
+  if (isSameDay(date, today)) return `Hoy, ${time}`
+  if (isSameDay(date, yesterday)) return `Ayer, ${time}`
+
+  return date.toLocaleString('es-ES', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
 const formatReason = (reason: string) => {
   const reasonLabels: Record<string, string> = {
     SALE: 'Venta',
     PURCHASE: 'Compra',
     ADJUSTMENT: 'Ajuste',
-    RETURN: 'Devolucion',
-    DAMAGE: 'Dano',
+    RETURN: 'Devolución',
+    DAMAGE: 'Daño',
     INITIAL: 'Inicial',
   }
   return reasonLabels[reason] ?? reason
 }
 
 export default function MovimientosPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [productos, setProductos] = useState<Producto[]>([])
   const [movimientos, setMovimientos] = useState<MovimientoStock[]>([])
   const [total, setTotal] = useState(0)
@@ -51,11 +78,6 @@ export default function MovimientosPage() {
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1
   const hasActiveFilters =
     productId !== 'all' || tipo !== 'all' || razon !== 'all' || Boolean(desde) || Boolean(hasta)
-  const invalidDateRange = Boolean(desde && hasta && desde > hasta)
-  const invalidYear = Boolean(
-    (desde && (desde < MIN_DATE || desde > MAX_DATE)) ||
-    (hasta && (hasta < MIN_DATE || hasta > MAX_DATE))
-  )
   const debouncedInvalidDateRange = Boolean(
     debouncedFilters.desde && debouncedFilters.hasta && debouncedFilters.desde > debouncedFilters.hasta
   )
@@ -127,49 +149,6 @@ export default function MovimientosPage() {
     []
   )
 
-  const activeFilterChips = useMemo(() => {
-    const selectedProduct = productos.find((product) => String(product.id) === productId)
-    const chips: Array<{ key: string; label: string; onClear: () => void }> = []
-
-    if (productId !== 'all' && selectedProduct) {
-      chips.push({
-        key: 'product',
-        label: `Producto: ${selectedProduct.nombre}`,
-        onClear: () => setProductId('all'),
-      })
-    }
-    if (tipo !== 'all') {
-      chips.push({
-        key: 'tipo',
-        label: `Tipo: ${tipo === 'ENTRADA' ? 'Entrada' : 'Salida'}`,
-        onClear: () => setTipo('all'),
-      })
-    }
-    if (razon !== 'all') {
-      chips.push({
-        key: 'razon',
-        label: `Razon: ${formatReason(razon)}`,
-        onClear: () => setRazon('all'),
-      })
-    }
-    if (desde) {
-      chips.push({
-        key: 'desde',
-        label: `Desde: ${desde}`,
-        onClear: () => setDesde(''),
-      })
-    }
-    if (hasta) {
-      chips.push({
-        key: 'hasta',
-        label: `Hasta: ${hasta}`,
-        onClear: () => setHasta(''),
-      })
-    }
-
-    return chips
-  }, [productos, productId, tipo, razon, desde, hasta])
-
   const resetFilters = () => {
     setProductId('all')
     setTipo('all')
@@ -179,6 +158,41 @@ export default function MovimientosPage() {
     setOffset(0)
   }
 
+  useEffect(() => {
+    const product = searchParams.get('productId')
+    const tipoParam = searchParams.get('tipo')
+    const razonParam = searchParams.get('razon')
+    const desdeParam = searchParams.get('desde')
+    const hastaParam = searchParams.get('hasta')
+    if (product) setProductId(product)
+    if (tipoParam === 'all' || tipoParam === 'ENTRADA' || tipoParam === 'SALIDA') setTipo(tipoParam)
+    if (razonParam) setRazon(razonParam)
+    if (desdeParam) setDesde(desdeParam)
+    if (hastaParam) setHasta(hastaParam)
+    // Hidratacion inicial desde URL.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams)
+    if (productId !== 'all') next.set('productId', productId)
+    else next.delete('productId')
+    if (tipo !== 'all') next.set('tipo', tipo)
+    else next.delete('tipo')
+    if (razon !== 'all') next.set('razon', razon)
+    else next.delete('razon')
+    if (desde) next.set('desde', desde)
+    else next.delete('desde')
+    if (hasta) next.set('hasta', hasta)
+    else next.delete('hasta')
+
+    const prevSerialized = searchParams.toString()
+    const nextSerialized = next.toString()
+    if (prevSerialized !== nextSerialized) {
+      setSearchParams(next, { replace: true })
+    }
+  }, [desde, hasta, productId, razon, searchParams, setSearchParams, tipo])
+
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -187,7 +201,18 @@ export default function MovimientosPage() {
           <p className="mt-1 text-sm text-muted-foreground">Historico completo de entradas y salidas de stock.</p>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 rounded-lg border bg-card p-4 md:grid-cols-2 xl:grid-cols-12">
+        {debouncedInvalidDateRange ? (
+          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            El rango de fechas no es valido: "Desde" no puede ser mayor que "Hasta".
+          </div>
+        ) : null}
+        {debouncedInvalidYear ? (
+          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            Las fechas deben estar dentro del rango permitido ({MIN_DATE} a {MAX_DATE}).
+          </div>
+        ) : null}
+
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-12">
           <div className="min-w-0 space-y-1 xl:col-span-3">
             <p className="text-xs font-medium text-muted-foreground">Producto</p>
             <Select value={productId} onValueChange={setProductId}>
@@ -262,48 +287,36 @@ export default function MovimientosPage() {
           </div>
         </div>
 
-        <div className="min-h-8">
-          {activeFilterChips.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {activeFilterChips.map((chip) => (
-                <Button key={chip.key} type="button" size="xs" variant="secondary" onClick={chip.onClear}>
-                  {chip.label}
-                  <X />
-                </Button>
-              ))}
-            </div>
-          )}
-        </div>
-
         <div className="rounded-lg border bg-card">
-          <Table>
+          <Table className="w-full table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Producto</TableHead>
-                <TableHead>SKU</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Razon</TableHead>
-                <TableHead>Cantidad</TableHead>
-                <TableHead>Notas</TableHead>
+                <TableHead className="w-[20%]">Fecha</TableHead>
+                <TableHead className="w-[26%]">Producto</TableHead>
+                <TableHead className="w-[16%]">SKU</TableHead>
+                <TableHead className="w-[12%]">Tipo</TableHead>
+                <TableHead className="w-[15%]">Razon</TableHead>
+                <TableHead className="w-[11%] text-center">Cantidad</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Cargando movimientos...</TableCell>
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Cargando movimientos...</TableCell>
                 </TableRow>
               ) : movimientos.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                     {hasActiveFilters ? 'No hay movimientos para los filtros seleccionados.' : 'Aun no hay movimientos registrados.'}
                   </TableCell>
                 </TableRow>
               ) : (
                 movimientos.map((movimiento) => (
                   <TableRow key={movimiento.id}>
-                    <TableCell>{formatDate(movimiento.fecha)}</TableCell>
-                    <TableCell>{movimiento.productoNombre}</TableCell>
+                    <TableCell className="text-muted-foreground">{formatDate(movimiento.fecha)}</TableCell>
+                    <TableCell className="truncate font-medium" title={movimiento.productoNombre}>
+                      {movimiento.productoNombre}
+                    </TableCell>
                     <TableCell className="font-mono text-xs">{movimiento.productoSku}</TableCell>
                     <TableCell>
                       <span className={movimiento.tipo === 'ENTRADA' ? 'text-green-700' : 'text-red-700'}>
@@ -311,8 +324,7 @@ export default function MovimientosPage() {
                       </span>
                     </TableCell>
                     <TableCell>{formatReason(movimiento.razon)}</TableCell>
-                    <TableCell>{movimiento.cantidad}</TableCell>
-                    <TableCell>{movimiento.notas ?? '-'}</TableCell>
+                    <TableCell className="text-center">{movimiento.cantidad}</TableCell>
                   </TableRow>
                 ))
               )}
@@ -321,7 +333,7 @@ export default function MovimientosPage() {
         </div>
 
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} · {total} registros</p>
+          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} | {total} registros</p>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"

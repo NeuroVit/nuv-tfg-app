@@ -4,8 +4,11 @@ import type {
   RegisterRequest,
   AuthResponse,
   UserProfile,
+  SessionContext,
   UpdateProfileRequest,
   ChangePasswordRequest,
+  CreateOrganizationRequest,
+  UpdateOrganizationRequest,
 } from '../types/auth'
 
 export const login = (data: LoginRequest) =>
@@ -35,3 +38,12 @@ export const updateMe = (payload: UpdateProfileRequest) =>
 export const changePassword = async (payload: ChangePasswordRequest) => {
   await client.post('/auth/change-password', payload)
 }
+
+export const getSession = () =>
+  client.get<SessionContext>('/auth/session').then((r) => r.data)
+
+export const createOrganization = (payload: CreateOrganizationRequest) =>
+  client.post('/organizations', payload).then((r) => r.data)
+
+export const updateCurrentOrganization = (payload: UpdateOrganizationRequest) =>
+  client.put('/organizations/current', payload).then((r) => r.data)

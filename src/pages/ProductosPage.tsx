@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { isAxiosError } from 'axios'
 import { toast } from 'sonner'
 import {
   useReactTable,
@@ -60,6 +60,7 @@ import { AlertTriangle, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-reac
 import { HugeiconsIcon } from '@hugeicons/react'
 import { PackageSearchIcon } from '@hugeicons/core-free-icons'
 import ProductoModal from '@/components/ProductoModal'
+import { parseApiError } from '@/lib/apiError'
 
 const productoSchema = z.object({
   nombre: z.string().min(1, 'El nombre es obligatorio'),
@@ -75,6 +76,7 @@ const productoSchema = z.object({
 
 type ProductoFormValues = z.infer<typeof productoSchema>
 type EstadoFiltro = 'all' | 'low' | 'normal'
+const PAGE_SIZE = 20
 
 const defaultProductoValues: ProductoFormValues = {
   nombre: '',
@@ -88,24 +90,8 @@ const defaultProductoValues: ProductoFormValues = {
   providerId: '',
 }
 
-const parseApiError = (error: unknown, fallback: string): string => {
-  if (!isAxiosError(error)) return fallback
-  const payload = error.response?.data
-  if (typeof payload === 'string') return payload
-  if (payload && typeof payload === 'object') {
-    const data = payload as {
-      message?: string
-      error?: string
-      errors?: Array<{ message?: string }>
-    }
-    if (data.message) return data.message
-    if (data.error) return data.error
-    if (Array.isArray(data.errors) && data.errors[0]?.message) return data.errors[0].message
-  }
-  return fallback
-}
-
 export default function ProductosPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const { hasRole } = useAuthStore()
   const canEdit = hasRole('ROLE_ADMIN') || hasRole('ROLE_MANAGER')
 
@@ -117,6 +103,7 @@ export default function ProductosPage() {
   const [filtroCategoria, setFiltroCategoria] = useState('all')
   const [filtroProveedor, setFiltroProveedor] = useState('all')
   const [filtroEstado, setFiltroEstado] = useState<EstadoFiltro>('all')
+  const [offset, setOffset] = useState(0)
   const [modalOpen, setModalOpen] = useState(false)
   const [productoEditar, setProductoEditar] = useState<Producto | null>(null)
 
@@ -168,6 +155,44 @@ export default function ProductosPage() {
   useEffect(() => {
     void cargarDatos()
   }, [])
+
+  useEffect(() => {
+    const search = searchParams.get('search')
+    const categoria = searchParams.get('categoria')
+    const proveedor = searchParams.get('proveedor')
+    const estado = searchParams.get('estado')
+
+    if (search) setGlobalFilter(search)
+    if (categoria) setFiltroCategoria(categoria)
+    if (proveedor) setFiltroProveedor(proveedor)
+    if (estado === 'all' || estado === 'low' || estado === 'normal') {
+      setFiltroEstado(estado)
+    }
+    // Se carga una sola vez para hidratar estado inicial desde URL.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams)
+
+    if (globalFilter.trim()) next.set('search', globalFilter.trim())
+    else next.delete('search')
+
+    if (filtroCategoria !== 'all') next.set('categoria', filtroCategoria)
+    else next.delete('categoria')
+
+    if (filtroProveedor !== 'all') next.set('proveedor', filtroProveedor)
+    else next.delete('proveedor')
+
+    if (filtroEstado !== 'all') next.set('estado', filtroEstado)
+    else next.delete('estado')
+
+    const prevSerialized = searchParams.toString()
+    const nextSerialized = next.toString()
+    if (prevSerialized !== nextSerialized) {
+      setSearchParams(next, { replace: true })
+    }
+  }, [filtroCategoria, filtroEstado, filtroProveedor, globalFilter, searchParams, setSearchParams])
 
   const handleOpenStock = (producto: Producto) => {
     setSelectedProducto(producto)
@@ -428,13 +453,32 @@ export default function ProductosPage() {
     onGlobalFilterChange: setGlobalFilter,
   })
 
+  const filteredRows = table.getRowModel().rows
+  const total = filteredRows.length
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const currentPage = Math.floor(offset / PAGE_SIZE) + 1
+  const paginatedRows = useMemo(
+    () => filteredRows.slice(offset, offset + PAGE_SIZE),
+    [filteredRows, offset]
+  )
+
+  useEffect(() => {
+    setOffset(0)
+  }, [globalFilter, filtroCategoria, filtroProveedor, filtroEstado])
+
+  useEffect(() => {
+    if (offset >= total && total > 0) {
+      setOffset(Math.max(0, (Math.ceil(total / PAGE_SIZE) - 1) * PAGE_SIZE))
+    }
+  }, [offset, total])
+
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Productos</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{productosFiltrados.length} productos en inventario</p>
+            <p className="mt-1 text-sm text-muted-foreground">{total} productos en inventario</p>
           </div>
           <Button className="w-full sm:w-auto" onClick={() => { setProductoEditar(null); setModalOpen(true) }}>
             <Plus className="mr-2 h-4 w-4" />
@@ -510,14 +554,14 @@ export default function ProductosPage() {
                     Cargando productos...
                   </TableCell>
                 </TableRow>
-              ) : table.getRowModel().rows.length === 0 ? (
+              ) : paginatedRows.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={columns.length} className="py-12 text-center text-muted-foreground">
                     No se encontraron productos.
                   </TableCell>
                 </TableRow>
               ) : (
-                table.getRowModel().rows.map((row) => (
+                paginatedRows.map((row) => (
                   <TableRow
                     key={row.id}
                     className="cursor-pointer hover:bg-accent"
@@ -536,6 +580,25 @@ export default function ProductosPage() {
               )}
             </TableBody>
           </Table>
+        </div>
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} · {total} registros</p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setOffset((prev) => Math.max(0, prev - PAGE_SIZE))}
+              disabled={offset === 0}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setOffset((prev) => (prev + PAGE_SIZE >= total ? prev : prev + PAGE_SIZE))}
+              disabled={offset + PAGE_SIZE >= total}
+            >
+              Siguiente
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -999,3 +1062,4 @@ export default function ProductosPage() {
     </div>
   )
 }
+

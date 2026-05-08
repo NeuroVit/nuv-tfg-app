@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { getClientes } from '@/api/cliente'
 import { getProductos } from '@/api/producto'
@@ -24,9 +25,11 @@ type SaleItemForm = {
   quantity: number
 }
 
+const PAGE_SIZE = 20
 const euro = (value: number) => `€${value.toLocaleString('es-ES', { maximumFractionDigits: 2 })}`
 
 export default function VentasPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const { hasRole } = useAuthStore()
   const canCreate = hasRole('ROLE_ADMIN') || hasRole('ROLE_MANAGER')
 
@@ -40,8 +43,14 @@ export default function VentasPage() {
   const [items, setItems] = useState<SaleItemForm[]>([{ productId: '', quantity: 1 }])
 
   const [filterClientId, setFilterClientId] = useState('all')
+  const [offset, setOffset] = useState(0)
+  const [search, setSearch] = useState('')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
 
   const [modalOpen, setModalOpen] = useState(false)
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [selectedSale, setSelectedSale] = useState<Venta | null>(null)
   const [saving, setSaving] = useState(false)
 
   const activeClients = useMemo(() => clients.filter((client) => client.activo), [clients])
@@ -68,10 +77,74 @@ export default function VentasPage() {
     void loadData()
   }, [])
 
+  useEffect(() => {
+    const clientId = searchParams.get('clientId')
+    const q = searchParams.get('q')
+    const from = searchParams.get('from')
+    const to = searchParams.get('to')
+    if (clientId) setFilterClientId(clientId)
+    if (q) setSearch(q)
+    if (from) setFromDate(from)
+    if (to) setToDate(to)
+    // Hidrata filtros desde URL en primer render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams)
+    if (filterClientId !== 'all') next.set('clientId', filterClientId)
+    else next.delete('clientId')
+    if (search.trim()) next.set('q', search.trim())
+    else next.delete('q')
+    if (fromDate) next.set('from', fromDate)
+    else next.delete('from')
+    if (toDate) next.set('to', toDate)
+    else next.delete('to')
+
+    const prevSerialized = searchParams.toString()
+    const nextSerialized = next.toString()
+    if (prevSerialized !== nextSerialized) {
+      setSearchParams(next, { replace: true })
+    }
+  }, [filterClientId, fromDate, search, searchParams, setSearchParams, toDate])
+
   const filteredSales = useMemo(() => {
-    if (filterClientId === 'all') return sales
-    return sales.filter((sale) => String(sale.clientId) === filterClientId)
-  }, [sales, filterClientId])
+    const term = search.trim().toLowerCase()
+    return sales.filter((sale) => {
+      const clientOk = filterClientId === 'all' || String(sale.clientId) === filterClientId
+      const textOk =
+        !term ||
+        String(sale.id).includes(term) ||
+        (sale.notas ?? '').toLowerCase().includes(term)
+      const soldDate = sale.soldAt.slice(0, 10)
+      const fromOk = !fromDate || soldDate >= fromDate
+      const toOk = !toDate || soldDate <= toDate
+      return clientOk && textOk && fromOk && toOk
+    })
+  }, [filterClientId, fromDate, sales, search, toDate])
+
+  const openDetail = (sale: Venta) => {
+    setSelectedSale(sale)
+    setDetailOpen(true)
+  }
+
+  const total = filteredSales.length
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const currentPage = Math.floor(offset / PAGE_SIZE) + 1
+  const paginatedSales = useMemo(
+    () => filteredSales.slice(offset, offset + PAGE_SIZE),
+    [filteredSales, offset]
+  )
+
+  useEffect(() => {
+    setOffset(0)
+  }, [filterClientId, search, fromDate, toDate])
+
+  useEffect(() => {
+    if (offset >= total && total > 0) {
+      setOffset(Math.max(0, (Math.ceil(total / PAGE_SIZE) - 1) * PAGE_SIZE))
+    }
+  }, [offset, total])
 
   const openModal = () => {
     setSelectedClientId('')
@@ -159,6 +232,14 @@ export default function VentasPage() {
               ))}
             </SelectContent>
           </Select>
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Buscar por ID o notas"
+            className="w-56"
+          />
+          <Input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} className="w-44" />
+          <Input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} className="w-44" />
           <div className="ml-auto flex gap-2">
             <Button variant="outline" onClick={() => void loadData()}>Recargar</Button>
             {canCreate && <Button onClick={openModal}>+ Nueva venta</Button>}
@@ -179,11 +260,11 @@ export default function VentasPage() {
             <TableBody>
               {loading ? (
                 <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Cargando ventas...</TableCell></TableRow>
-              ) : filteredSales.length === 0 ? (
+              ) : paginatedSales.length === 0 ? (
                 <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No hay ventas para mostrar.</TableCell></TableRow>
               ) : (
-                filteredSales.map((sale) => (
-                  <TableRow key={sale.id}>
+                paginatedSales.map((sale) => (
+                  <TableRow key={sale.id} className="cursor-pointer hover:bg-accent" onClick={() => openDetail(sale)}>
                     <TableCell>#{sale.id}</TableCell>
                     <TableCell>{sale.clientName}</TableCell>
                     <TableCell>{new Date(sale.soldAt).toLocaleString('es-ES')}</TableCell>
@@ -194,6 +275,26 @@ export default function VentasPage() {
               )}
             </TableBody>
           </Table>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} | {total} registros</p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setOffset((prev) => Math.max(0, prev - PAGE_SIZE))}
+              disabled={offset === 0}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setOffset((prev) => (prev + PAGE_SIZE >= total ? prev : prev + PAGE_SIZE))}
+              disabled={offset + PAGE_SIZE >= total}
+            >
+              Siguiente
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -252,6 +353,57 @@ export default function VentasPage() {
               {saving ? 'Guardando...' : 'Crear venta'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Detalle de venta #{selectedSale?.id}</DialogTitle>
+          </DialogHeader>
+          {!selectedSale ? (
+            <p className="text-sm text-muted-foreground">No se encontró la venta seleccionada.</p>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 rounded-md border p-3 text-sm">
+                <p><span className="text-muted-foreground">Cliente:</span> {selectedSale.clientName}</p>
+                <p><span className="text-muted-foreground">Fecha:</span> {new Date(selectedSale.soldAt).toLocaleString('es-ES')}</p>
+                <p><span className="text-muted-foreground">Subtotal:</span> {euro(selectedSale.subtotalAmount ?? selectedSale.totalAmount)}</p>
+                <p><span className="text-muted-foreground">Descuento:</span> {euro(selectedSale.discountTotalAmount ?? 0)}</p>
+                <p><span className="text-muted-foreground">Descuento global:</span> {(selectedSale.globalDiscountPct ?? 0).toFixed(2)}%</p>
+                <p><span className="text-muted-foreground">Total:</span> {euro(selectedSale.totalAmount)}</p>
+              </div>
+              <div className="rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Producto</TableHead>
+                      <TableHead>SKU</TableHead>
+                      <TableHead>Cantidad</TableHead>
+                      <TableHead>Precio unitario</TableHead>
+                      <TableHead>Subtotal</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {selectedSale.items.map((item) => (
+                      <TableRow key={`${selectedSale.id}-${item.productId}`}>
+                        <TableCell>{item.productoNombre}</TableCell>
+                        <TableCell className="font-mono text-xs">{item.sku}</TableCell>
+                        <TableCell>{item.quantity}</TableCell>
+                        <TableCell>{euro(item.unitPriceSnapshot)}</TableCell>
+                        <TableCell>{euro(item.subtotal)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              {selectedSale.notas ? (
+                <div className="rounded-md border p-3 text-sm">
+                  <span className="text-muted-foreground">Notas:</span> {selectedSale.notas}
+                </div>
+              ) : null}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
