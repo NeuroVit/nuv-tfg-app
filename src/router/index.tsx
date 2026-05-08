@@ -14,7 +14,10 @@ import SettingsPage from '../pages/SettingsPage'
 import Inicio from '../pages/Inicio'
 import MovimientosPage from '../pages/MovimientosPage'
 import AlertasPage from '../pages/AlertasPage'
-import AnaliticaPage from '../pages/AnaliticaPage'
+import AnaliticaResumenPage from '../pages/analytics/AnaliticaResumenPage'
+import AnaliticaVentasRentabilidadPage from '../pages/analytics/AnaliticaVentasRentabilidadPage'
+import AnaliticaInventarioPage from '../pages/analytics/AnaliticaInventarioPage'
+import AnaliticaPreciosBundlesPage from '../pages/analytics/AnaliticaPreciosBundlesPage'
 import ProveedorDetailPage from '../pages/ProveedorDetailPage'
 import ClientesPage from '../pages/ClientesPage'
 import VentasPage from '../pages/VentasPage'
@@ -53,7 +56,11 @@ export const router = createBrowserRouter([
           { path: '/pedidos', element: <PedidosPage /> },
           { path: '/movimientos', element: <MovimientosPage /> },
           { path: '/alertas', element: <AlertasPage /> },
-          { path: '/analitica', element: <AnaliticaPage /> },
+          { path: '/analitica', element: <Navigate to="/analitica/resumen" replace /> },
+          { path: '/analitica/resumen', element: <AnaliticaResumenPage /> },
+          { path: '/analitica/ventas-rentabilidad', element: <AnaliticaVentasRentabilidadPage /> },
+          { path: '/analitica/inventario', element: <AnaliticaInventarioPage /> },
+          { path: '/analitica/precios-bundles', element: <AnaliticaPreciosBundlesPage /> },
           { path: '/usuarios', element: <Navigate to="/settings/users" replace /> },
           { path: '/clientes', element: <ClientesPage /> },
           { path: '/ventas', element: <VentasPage /> },

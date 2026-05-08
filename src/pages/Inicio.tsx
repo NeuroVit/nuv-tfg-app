@@ -63,8 +63,8 @@ type DashboardChart = 'movements' | 'revenue' | 'winners'
 
 const timeRangeOptions: Array<{ value: TimeRange; label: string; days: number; spanLabel: string }> = [
   { value: 'daily', label: 'Diario', days: 1, spanLabel: 'últimas 24 horas' },
-  { value: 'weekly', label: 'Semanal', days: 7, spanLabel: 'últimos 7 días' },
-  { value: 'monthly', label: 'Mensual', days: 30, spanLabel: 'últimos 30 días' },
+  { value: 'weekly', label: 'Semanal', days: 7, spanLabel: 'semana actual' },
+  { value: 'monthly', label: 'Mensual', days: 30, spanLabel: 'mes actual' },
   { value: 'all', label: 'Histórico', days: 0, spanLabel: 'todo el histórico' },
 ]
 
@@ -108,6 +108,12 @@ export default function Inicio() {
   const stockBajoPreview = productosStockBajo.slice(0, 5)
   const selectedRange = timeRangeOptions.find((option) => option.value === timeRange) ?? timeRangeOptions[1]!
   const selectedDays = selectedRange.days
+  const dataWindowDays = useMemo(() => {
+    if (timeRange !== 'monthly') return selectedDays
+    const now = new Date()
+    const daysInCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+    return Math.max(selectedDays, daysInCurrentMonth)
+  }, [selectedDays, timeRange])
   const prefsKey = useMemo(
     () => `nuv-dashboard-prefs:${(displayName || 'usuario').toLowerCase()}`,
     [displayName],
@@ -155,11 +161,11 @@ export default function Inicio() {
       setChartInsightsError(null)
 
       try {
-        const compareWindowDays = selectedDays > 0 ? selectedDays * 2 : 180
+        const compareWindowDays = dataWindowDays > 0 ? dataWindowDays * 2 : 180
         const [revenueRows, winnerRows, finanzasCurrent] = await Promise.all([
-          getVelocidadResumenAnalitica(selectedDays),
-          getTopProductosVelocidadAnalitica(selectedDays, 8),
-          getFinanzasResumenAnalitica(selectedDays),
+          getVelocidadResumenAnalitica(dataWindowDays),
+          getTopProductosVelocidadAnalitica(dataWindowDays, 8),
+          getFinanzasResumenAnalitica(dataWindowDays),
         ])
         const velocityRowsForComparison = await getVelocidadResumenAnalitica(compareWindowDays)
 
@@ -197,7 +203,7 @@ export default function Inicio() {
     return () => {
       cancelled = true
     }
-  }, [selectedDays])
+  }, [dataWindowDays])
 
   const movementsChartData = useMemo(() => {
     const now = new Date()
@@ -289,25 +295,91 @@ export default function Inicio() {
     return Object.values(months)
   }, [movimientos, timeRange])
 
-  const revenueChartData = useMemo(
-    () =>
-      revenueSummary
-        .map((row) => {
-          const parsedDate = new Date(row.movementDate)
-          return {
-            date: Number.isNaN(parsedDate.getTime())
-              ? row.movementDate
-              : parsedDate.toLocaleDateString('es-ES', {
-                  day: 'numeric',
-                  month: selectedDays === 0 ? 'short' : '2-digit',
-                  ...(selectedDays === 0 ? { year: '2-digit' as const } : {}),
-                }),
-            unitsSold: row.unitsSold,
-            revenue: row.revenue,
+  const revenueChartData = useMemo(() => {
+    const now = new Date()
+    const safeRows = revenueSummary
+      .map((row) => ({
+        ...row,
+        parsedDate: new Date(row.movementDate),
+      }))
+      .filter((row) => !Number.isNaN(row.parsedDate.getTime()))
+
+    if (timeRange === 'daily') {
+      const hours: Record<string, { date: string; unitsSold: number; revenue: number }> = {}
+      for (let i = 23; i >= 0; i--) {
+        const d = new Date(now)
+        d.setMinutes(0, 0, 0)
+        d.setHours(d.getHours() - i)
+        const key = toHourKey(d)
+        hours[key] = {
+          date: d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+          unitsSold: 0,
+          revenue: 0,
+        }
+      }
+
+      safeRows.forEach((row) => {
+        const key = toHourKey(row.parsedDate)
+        if (!(key in hours)) return
+        hours[key]!.unitsSold += row.unitsSold
+        hours[key]!.revenue += row.revenue
+      })
+
+      return Object.values(hours)
+    }
+
+    if (timeRange === 'weekly' || timeRange === 'monthly') {
+      const days: Record<string, { date: string; unitsSold: number; revenue: number }> = {}
+      if (timeRange === 'weekly') {
+        const weekStart = new Date(now)
+        weekStart.setHours(0, 0, 0, 0)
+        const mondayOffset = (weekStart.getDay() + 6) % 7
+        weekStart.setDate(weekStart.getDate() - mondayOffset)
+
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(weekStart)
+          d.setDate(weekStart.getDate() + i)
+          const key = toDayKey(d)
+          days[key] = {
+            date: d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit' }),
+            unitsSold: 0,
+            revenue: 0,
           }
-        }),
-    [revenueSummary, selectedDays],
-  )
+        }
+      } else {
+        const monthCursor = new Date(now.getFullYear(), now.getMonth(), 1)
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+
+        while (monthCursor <= monthEnd) {
+          const key = toDayKey(monthCursor)
+          days[key] = {
+            date: monthCursor.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+            unitsSold: 0,
+            revenue: 0,
+          }
+          monthCursor.setDate(monthCursor.getDate() + 1)
+        }
+      }
+
+      safeRows.forEach((row) => {
+        const key = toDayKey(row.parsedDate)
+        if (!(key in days)) return
+        days[key]!.unitsSold += row.unitsSold
+        days[key]!.revenue += row.revenue
+      })
+
+      return Object.values(days)
+    }
+
+    return safeRows
+      .slice()
+      .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime())
+      .map((row) => ({
+        date: row.parsedDate.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }),
+        unitsSold: row.unitsSold,
+        revenue: row.revenue,
+      }))
+  }, [revenueSummary, timeRange])
 
   const winnersChartData = useMemo(
     () =>
