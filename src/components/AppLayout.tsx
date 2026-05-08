@@ -37,6 +37,13 @@ const proveedoresTabs: TopTab[] = [
   { to: '/pedidos', label: 'Pedidos' },
 ]
 
+const analiticaTabs: TopTab[] = [
+  { to: '/analitica/resumen', label: 'Resumen' },
+  { to: '/analitica/ventas-rentabilidad', label: 'Ventas y Rentabilidad' },
+  { to: '/analitica/inventario', label: 'Inventario' },
+  { to: '/analitica/precios-bundles', label: 'Precios y Bundles' },
+]
+
 const inRouteGroup = (pathname: string, routes: string[]) =>
   routes.some((route) => pathname === route || pathname.startsWith(`${route}/`))
 
@@ -75,6 +82,7 @@ export default function AppLayout() {
     if (isSettingsRoute) return []
     if (inRouteGroup(location.pathname, ['/productos', '/categorias', '/bundles'])) return productosTabs
     if (inRouteGroup(location.pathname, ['/proveedores', '/pedidos'])) return proveedoresTabs
+    if (inRouteGroup(location.pathname, ['/analitica'])) return analiticaTabs
     return []
   }, [isSettingsRoute, location.pathname])
 
@@ -196,7 +204,13 @@ export default function AppLayout() {
                     <TabsTrigger
                       key={tab.to}
                       value={tab.to}
-                      onClick={() => navigate(tab.to)}
+                      onClick={() => {
+                        const shouldKeepSearch = location.pathname.startsWith('/analitica')
+                        navigate({
+                          pathname: tab.to,
+                          search: shouldKeepSearch ? location.search : '',
+                        })
+                      }}
                       className="flex-none rounded-none px-3 py-2 text-sm"
                     >
                       {tab.label}

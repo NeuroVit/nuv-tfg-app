@@ -69,6 +69,12 @@ const statusLabels: Record<string, string> = {
   OVERSTOCK: 'Sobrestock',
 }
 
+const toDayKey = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+
+const toMonthKey = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+
 type TimeRangeValue = 'all' | '180' | '90' | '30' | '7' | '1'
 
 const timeRangeOptions: Array<{ value: TimeRangeValue; label: string; days: number }> = [
@@ -272,15 +278,87 @@ export default function AnaliticaPage() {
     }
   }, [inventario, velocidadResumen, finanzas])
 
-  const salesLineData = useMemo(
-    () =>
-      velocidadResumen.map((row) => ({
-        date: new Date(row.movementDate).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
-        unitsSold: row.unitsSold,
-        revenue: row.revenue,
-      })),
-    [velocidadResumen],
-  )
+  const salesLineData = useMemo(() => {
+    const now = new Date()
+    now.setHours(0, 0, 0, 0)
+    const safeRows = velocidadResumen
+      .map((row) => ({
+        ...row,
+        parsedDate: new Date(row.movementDate),
+      }))
+      .filter((row) => !Number.isNaN(row.parsedDate.getTime()))
+
+    if (selectedDays <= 0) {
+      if (safeRows.length === 0) return []
+
+      const firstDate = safeRows.reduce(
+        (minDate, row) => (row.parsedDate < minDate ? row.parsedDate : minDate),
+        safeRows[0]!.parsedDate,
+      )
+
+      const months: Record<string, { date: string; unitsSold: number; revenue: number }> = {}
+      const cursor = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1)
+      const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+
+      while (cursor <= currentMonth) {
+        const key = toMonthKey(cursor)
+        months[key] = {
+          date: cursor.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }),
+          unitsSold: 0,
+          revenue: 0,
+        }
+        cursor.setMonth(cursor.getMonth() + 1)
+      }
+
+      safeRows.forEach((row) => {
+        const key = toMonthKey(row.parsedDate)
+        if (!(key in months)) return
+        months[key]!.unitsSold += row.unitsSold
+        months[key]!.revenue += row.revenue
+      })
+
+      return Object.values(months)
+    }
+
+    const days: Record<string, { date: string; unitsSold: number; revenue: number }> = {}
+
+    if (selectedDays === 7) {
+      const weekStart = new Date(now)
+      const mondayOffset = (weekStart.getDay() + 6) % 7
+      weekStart.setDate(weekStart.getDate() - mondayOffset)
+
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(weekStart)
+        d.setDate(weekStart.getDate() + i)
+        const key = toDayKey(d)
+        days[key] = {
+          date: d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit' }),
+          unitsSold: 0,
+          revenue: 0,
+        }
+      }
+    } else {
+      for (let i = selectedDays - 1; i >= 0; i--) {
+        const d = new Date(now)
+        d.setDate(d.getDate() - i)
+        const key = toDayKey(d)
+        days[key] = {
+          date: d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+          unitsSold: 0,
+          revenue: 0,
+        }
+      }
+    }
+
+    safeRows.forEach((row) => {
+      const key = toDayKey(row.parsedDate)
+      if (!(key in days)) return
+      days[key]!.unitsSold += row.unitsSold
+      days[key]!.revenue += row.revenue
+    })
+
+    return Object.values(days)
+  }, [velocidadResumen, selectedDays])
 
   const topProductsChartData = useMemo(
     () =>
@@ -351,6 +429,15 @@ export default function AnaliticaPage() {
 
   const loadStateLabel =
     loadState === 'loading' ? 'Cargando' : loadState === 'error' ? 'Error' : 'Actualizado'
+
+  const salesTrendTitle =
+    selectedDays <= 0
+      ? 'Tendencia histórica de ventas'
+      : selectedDays === 1
+        ? 'Tendencia de ventas (hoy)'
+        : selectedDays === 7
+          ? 'Tendencia semanal de ventas'
+          : 'Tendencia de ventas (rango)'
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -470,7 +557,7 @@ export default function AnaliticaPage() {
 
         <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <article className="rounded-lg border bg-card p-4">
-            <h2 className="text-sm font-semibold text-foreground">Tendencia diaria de ventas (rango)</h2>
+            <h2 className="text-sm font-semibold text-foreground">{salesTrendTitle}</h2>
             <div className="mt-3 h-72">
               {loading ? (
                 <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
