@@ -12,7 +12,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 const PAGE_SIZE = 20
-const formatDate = (value: string | null) => (value ? new Date(value).toLocaleString('es-ES') : '—')
+const formatDate = (value: string | null) =>
+  value
+    ? new Date(value).toLocaleString('es-ES', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '—'
 
 export default function AlertasPage() {
   const navigate = useNavigate()
@@ -150,7 +159,7 @@ export default function AlertasPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-10">
+                <TableHead className="w-10 text-center">
                   {showSelection ? (
                     <input
                       type="checkbox"
@@ -173,11 +182,11 @@ export default function AlertasPage() {
                     />
                   ) : null}
                 </TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Producto</TableHead>
-                <TableHead>Mensaje</TableHead>
-                <TableHead>Creada</TableHead>
-                <TableHead className="text-right">Acción</TableHead>
+                <TableHead className="text-center">Tipo</TableHead>
+                <TableHead className="text-center">Producto</TableHead>
+                <TableHead className="text-center">Mensaje</TableHead>
+                <TableHead className="text-center">Creada</TableHead>
+                <TableHead className="text-center">Acción</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -192,7 +201,7 @@ export default function AlertasPage() {
               ) : (
                 paginatedAlerts.map((alert) => (
                   <TableRow key={alert.id}>
-                    <TableCell>
+                    <TableCell className="text-center">
                       {!alert.resuelta && showSelection ? (
                         <input
                           type="checkbox"
@@ -209,13 +218,13 @@ export default function AlertasPage() {
                         />
                       ) : null}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-center">
                       <Badge variant={alert.resuelta ? 'secondary' : 'destructive'}>{alert.tipo}</Badge>
                     </TableCell>
-                    <TableCell>{alert.productoNombre}</TableCell>
-                    <TableCell>{alert.mensaje}</TableCell>
-                    <TableCell>{formatDate(alert.creadaEn)}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-center">{alert.productoNombre}</TableCell>
+                    <TableCell className="text-center">{alert.mensaje}</TableCell>
+                    <TableCell className="text-center">{formatDate(alert.creadaEn)}</TableCell>
+                    <TableCell className="text-center">
                       {!alert.resuelta && canResolve ? (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
