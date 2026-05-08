@@ -76,6 +76,7 @@ const productoSchema = z.object({
 
 type ProductoFormValues = z.infer<typeof productoSchema>
 type EstadoFiltro = 'all' | 'low' | 'normal'
+const PAGE_SIZE = 20
 
 const defaultProductoValues: ProductoFormValues = {
   nombre: '',
@@ -102,6 +103,7 @@ export default function ProductosPage() {
   const [filtroCategoria, setFiltroCategoria] = useState('all')
   const [filtroProveedor, setFiltroProveedor] = useState('all')
   const [filtroEstado, setFiltroEstado] = useState<EstadoFiltro>('all')
+  const [offset, setOffset] = useState(0)
   const [modalOpen, setModalOpen] = useState(false)
   const [productoEditar, setProductoEditar] = useState<Producto | null>(null)
 
@@ -451,13 +453,32 @@ export default function ProductosPage() {
     onGlobalFilterChange: setGlobalFilter,
   })
 
+  const filteredRows = table.getRowModel().rows
+  const total = filteredRows.length
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const currentPage = Math.floor(offset / PAGE_SIZE) + 1
+  const paginatedRows = useMemo(
+    () => filteredRows.slice(offset, offset + PAGE_SIZE),
+    [filteredRows, offset]
+  )
+
+  useEffect(() => {
+    setOffset(0)
+  }, [globalFilter, filtroCategoria, filtroProveedor, filtroEstado])
+
+  useEffect(() => {
+    if (offset >= total && total > 0) {
+      setOffset(Math.max(0, (Math.ceil(total / PAGE_SIZE) - 1) * PAGE_SIZE))
+    }
+  }, [offset, total])
+
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Productos</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{productosFiltrados.length} productos en inventario</p>
+            <p className="mt-1 text-sm text-muted-foreground">{total} productos en inventario</p>
           </div>
           <Button className="w-full sm:w-auto" onClick={() => { setProductoEditar(null); setModalOpen(true) }}>
             <Plus className="mr-2 h-4 w-4" />
@@ -533,14 +554,14 @@ export default function ProductosPage() {
                     Cargando productos...
                   </TableCell>
                 </TableRow>
-              ) : table.getRowModel().rows.length === 0 ? (
+              ) : paginatedRows.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={columns.length} className="py-12 text-center text-muted-foreground">
                     No se encontraron productos.
                   </TableCell>
                 </TableRow>
               ) : (
-                table.getRowModel().rows.map((row) => (
+                paginatedRows.map((row) => (
                   <TableRow
                     key={row.id}
                     className="cursor-pointer hover:bg-accent"
@@ -559,6 +580,25 @@ export default function ProductosPage() {
               )}
             </TableBody>
           </Table>
+        </div>
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} · {total} registros</p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setOffset((prev) => Math.max(0, prev - PAGE_SIZE))}
+              disabled={offset === 0}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setOffset((prev) => (prev + PAGE_SIZE >= total ? prev : prev + PAGE_SIZE))}
+              disabled={offset + PAGE_SIZE >= total}
+            >
+              Siguiente
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -1022,3 +1062,4 @@ export default function ProductosPage() {
     </div>
   )
 }
+

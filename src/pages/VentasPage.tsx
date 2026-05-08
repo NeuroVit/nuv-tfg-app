@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { getClientes } from '@/api/cliente'
@@ -25,6 +25,7 @@ type SaleItemForm = {
   quantity: number
 }
 
+const PAGE_SIZE = 20
 const euro = (value: number) => `€${value.toLocaleString('es-ES', { maximumFractionDigits: 2 })}`
 
 export default function VentasPage() {
@@ -42,6 +43,7 @@ export default function VentasPage() {
   const [items, setItems] = useState<SaleItemForm[]>([{ productId: '', quantity: 1 }])
 
   const [filterClientId, setFilterClientId] = useState('all')
+  const [offset, setOffset] = useState(0)
   const [search, setSearch] = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
@@ -125,6 +127,24 @@ export default function VentasPage() {
     setSelectedSale(sale)
     setDetailOpen(true)
   }
+
+  const total = filteredSales.length
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const currentPage = Math.floor(offset / PAGE_SIZE) + 1
+  const paginatedSales = useMemo(
+    () => filteredSales.slice(offset, offset + PAGE_SIZE),
+    [filteredSales, offset]
+  )
+
+  useEffect(() => {
+    setOffset(0)
+  }, [filterClientId, search, fromDate, toDate])
+
+  useEffect(() => {
+    if (offset >= total && total > 0) {
+      setOffset(Math.max(0, (Math.ceil(total / PAGE_SIZE) - 1) * PAGE_SIZE))
+    }
+  }, [offset, total])
 
   const openModal = () => {
     setSelectedClientId('')
@@ -240,10 +260,10 @@ export default function VentasPage() {
             <TableBody>
               {loading ? (
                 <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Cargando ventas...</TableCell></TableRow>
-              ) : filteredSales.length === 0 ? (
+              ) : paginatedSales.length === 0 ? (
                 <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No hay ventas para mostrar.</TableCell></TableRow>
               ) : (
-                filteredSales.map((sale) => (
+                paginatedSales.map((sale) => (
                   <TableRow key={sale.id} className="cursor-pointer hover:bg-accent" onClick={() => openDetail(sale)}>
                     <TableCell>#{sale.id}</TableCell>
                     <TableCell>{sale.clientName}</TableCell>
@@ -255,6 +275,26 @@ export default function VentasPage() {
               )}
             </TableBody>
           </Table>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} | {total} registros</p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setOffset((prev) => Math.max(0, prev - PAGE_SIZE))}
+              disabled={offset === 0}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setOffset((prev) => (prev + PAGE_SIZE >= total ? prev : prev + PAGE_SIZE))}
+              disabled={offset + PAGE_SIZE >= total}
+            >
+              Siguiente
+            </Button>
+          </div>
         </div>
       </div>
 
