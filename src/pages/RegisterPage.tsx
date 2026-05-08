@@ -110,9 +110,14 @@ const handleGoogleSuccess = async (response: CredentialResponse) => {
         })
         toast.success(`Bienvenido, ${res.username}.`)
         navigate('/dashboard')
-    } catch {
-        setServerError('Error al registrarse con Google')
-        toast.error('Error al registrarse con Google')
+    } catch (err: unknown) {
+        const msg = isAxiosError<{ message?: string; mensaje?: string }>(err)
+          ? (err.response?.data?.message ??
+            err.response?.data?.mensaje ??
+            'Error al registrarse con Google')
+          : 'Error al registrarse con Google'
+        setServerError(msg)
+        toast.error(msg)
     } finally {
         setIsGoogleSubmitting(false)
     }
