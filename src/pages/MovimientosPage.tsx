@@ -14,7 +14,33 @@ const PAGE_SIZE = 20
 const MIN_DATE = '2000-01-01'
 const MAX_DATE = '2100-12-31'
 
-const formatDate = (value: string) => new Date(value).toLocaleString('es-ES')
+const formatDate = (value: string) => {
+  const date = new Date(value)
+  const today = new Date()
+  const yesterday = new Date()
+  yesterday.setDate(today.getDate() - 1)
+
+  const isSameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+
+  const time = date.toLocaleTimeString('es-ES', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+
+  if (isSameDay(date, today)) return `Hoy, ${time}`
+  if (isSameDay(date, yesterday)) return `Ayer, ${time}`
+
+  return date.toLocaleString('es-ES', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
 const formatReason = (reason: string) => {
   const reasonLabels: Record<string, string> = {
     SALE: 'Venta',
@@ -262,34 +288,35 @@ export default function MovimientosPage() {
         </div>
 
         <div className="rounded-lg border bg-card">
-          <Table className="min-w-[980px] table-fixed">
+          <Table className="w-full table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[180px]">Fecha</TableHead>
-                <TableHead className="w-[190px]">Producto</TableHead>
-                <TableHead className="w-[110px]">SKU</TableHead>
-                <TableHead className="w-[110px]">Tipo</TableHead>
-                <TableHead className="w-[120px]">Razon</TableHead>
-                <TableHead className="w-[90px] text-right">Cantidad</TableHead>
-                <TableHead className="w-[260px] text-center">Notas</TableHead>
+                <TableHead className="w-[20%]">Fecha</TableHead>
+                <TableHead className="w-[26%]">Producto</TableHead>
+                <TableHead className="w-[16%]">SKU</TableHead>
+                <TableHead className="w-[12%]">Tipo</TableHead>
+                <TableHead className="w-[15%]">Razon</TableHead>
+                <TableHead className="w-[11%] text-center">Cantidad</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Cargando movimientos...</TableCell>
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Cargando movimientos...</TableCell>
                 </TableRow>
               ) : movimientos.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                     {hasActiveFilters ? 'No hay movimientos para los filtros seleccionados.' : 'Aun no hay movimientos registrados.'}
                   </TableCell>
                 </TableRow>
               ) : (
                 movimientos.map((movimiento) => (
                   <TableRow key={movimiento.id}>
-                    <TableCell>{formatDate(movimiento.fecha)}</TableCell>
-                    <TableCell className="font-medium">{movimiento.productoNombre}</TableCell>
+                    <TableCell className="text-muted-foreground">{formatDate(movimiento.fecha)}</TableCell>
+                    <TableCell className="truncate font-medium" title={movimiento.productoNombre}>
+                      {movimiento.productoNombre}
+                    </TableCell>
                     <TableCell className="font-mono text-xs">{movimiento.productoSku}</TableCell>
                     <TableCell>
                       <span className={movimiento.tipo === 'ENTRADA' ? 'text-green-700' : 'text-red-700'}>
@@ -297,14 +324,7 @@ export default function MovimientosPage() {
                       </span>
                     </TableCell>
                     <TableCell>{formatReason(movimiento.razon)}</TableCell>
-                    <TableCell className="text-right">{movimiento.cantidad}</TableCell>
-                    <TableCell className="max-w-[260px] text-center">
-                      <p className="truncate text-foreground" title={movimiento.notas ?? '-'}>
-                        {(movimiento.notas ?? '-').length > 20
-                          ? `${(movimiento.notas ?? '-').slice(0, 20)}...`
-                          : (movimiento.notas ?? '-')}
-                      </p>
-                    </TableCell>
+                    <TableCell className="text-center">{movimiento.cantidad}</TableCell>
                   </TableRow>
                 ))
               )}
