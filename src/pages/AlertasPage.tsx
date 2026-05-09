@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 const PAGE_SIZE = 20
+const isStockShortageAlert = (alert: AlertaStock) => alert.tipo === 'LOW_STOCK' || alert.tipo === 'OUT_OF_STOCK'
+const canResolveManually = (alert: AlertaStock) => !isStockShortageAlert(alert)
 const formatDate = (value: string | null) =>
   value
     ? new Date(value).toLocaleString('es-ES', {
@@ -67,10 +69,18 @@ export default function AlertasPage() {
 
   const resolveSelected = async () => {
     if (selectedAlertIds.length === 0) return
+    const eligibleAlertIds = selectedAlertIds.filter((id) => {
+      const alert = alerts.find((candidate) => candidate.id === id)
+      return alert ? canResolveManually(alert) : false
+    })
+    if (eligibleAlertIds.length === 0) {
+      toast.info('Las alertas de stock bajo o sin stock se resuelven al reponer inventario')
+      return
+    }
     setResolving(true)
     try {
-      await Promise.all(selectedAlertIds.map((id) => resolverAlerta(id)))
-      toast.success(`${selectedAlertIds.length} alertas marcadas como resueltas`)
+      await Promise.all(eligibleAlertIds.map((id) => resolverAlerta(id)))
+      toast.success(`${eligibleAlertIds.length} alertas marcadas como resueltas`)
       await loadAlerts()
     } catch {
       toast.error('No se pudieron resolver todas las alertas seleccionadas')
@@ -79,18 +89,9 @@ export default function AlertasPage() {
     }
   }
 
-  const requestProviderAndResolve = async (alert: AlertaStock) => {
-    setResolving(true)
-    try {
-      await resolverAlerta(alert.id)
-      toast.success('Alerta resuelta. Abriendo pedidos para gestionar proveedor')
-      await loadAlerts()
-      navigate('/pedidos')
-    } catch {
-      toast.error('No se pudo gestionar la alerta')
-    } finally {
-      setResolving(false)
-    }
+  const goToPedidosForRestock = (alert: AlertaStock) => {
+    toast.info(`Abriendo pedidos para reponer stock de ${alert.productoNombre}`)
+    navigate('/pedidos')
   }
 
   const counters = useMemo(() => {
@@ -104,7 +105,7 @@ export default function AlertasPage() {
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1
   const paginatedAlerts = useMemo(() => alerts.slice(offset, offset + PAGE_SIZE), [alerts, offset])
   const openAlertsInPage = useMemo(
-    () => paginatedAlerts.filter((alert) => !alert.resuelta),
+    () => paginatedAlerts.filter((alert) => !alert.resuelta && canResolveManually(alert)),
     [paginatedAlerts]
   )
   const allOpenSelectedInPage =
@@ -202,7 +203,7 @@ export default function AlertasPage() {
                 paginatedAlerts.map((alert) => (
                   <TableRow key={alert.id}>
                     <TableCell className="text-center">
-                      {!alert.resuelta && showSelection ? (
+                      {!alert.resuelta && canResolveManually(alert) && showSelection ? (
                         <input
                           type="checkbox"
                           checked={selectedAlertIds.includes(alert.id)}
@@ -233,12 +234,15 @@ export default function AlertasPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onSelect={() => void resolve(alert.id)}>
-                              Resolver
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => void requestProviderAndResolve(alert)}>
-                              Pedir a proveedor
-                            </DropdownMenuItem>
+                            {canResolveManually(alert) ? (
+                              <DropdownMenuItem onSelect={() => void resolve(alert.id)}>
+                                Resolver
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem onSelect={() => goToPedidosForRestock(alert)}>
+                                Ir a pedidos para reponer
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       ) : (
