@@ -31,11 +31,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
   ChartContainer,
   ChartLegend,
   ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ReferenceLine,
+  XAxis,
+  YAxis,
   type ChartConfig,
 } from '@/components/ui/chart'
 import {
@@ -46,19 +57,6 @@ import {
   TrendingUp,
   Warehouse,
 } from 'lucide-react'
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  XAxis,
-  YAxis,
-} from 'recharts'
-
 const formatCurrency = (value: number) => `€${value.toLocaleString('es-ES', { maximumFractionDigits: 2 })}`
 const formatCompact = (value: number) => value.toLocaleString('es-ES')
 
@@ -360,6 +358,23 @@ export default function AnaliticaPage() {
     return Object.values(days)
   }, [velocidadResumen, selectedDays])
 
+  const revenueThresholds = useMemo(() => {
+    if (salesLineData.length === 0) return null
+    const values = salesLineData
+      .map((row) => row.revenue)
+      .filter((value) => Number.isFinite(value))
+    if (values.length === 0) return null
+
+    const averageRevenue = values.reduce((sum, value) => sum + value, 0) / values.length
+    const target = kpis.ventasPromedioDiarias > 0 ? kpis.ventasPromedioDiarias : averageRevenue
+    if (target <= 0) return null
+
+    return {
+      lower: target * 0.8,
+      target,
+    }
+  }, [salesLineData, kpis.ventasPromedioDiarias])
+
   const topProductsChartData = useMemo(
     () =>
       topProductos
@@ -486,7 +501,7 @@ export default function AnaliticaPage() {
             <p className="mt-2 text-xl font-semibold text-emerald-700">{formatCurrency(kpis.ventas30d)}</p>
           </article>
           <article className="rounded-lg border bg-card p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">COGS real (rango)</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Coste de ventas real (rango)</p>
             <p className="mt-2 text-xl font-semibold text-orange-700">-{formatCurrency(kpis.cogsReal30d)}</p>
           </article>
           <article className="rounded-lg border bg-card p-4">
@@ -593,6 +608,26 @@ export default function AnaliticaPage() {
                       dot={false}
                       name="revenue"
                     />
+                    {revenueThresholds ? (
+                      <>
+                        <ReferenceLine
+                          yAxisId="right"
+                          y={revenueThresholds.lower}
+                          stroke="#f59e0b"
+                          strokeDasharray="6 4"
+                          ifOverflow="extendDomain"
+                          label={{ value: 'Umbral bajo', position: 'insideTopLeft', fill: '#b45309', fontSize: 11 }}
+                        />
+                        <ReferenceLine
+                          yAxisId="right"
+                          y={revenueThresholds.target}
+                          stroke="#16a34a"
+                          strokeDasharray="6 4"
+                          ifOverflow="extendDomain"
+                          label={{ value: 'Umbral objetivo', position: 'insideTopRight', fill: '#166534', fontSize: 11 }}
+                        />
+                      </>
+                    ) : null}
                   </LineChart>
                 </ChartContainer>
               )}

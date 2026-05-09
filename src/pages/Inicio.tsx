@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { AlertCircle, ArrowDown, ArrowUp, PackageSearch } from 'lucide-react'
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
 import { getFinanzasResumenAnalitica, getTopProductosVelocidadAnalitica, getVelocidadResumenAnalitica } from '@/api/analitica'
 import { useInventarioDashboard } from '@/hooks/useInventarioDashboard'
 import { useProfileStore } from '@/store/profileStore'
@@ -9,11 +8,20 @@ import type { TopProductVelocityRow, VelocitySummaryRow } from '@/types/analitic
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
   ChartContainer,
   ChartLegend,
   ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
+  Line,
+  LineChart,
+  XAxis,
+  YAxis,
   type ChartConfig,
 } from '@/components/ui/chart'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -381,6 +389,7 @@ export default function Inicio() {
       }))
   }, [revenueSummary, timeRange])
 
+
   const winnersChartData = useMemo(
     () =>
       winningProducts.map((row) => ({
@@ -523,11 +532,11 @@ export default function Inicio() {
 
         <Card>
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="space-y-2">
-              <div>
-                <CardTitle className="text-base">{chartTitleByType[selectedChart]}</CardTitle>
-                <CardDescription>{chartDescriptionByType[selectedChart]}</CardDescription>
-              </div>
+              <div className="space-y-2">
+                <div>
+                  <CardTitle className="text-base">{chartTitleByType[selectedChart]}</CardTitle>
+                  <CardDescription>{chartDescriptionByType[selectedChart]}</CardDescription>
+                </div>
               <div className="w-full sm:w-[220px]">
                 <Select
                   value={selectedChart}
@@ -615,11 +624,11 @@ export default function Inicio() {
                 </div>
               ) : (
                 <ChartContainer config={revenueChartConfig} className="h-[220px] w-full">
-                  <LineChart data={revenueChartData} margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
+                    <LineChart data={revenueChartData} margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" minTickGap={18} />
-                    <YAxis yAxisId="left" />
-                    <YAxis yAxisId="right" orientation="right" />
+                    <YAxis yAxisId="left" domain={[0, 'auto']} />
+                    <YAxis yAxisId="right" orientation="right" domain={[0, 'auto']} />
                     <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
                     <ChartLegend content={<ChartLegendContent />} />
                     <Line

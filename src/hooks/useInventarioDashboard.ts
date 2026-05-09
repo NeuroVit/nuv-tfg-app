@@ -35,6 +35,8 @@ type DashboardState = {
   error: string | null
 }
 
+const DASHBOARD_MOVEMENTS_LIMIT = 600
+
 const initialState: DashboardState = {
   valorTotal: 0,
   totalProductos: 0,
@@ -58,7 +60,7 @@ export function useInventarioDashboard() {
         const inventarioPromise = getInventarioAnalitica()
         const categoriasPromise = client.get<CategoriaApi[]>('/categorias')
         const movimientosPromise = client
-          .get<unknown>('/movimientos', { params: { limit: 50 } })
+          .get<unknown>('/movimientos', { params: { limit: DASHBOARD_MOVEMENTS_LIMIT } })
           .then((response) => {
             const raw = response.data
             const list = Array.isArray(raw)
@@ -129,7 +131,7 @@ export function useInventarioDashboard() {
           totalProductos: inventario.length,
           productosStockBajo,
           totalCategorias: categoriasUnicas.size,
-          movimientos: movimientos.slice(0, 50),
+          movimientos: movimientos.slice(0, DASHBOARD_MOVEMENTS_LIMIT),
           loading: false,
           error: null,
         })
