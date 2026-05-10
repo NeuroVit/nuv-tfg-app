@@ -9,6 +9,9 @@ import type {
   ChangePasswordRequest,
   CreateOrganizationRequest,
   UpdateOrganizationRequest,
+  JoinOrganizationRequest,
+  OrganizationSearchItem,
+  OrganizationWithMembershipResponse,
 } from '../types/auth'
 
 export const login = (data: LoginRequest) =>
@@ -43,7 +46,15 @@ export const getSession = () =>
   client.get<SessionContext>('/auth/session').then((r) => r.data)
 
 export const createOrganization = (payload: CreateOrganizationRequest) =>
-  client.post('/organizations', payload).then((r) => r.data)
+  client.post<OrganizationWithMembershipResponse>('/organizations', payload).then((r) => r.data)
+
+export const searchOrganizations = (query: string, limit = 10) =>
+  client
+    .get<OrganizationSearchItem[]>('/organizations/search', { params: { query, limit } })
+    .then((r) => r.data)
+
+export const joinOrganization = (payload: JoinOrganizationRequest) =>
+  client.post<OrganizationWithMembershipResponse>('/organizations/join', payload).then((r) => r.data)
 
 export const updateCurrentOrganization = (payload: UpdateOrganizationRequest) =>
-  client.put('/organizations/current', payload).then((r) => r.data)
+  client.put<OrganizationWithMembershipResponse>('/organizations/current', payload).then((r) => r.data)
