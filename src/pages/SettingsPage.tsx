@@ -15,6 +15,7 @@ const roles = [
 export default function SettingsPage() {
   const user = useAuthStore((state) => state.user)
   const setUser = useAuthStore((state) => state.setUser)
+  const isViewer = user?.role === 'ROLE_VIEWER'
 
   const [selectedRole, setSelectedRole] = useState(user?.role ?? 'ROLE_VIEWER')
   const [saving, setSaving] = useState(false)
@@ -30,6 +31,10 @@ export default function SettingsPage() {
 
   const onSaveRole = async () => {
     if (!user) return
+    if (isViewer) {
+      toast.error('Los usuarios visualizadores no pueden cambiar de rol.')
+      return
+    }
 
     setSaving(true)
 
@@ -65,10 +70,15 @@ export default function SettingsPage() {
           <p className="mt-1 text-xs text-muted-foreground">
             Esta opción está pensada para pruebas locales y demo del TFG.
           </p>
+          {isViewer && (
+            <p className="mt-2 text-xs text-destructive">
+              Esta sección está bloqueada para usuarios con rol Visualizador.
+            </p>
+          )}
 
           <div className="mt-5 grid gap-2">
             <Label htmlFor="role-select">Selecciona un rol</Label>
-            <Select value={selectedRole} onValueChange={setSelectedRole}>
+            <Select value={selectedRole} onValueChange={setSelectedRole} disabled={isViewer}>
               <SelectTrigger id="role-select" className="w-full sm:max-w-sm">
                 <SelectValue placeholder="Selecciona un rol" />
               </SelectTrigger>
@@ -83,7 +93,7 @@ export default function SettingsPage() {
           </div>
 
           <div className="mt-6">
-            <Button className="w-full sm:w-auto" onClick={onSaveRole} disabled={saving || !user || selectedRole === user?.role}>
+            <Button className="w-full sm:w-auto" onClick={onSaveRole} disabled={saving || !user || isViewer || selectedRole === user?.role}>
               {saving ? 'Guardando...' : 'Guardar rol'}
             </Button>
           </div>

@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router'
 import { useAuthStore } from '../store/authStore'
-import { getSession } from '@/api/auth'
-import type { SessionContext } from '@/types/auth'
 import { useProfileStore } from '@/store/profileStore'
+import { useSessionStore } from '@/store/sessionStore'
 
 interface Props {
   allowedRoles?: string[]
@@ -14,53 +13,23 @@ const FIVE_MINUTES_MS = 5 * 60 * 1000
 export default function ProtectedRoute({ allowedRoles }: Props) {
   const { user, isAuthenticated, hasRole } = useAuthStore()
   const setOrganizationName = useProfileStore((s) => s.setOrganizationName)
+  const session = useSessionStore((s) => s.session)
+  const sessionLoading = useSessionStore((s) => s.loading)
+  const refreshSession = useSessionStore((s) => s.refreshSession)
+  const clearSession = useSessionStore((s) => s.clearSession)
   const location = useLocation()
-  const [session, setSession] = useState<SessionContext | null>(null)
-  const [sessionLoading, setSessionLoading] = useState(true)
   const lastActivityRef = useRef<number>(Date.now())
-  const isMountedRef = useRef(true)
-
-  useEffect(() => {
-    isMountedRef.current = true
-    return () => {
-      isMountedRef.current = false
-    }
-  }, [])
-
-  const fetchSession = useCallback(async (withLoading: boolean) => {
-    if (withLoading && isMountedRef.current) {
-      setSessionLoading(true)
-    }
-
-    try {
-      const data = await getSession()
-      if (isMountedRef.current) {
-        setSession(data)
-        setOrganizationName(data.organization?.name ?? '')
-      }
-    } catch {
-      if (isMountedRef.current) {
-        setSession(null)
-        setOrganizationName('')
-      }
-    } finally {
-      if (withLoading && isMountedRef.current) {
-        setSessionLoading(false)
-      }
-    }
-  }, [])
 
   useEffect(() => {
     if (!isAuthenticated()) {
-      setSession(null)
-      setSessionLoading(false)
+      clearSession()
       setOrganizationName('')
       return
     }
 
     let cancelled = false
     lastActivityRef.current = Date.now()
-    void fetchSession(true)
+    void refreshSession({ withLoading: true })
 
     const updateActivity = () => {
       lastActivityRef.current = Date.now()
@@ -83,7 +52,7 @@ export default function ProtectedRoute({ allowedRoles }: Props) {
       if (idleTime < FIVE_MINUTES_MS || cancelled) {
         return
       }
-      void fetchSession(false)
+      void refreshSession({ withLoading: false })
     }, FIVE_MINUTES_MS)
 
     return () => {
@@ -93,7 +62,11 @@ export default function ProtectedRoute({ allowedRoles }: Props) {
         window.removeEventListener(eventName, updateActivity)
       })
     }
-  }, [fetchSession, isAuthenticated, setOrganizationName])
+  }, [clearSession, isAuthenticated, refreshSession, setOrganizationName])
+
+  useEffect(() => {
+    setOrganizationName(session?.organization?.name ?? '')
+  }, [session?.organization?.name, setOrganizationName])
 
   if (!isAuthenticated()) return <Navigate to="/login" replace />
   if (sessionLoading) return null

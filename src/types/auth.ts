@@ -75,3 +75,25 @@ export interface CreateOrganizationRequest {
 export interface UpdateOrganizationRequest {
   name: string
 }
+
+export interface JoinOrganizationRequest {
+  organizationId: number
+}
+
+export interface OrganizationSearchItem {
+  id: number
+  name: string
+  slug: string
+}
+
+export interface OrganizationMembershipResponse {
+  id: number
+  organizationId: number
+  userId: number
+  role: string
+}
+
+export interface OrganizationWithMembershipResponse {
+  organization: SessionOrganization
+  membership: OrganizationMembershipResponse
+}
