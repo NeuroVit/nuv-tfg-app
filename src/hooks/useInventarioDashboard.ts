@@ -36,6 +36,7 @@ type DashboardState = {
 }
 
 const DASHBOARD_MOVEMENTS_LIMIT = 600
+const DASHBOARD_CATEGORIES_LIMIT = 300
 
 const initialState: DashboardState = {
   valorTotal: 0,
@@ -57,8 +58,29 @@ export function useInventarioDashboard() {
       setState((prev) => ({ ...prev, loading: true, error: null }))
 
       try {
-        const inventarioPromise = getInventarioAnalitica()
-        const categoriasPromise = client.get<CategoriaApi[]>('/categorias')
+        const inventario = await getInventarioAnalitica()
+        const categoriasPromise = client
+          .get<unknown>('/categorias', { params: { limit: DASHBOARD_CATEGORIES_LIMIT } })
+          .then((response) => {
+            const raw = response.data
+            const list = Array.isArray(raw)
+              ? raw
+              : raw && typeof raw === 'object' && Array.isArray((raw as { content?: unknown[] }).content)
+                ? (raw as { content: unknown[] }).content
+                : []
+
+            return list
+              .map((item): CategoriaApi | null => {
+                if (!item || typeof item !== 'object') return null
+                const row = item as Record<string, unknown>
+                return {
+                  id: Number(row.id ?? 0),
+                  nombre: String(row.nombre ?? '').trim(),
+                }
+              })
+              .filter((categoria): categoria is CategoriaApi => categoria !== null && categoria.nombre.length > 0)
+          })
+          .catch(() => [])
         const movimientosPromise = client
           .get<unknown>('/movimientos', { params: { limit: DASHBOARD_MOVEMENTS_LIMIT } })
           .then((response) => {
@@ -97,16 +119,10 @@ export function useInventarioDashboard() {
             if (isAxiosError(error) && error.response?.status === 404) {
               return []
             }
-            throw error
+            return []
           })
 
-        const [inventario, movimientos, categoriasRes] = await Promise.all([
-          inventarioPromise,
-          movimientosPromise,
-          categoriasPromise,
-        ])
-
-        const categorias = categoriasRes.data ?? []
+        const [movimientos, categorias] = await Promise.all([movimientosPromise, categoriasPromise])
 
         const valorTotal = inventario.reduce(
           (total, producto) => total + Number(producto.stockValue ?? 0),

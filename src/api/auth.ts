@@ -24,6 +24,24 @@ export const register = (data: RegisterRequest) =>
   client.post<AuthResponse>('/auth/register', data).then((r) => r.data)
 
 export const googleLogin = async (credential: string) => {
+  const isTauriRuntime = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+  const isMobile = /android|iphone|ipad|ipod/i.test(navigator.userAgent)
+  if (isTauriRuntime && isMobile) {
+    const mobileBase = resolveMobileApiBase()
+    const normalizedMobileBase = normalizeMobileApiBase(mobileBase)
+    const isAndroid = /android/i.test(navigator.userAgent)
+    if (isAndroid && (normalizedMobileBase.hostname === 'localhost' || normalizedMobileBase.hostname === '127.0.0.1')) {
+      normalizedMobileBase.hostname = '10.0.2.2'
+    }
+
+    const baseUrl = normalizedMobileBase.toString().replace(/\/+$/, '')
+    const responseJson = await invoke<string>('verify_google_mobile_credential', {
+      credential,
+      baseUrl,
+    })
+    return JSON.parse(responseJson) as AuthResponse
+  }
+
   const { data } = await client.post<AuthResponse>('/auth/google/verify', { credential })
   return data
 }
