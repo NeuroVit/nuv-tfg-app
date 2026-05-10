@@ -9,6 +9,10 @@ const MOBILE_GOOGLE_STATE_KEY_PERSISTENT = 'mobile_google_oauth_state_persistent
 const MOBILE_GOOGLE_INFLIGHT_KEY = 'mobile_google_oauth_inflight'
 const MOBILE_GOOGLE_DEBUG_KEY = 'mobile_google_oauth_debug_timeline'
 const MOBILE_GOOGLE_DEBUG_EVENT = 'mobile-google-oauth-debug'
+const MOBILE_GOOGLE_DEBUG_ENABLED = (import.meta.env.VITE_TAURI_MOBILE_GOOGLE_DEBUG ?? 'false')
+  .toString()
+  .trim()
+  .toLowerCase() === 'true'
 const MOBILE_GOOGLE_SCHEME = import.meta.env.VITE_MOBILE_DEEP_LINK_SCHEME ?? 'neurovit'
 const MOBILE_GOOGLE_DEEP_LINK = `${MOBILE_GOOGLE_SCHEME}://auth/google/callback`
 
@@ -51,6 +55,8 @@ const setAuthInFlight = () => localStorage.setItem(MOBILE_GOOGLE_INFLIGHT_KEY, '
 const clearAuthInFlight = () => localStorage.removeItem(MOBILE_GOOGLE_INFLIGHT_KEY)
 
 const appendDebug = (step: string, detail?: string) => {
+  if (!MOBILE_GOOGLE_DEBUG_ENABLED) return
+
   const entry: MobileGoogleDebugEntry = {
     at: new Date().toISOString(),
     step,
@@ -66,6 +72,8 @@ const appendDebug = (step: string, detail?: string) => {
 }
 
 export const getMobileGoogleDebugTimeline = (): MobileGoogleDebugEntry[] => {
+  if (!MOBILE_GOOGLE_DEBUG_ENABLED) return []
+
   const raw = sessionStorage.getItem(MOBILE_GOOGLE_DEBUG_KEY)
   if (!raw) return []
   try {
@@ -84,10 +92,12 @@ export const getMobileGoogleDebugTimeline = (): MobileGoogleDebugEntry[] => {
 }
 
 export const clearMobileGoogleDebugTimeline = () => {
+  if (!MOBILE_GOOGLE_DEBUG_ENABLED) return
   sessionStorage.removeItem(MOBILE_GOOGLE_DEBUG_KEY)
 }
 
 export { MOBILE_GOOGLE_DEBUG_EVENT }
+export { MOBILE_GOOGLE_DEBUG_ENABLED }
 
 export const isTauri = () => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 

@@ -25,6 +25,7 @@ import { Separator } from '@/components/ui/separator'
 import { Loader2 } from 'lucide-react'
 import { useIsMobile } from '@/hooks/use-mobile'
 import {
+  MOBILE_GOOGLE_DEBUG_ENABLED,
   MOBILE_GOOGLE_DEBUG_EVENT,
   getMobileGoogleDebugTimeline,
   isTauriMobile,
@@ -143,7 +144,7 @@ export default function LoginPage() {
   }, [form, navigate, setUser, tauriMobile])
 
   useEffect(() => {
-    if (!tauriMobile) return
+    if (!tauriMobile || !MOBILE_GOOGLE_DEBUG_ENABLED) return
 
     const syncDebugTimeline = () => {
       setMobileGoogleDebug(getMobileGoogleDebugTimeline())
@@ -182,7 +183,7 @@ export default function LoginPage() {
             </Alert>
           )}
 
-          {tauriMobile && mobileGoogleDebug.length > 0 && (
+          {tauriMobile && MOBILE_GOOGLE_DEBUG_ENABLED && mobileGoogleDebug.length > 0 && (
             <div className="rounded-md border border-muted p-3 text-xs">
               <p className="font-medium text-foreground">Debug Google móvil</p>
               <div className="mt-2 space-y-1 text-muted-foreground">
