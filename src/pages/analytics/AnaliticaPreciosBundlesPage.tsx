@@ -1,11 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Boxes, DollarSign } from 'lucide-react'
-import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
 import {
+  Bar,
+  BarChart,
+  CartesianGrid,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
+  Line,
+  LineChart,
+  XAxis,
+  YAxis,
   type ChartConfig,
 } from '@/components/ui/chart'
 import { getBundleCandidatosAnalitica, getMetaAnalitica, getPreciosAnalitica } from '@/api/analitica'

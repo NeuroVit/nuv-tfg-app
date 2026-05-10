@@ -86,6 +86,20 @@ ${colorConfig
 }
 
 const ChartTooltip = RechartsPrimitive.Tooltip
+const Area = RechartsPrimitive.Area
+const AreaChart = RechartsPrimitive.AreaChart
+const Bar = RechartsPrimitive.Bar
+const BarChart = RechartsPrimitive.BarChart
+const CartesianGrid = RechartsPrimitive.CartesianGrid
+const Cell = RechartsPrimitive.Cell
+const Line = RechartsPrimitive.Line
+const LineChart = RechartsPrimitive.LineChart
+const Pie = RechartsPrimitive.Pie
+const PieChart = RechartsPrimitive.PieChart
+const ReferenceArea = RechartsPrimitive.ReferenceArea
+const ReferenceLine = RechartsPrimitive.ReferenceLine
+const XAxis = RechartsPrimitive.XAxis
+const YAxis = RechartsPrimitive.YAxis
 
 function ChartTooltipContent({
   active,
@@ -249,4 +263,25 @@ function getPayloadConfigFromPayload(config: ChartConfig, payload: unknown, key:
   return configLabelKey in config ? config[configLabelKey] : config[key as keyof typeof config]
 }
 
-export { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent, ChartStyle }
+export {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartStyle,
+  ChartTooltip,
+  ChartTooltipContent,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ReferenceArea,
+  ReferenceLine,
+  XAxis,
+  YAxis,
+}

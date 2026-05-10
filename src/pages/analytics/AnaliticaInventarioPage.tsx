@@ -1,13 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { PieChart as PieChartIcon, Warehouse } from 'lucide-react'
-import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from 'recharts'
 import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
   ChartContainer,
   ChartLegend,
   ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
+  Pie,
+  PieChart,
+  XAxis,
+  YAxis,
   type ChartConfig,
 } from '@/components/ui/chart'
 import {

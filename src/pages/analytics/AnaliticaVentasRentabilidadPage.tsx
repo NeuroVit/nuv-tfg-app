@@ -1,13 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { BarChart3, LineChart as LineChartIcon, TrendingUp } from 'lucide-react'
-import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, XAxis, YAxis } from 'recharts'
 import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
   ChartContainer,
   ChartLegend,
   ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
+  Line,
+  LineChart,
+  ReferenceLine,
+  XAxis,
+  YAxis,
   type ChartConfig,
 } from '@/components/ui/chart'
 import {
@@ -179,6 +187,22 @@ export default function AnaliticaVentasRentabilidadPage() {
     return Object.values(days)
   }, [selectedDays, velocidadResumen])
 
+  const revenueThresholds = useMemo(() => {
+    if (salesLineData.length === 0) return null
+    const values = salesLineData
+      .map((row) => row.revenue)
+      .filter((value) => Number.isFinite(value))
+    if (values.length === 0) return null
+
+    const target = values.reduce((sum, value) => sum + value, 0) / values.length
+    if (target <= 0) return null
+
+    return {
+      lower: target * 0.8,
+      target,
+    }
+  }, [salesLineData])
+
   const topProductsChartData = useMemo(
     () =>
       topProductos
@@ -276,6 +300,28 @@ export default function AnaliticaVentasRentabilidadPage() {
                     dot={false}
                     name="revenue"
                   />
+                  {revenueThresholds ? (
+                    <>
+                      <ReferenceLine
+                        yAxisId="right"
+                        y={revenueThresholds.lower}
+                        stroke="#dc2626"
+                        strokeWidth={2}
+                        strokeDasharray="6 4"
+                        ifOverflow="extendDomain"
+                        label={{ value: 'Riesgo por debajo de esta línea', position: 'right', fill: '#991b1b', fontSize: 11 }}
+                      />
+                      <ReferenceLine
+                        yAxisId="right"
+                        y={revenueThresholds.target}
+                        stroke="#16a34a"
+                        strokeWidth={2}
+                        strokeDasharray="6 4"
+                        ifOverflow="extendDomain"
+                        label={{ value: 'Umbral objetivo', position: 'left', fill: '#166534', fontSize: 11 }}
+                      />
+                    </>
+                  ) : null}
                 </LineChart>
               </ChartContainer>
             )}
@@ -383,7 +429,7 @@ export default function AnaliticaVentasRentabilidadPage() {
               <TableHead>Categoría</TableHead>
               <TableHead>Unidades</TableHead>
               <TableHead>Ingresos</TableHead>
-              <TableHead>COGS</TableHead>
+              <TableHead>Coste de ventas</TableHead>
               <TableHead>Margen</TableHead>
               <TableHead>Margen %</TableHead>
             </TableRow>

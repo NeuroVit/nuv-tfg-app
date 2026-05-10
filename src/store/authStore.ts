@@ -62,7 +62,18 @@ export const useAuthStore = create<AuthState>()(
         }
         return true
       },
-      hasRole: (role) => get().user?.role === role,
+      hasRole: (role) => {
+        const currentRole = (get().user?.role ?? '').trim().toUpperCase()
+        if (!currentRole) return false
+        const normalizedExpected = role.trim().toUpperCase()
+        const expectedWithPrefix = normalizedExpected.startsWith('ROLE_')
+          ? normalizedExpected
+          : `ROLE_${normalizedExpected}`
+        const expectedWithoutPrefix = expectedWithPrefix.replace(/^ROLE_/, '')
+        const currentWithoutPrefix = currentRole.replace(/^ROLE_/, '')
+
+        return currentRole === expectedWithPrefix || currentWithoutPrefix === expectedWithoutPrefix
+      },
     }),
     { name: 'nuv-auth' }
   )
