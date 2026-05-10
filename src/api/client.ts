@@ -2,24 +2,65 @@ import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import type { AuthResponse } from '@/types/auth'
 import { useAuthStore } from '../store/authStore'
 
-const configuredBaseUrl = import.meta.env.VITE_API_URL ?? import.meta.env.VITE_API_BASE_URL ?? ''
+type BackendMode = 'auto' | 'local' | 'railway'
+
+const resolveBackendMode = (): BackendMode => {
+  const rawMode = (import.meta.env.VITE_BACKEND_MODE ?? 'auto').toString().trim().toLowerCase()
+  if (rawMode === 'local' || rawMode === 'railway' || rawMode === 'auto') {
+    return rawMode
+  }
+  return 'auto'
+}
+
+const resolveConfiguredBaseUrl = () => {
+  const explicitBaseUrl = (import.meta.env.VITE_API_URL ?? import.meta.env.VITE_API_BASE_URL ?? '').toString().trim()
+  if (explicitBaseUrl) {
+    return explicitBaseUrl
+  }
+
+  const localBaseUrl = (import.meta.env.VITE_API_URL_LOCAL ?? 'http://localhost:8080/api').toString().trim()
+  const railwayBaseUrl = (import.meta.env.VITE_API_URL_RAILWAY ?? '').toString().trim()
+  const mode = resolveBackendMode()
+
+  if (mode === 'local') return localBaseUrl
+  if (mode === 'railway') return railwayBaseUrl || localBaseUrl
+  if (import.meta.env.DEV) return localBaseUrl
+  return railwayBaseUrl || localBaseUrl
+}
+
+const configuredBaseUrl = resolveConfiguredBaseUrl()
 const normalizedBaseUrl = configuredBaseUrl
   ? configuredBaseUrl.endsWith('/api')
     ? configuredBaseUrl
     : `${configuredBaseUrl.replace(/\/+$/, '')}/api`
   : '/api'
 
+export const getApiBaseUrl = () => normalizedBaseUrl
+
 const client = axios.create({
   baseURL: normalizedBaseUrl,
   withCredentials: true,
 })
 
+const AUTH_ENDPOINTS = [
+  '/auth/login',
+  '/auth/register',
+  '/auth/google/verify',
+  '/auth/google/mobile/credential',
+  '/auth/refresh',
+  '/auth/logout',
+]
+
+const isAuthEndpoint = (url?: string) =>
+  !!url && AUTH_ENDPOINTS.some((endpoint) => url.includes(endpoint))
+
 client.interceptors.request.use((config) => {
   const path = window.location.pathname
   const isPublicRoute = path === '/login' || path === '/register'
+  const isAuthCall = isAuthEndpoint(config.url)
 
   if (!useAuthStore.getState().isAuthenticated()) {
-    if (!isPublicRoute) {
+    if (!isPublicRoute && !isAuthCall) {
       useAuthStore.getState().logout()
       window.location.href = '/login'
     }
@@ -32,11 +73,6 @@ client.interceptors.request.use((config) => {
   }
   return config
 })
-
-const AUTH_ENDPOINTS = ['/auth/login', '/auth/register', '/auth/google/verify', '/auth/refresh', '/auth/logout']
-
-const isAuthEndpoint = (url?: string) =>
-  !!url && AUTH_ENDPOINTS.some((endpoint) => url.includes(endpoint))
 
 const redirectToLogin = () => {
   useAuthStore.getState().logout()
