@@ -5,12 +5,15 @@ import { buildGoogleMobileStartUrl, consumeGoogleMobileCredential, googleLogin }
 import type { AuthResponse } from '@/types/auth'
 
 const MOBILE_GOOGLE_STATE_KEY = 'mobile_google_oauth_state'
+const MOBILE_GOOGLE_STATE_KEY_PERSISTENT = 'mobile_google_oauth_state_persistent'
+const MOBILE_GOOGLE_INFLIGHT_KEY = 'mobile_google_oauth_inflight'
 const MOBILE_GOOGLE_DEBUG_KEY = 'mobile_google_oauth_debug_timeline'
 const MOBILE_GOOGLE_DEBUG_EVENT = 'mobile-google-oauth-debug'
 const MOBILE_GOOGLE_SCHEME = import.meta.env.VITE_MOBILE_DEEP_LINK_SCHEME ?? 'neurovit'
 const MOBILE_GOOGLE_DEEP_LINK = `${MOBILE_GOOGLE_SCHEME}://auth/google/callback`
 
 const processedCallbackKeys = new Set<string>()
+const processingCallbackKeys = new Set<string>()
 
 export type MobileGoogleDebugEntry = {
   at: string
@@ -29,9 +32,23 @@ const generateState = () => {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
 }
 
-const getExpectedState = () => sessionStorage.getItem(MOBILE_GOOGLE_STATE_KEY)
-const setExpectedState = (state: string) => sessionStorage.setItem(MOBILE_GOOGLE_STATE_KEY, state)
-const clearExpectedState = () => sessionStorage.removeItem(MOBILE_GOOGLE_STATE_KEY)
+const getExpectedState = () =>
+  sessionStorage.getItem(MOBILE_GOOGLE_STATE_KEY) ||
+  localStorage.getItem(MOBILE_GOOGLE_STATE_KEY_PERSISTENT)
+
+const setExpectedState = (state: string) => {
+  sessionStorage.setItem(MOBILE_GOOGLE_STATE_KEY, state)
+  localStorage.setItem(MOBILE_GOOGLE_STATE_KEY_PERSISTENT, state)
+}
+
+const clearExpectedState = () => {
+  sessionStorage.removeItem(MOBILE_GOOGLE_STATE_KEY)
+  localStorage.removeItem(MOBILE_GOOGLE_STATE_KEY_PERSISTENT)
+}
+
+const isAuthInFlight = () => localStorage.getItem(MOBILE_GOOGLE_INFLIGHT_KEY) === '1'
+const setAuthInFlight = () => localStorage.setItem(MOBILE_GOOGLE_INFLIGHT_KEY, '1')
+const clearAuthInFlight = () => localStorage.removeItem(MOBILE_GOOGLE_INFLIGHT_KEY)
 
 const appendDebug = (step: string, detail?: string) => {
   const entry: MobileGoogleDebugEntry = {
@@ -121,63 +138,85 @@ const processDeepLink = async (rawUrl: string, callbacks: GoogleMobileAuthCallba
     appendDebug('deeplink_duplicate_ignored', callbackKey)
     return
   }
-
-  if (!expectedState || callbackState !== expectedState) {
-    appendDebug(
-      'state_validation_failed',
-      `expected=${expectedState || '(vacío)'} received=${callbackState || '(vacío)'}`
-    )
-    callbacks.onError('No se pudo validar la sesión de Google. Inténtalo de nuevo.')
-    clearExpectedState()
+  if (processingCallbackKeys.has(callbackKey)) {
+    appendDebug('deeplink_inflight_duplicate_ignored', callbackKey)
     return
   }
 
-  appendDebug('state_validated', callbackState)
+  processingCallbackKeys.add(callbackKey)
 
-  if (status !== 'success') {
-    const errorCode = callbackUrl.searchParams.get('error') ?? 'unknown_error'
-    appendDebug('oauth_status_error', `status=${status ?? '(vacío)'} error=${errorCode}`)
-    callbacks.onError('Google canceló o rechazó la autenticación.')
-    clearExpectedState()
-    return
-  }
+  try {
 
-  processedCallbackKeys.add(callbackKey)
-  appendDebug('oauth_status_success', callbackKey)
-
-  let credential = callbackUrl.searchParams.get('credential')
-  if (!credential && ticket) {
-    appendDebug('ticket_redeem_start', ticket)
-    try {
-      credential = await consumeGoogleMobileCredential(ticket)
-      appendDebug('ticket_redeem_success', `credential_length=${credential.length}`)
-    } catch (error) {
-      const detail = parseApiErrorMessage(error, 'falló consumeGoogleMobileCredential')
-      appendDebug('ticket_redeem_failed', detail)
+    if (!expectedState || callbackState !== expectedState) {
+      if (!expectedState) {
+        appendDebug('state_missing_stale_deeplink_ignored', callbackState || '(vacío)')
+        clearAuthInFlight()
+        return
+      }
+      appendDebug(
+        'state_validation_failed',
+        `expected=${expectedState || '(vacío)'} received=${callbackState || '(vacío)'}`
+      )
+      callbacks.onError('No se pudo validar la sesión de Google. Inténtalo de nuevo.')
       clearExpectedState()
-      callbacks.onError(`No se pudo recuperar la credencial móvil de Google (${detail}).`)
+      clearAuthInFlight()
       return
     }
-  }
 
-  if (!credential) {
-    appendDebug('credential_missing', 'No llegó credential ni ticket válido')
-    callbacks.onError('Google no devolvió credenciales válidas.')
-    clearExpectedState()
-    return
-  }
+    appendDebug('state_validated', callbackState)
 
-  appendDebug('google_verify_start', `credential_length=${credential.length}`)
-  try {
-    const auth = await googleLogin(credential)
-    appendDebug('google_verify_success', auth.username)
-    clearExpectedState()
-    await callbacks.onSuccess(auth)
-  } catch (error) {
-    const detail = parseApiErrorMessage(error, 'falló googleLogin/verify')
-    appendDebug('google_verify_failed', detail)
-    clearExpectedState()
-    callbacks.onError(`Error al iniciar sesión con Google (${detail})`)
+    if (status !== 'success') {
+      const errorCode = callbackUrl.searchParams.get('error') ?? 'unknown_error'
+      appendDebug('oauth_status_error', `status=${status ?? '(vacío)'} error=${errorCode}`)
+      callbacks.onError('Google canceló o rechazó la autenticación.')
+      clearExpectedState()
+      clearAuthInFlight()
+      return
+    }
+
+    processedCallbackKeys.add(callbackKey)
+    appendDebug('oauth_status_success', callbackKey)
+
+    let credential = callbackUrl.searchParams.get('credential')
+    if (!credential && ticket) {
+      appendDebug('ticket_redeem_start', ticket)
+      try {
+        credential = await consumeGoogleMobileCredential(ticket)
+        appendDebug('ticket_redeem_success', `credential_length=${credential.length}`)
+      } catch (error) {
+        const detail = parseApiErrorMessage(error, 'falló consumeGoogleMobileCredential')
+        appendDebug('ticket_redeem_failed', detail)
+        clearExpectedState()
+        clearAuthInFlight()
+        callbacks.onError(`No se pudo recuperar la credencial móvil de Google (${detail}).`)
+        return
+      }
+    }
+
+    if (!credential) {
+      appendDebug('credential_missing', 'No llegó credential ni ticket válido')
+      callbacks.onError('Google no devolvió credenciales válidas.')
+      clearExpectedState()
+      clearAuthInFlight()
+      return
+    }
+
+    appendDebug('google_verify_start', `credential_length=${credential.length}`)
+    try {
+      const auth = await googleLogin(credential)
+      appendDebug('google_verify_success', auth.username)
+      clearExpectedState()
+      clearAuthInFlight()
+      await callbacks.onSuccess(auth)
+    } catch (error) {
+      const detail = parseApiErrorMessage(error, 'falló googleLogin/verify')
+      appendDebug('google_verify_failed', detail)
+      clearExpectedState()
+      clearAuthInFlight()
+      callbacks.onError(`Error al iniciar sesión con Google (${detail})`)
+    }
+  } finally {
+    processingCallbackKeys.delete(callbackKey)
   }
 }
 
@@ -185,6 +224,7 @@ export const startTauriMobileGoogleLogin = async () => {
   clearMobileGoogleDebugTimeline()
   const state = generateState()
   setExpectedState(state)
+  setAuthInFlight()
   const startUrl = buildGoogleMobileStartUrl(state, MOBILE_GOOGLE_DEEP_LINK)
   appendDebug('oauth_start', `state=${state} url=${startUrl}`)
 
@@ -217,7 +257,13 @@ export const registerTauriMobileGoogleListener = async (
   const initialUrls = await invoke<string[] | null>('plugin:deep-link|get_current')
   appendDebug('listener_registered', `initial_urls=${initialUrls?.length ?? 0}`)
 
-  if (initialUrls?.length) {
+  const expectedState = getExpectedState()
+  const shouldProcessInitialUrls = !!expectedState || isAuthInFlight()
+  if (!shouldProcessInitialUrls && initialUrls?.length) {
+    appendDebug('initial_urls_skipped_no_auth_inflight', String(initialUrls.length))
+  }
+
+  if (initialUrls?.length && shouldProcessInitialUrls) {
     for (const url of initialUrls) {
       await processDeepLink(url, callbacks)
     }
