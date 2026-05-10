@@ -1,6 +1,7 @@
 import client from './client'
 import { getApiBaseUrl } from './client'
 import { isAxiosError } from 'axios'
+import { invoke } from '@tauri-apps/api/core'
 import type {
   LoginRequest,
   RegisterRequest,
@@ -36,6 +37,21 @@ export const consumeGoogleMobileCredential = async (ticket: string) => {
   }
 
   const baseUrl = normalizedMobileBase.toString().replace(/\/+$/, '')
+  const isTauriRuntime = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+  if (isTauriRuntime) {
+    try {
+      const credential = await invoke<string>('fetch_google_mobile_credential', {
+        ticket,
+        baseUrl,
+      })
+      if (credential) return credential
+    } catch (nativeError) {
+      throw new Error(
+        `Native ticket redeem failed for ${baseUrl}: ${String(nativeError)}`
+      )
+    }
+  }
+
   const endpointUrl = new URL(`${baseUrl}/auth/google/mobile/credential`, window.location.origin)
   endpointUrl.searchParams.set('ticket', ticket)
 
