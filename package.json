@@ -5,12 +5,20 @@
   "packageManager": "npm@10.8.2",
   "type": "module",
   "scripts": {
+    "tauri": "tauri",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "mobile:check": "bash ./scripts/mobile-check.sh",
+    "mobile:ios:init": "tauri ios init --ci",
+    "mobile:ios:dev": "tauri ios dev",
+    "mobile:ios:run": "tauri ios run",
+    "mobile:android:init": "tauri android init --ci",
+    "mobile:android:dev": "tauri android dev",
+    "mobile:android:run": "tauri android run"
   },
   "dependencies": {
     "@fontsource-variable/figtree": "^5.2.10",

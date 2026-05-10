@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -24,8 +24,14 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { Loader2 } from 'lucide-react'
 import { useIsMobile } from '@/hooks/use-mobile'
-
-const isTauri = () => '__TAURI_INTERNALS__' in window
+import {
+  MOBILE_GOOGLE_DEBUG_EVENT,
+  getMobileGoogleDebugTimeline,
+  isTauriMobile,
+  type MobileGoogleDebugEntry,
+  registerTauriMobileGoogleListener,
+  startTauriMobileGoogleLogin,
+} from '@/lib/tauriMobileGoogleAuth'
 
 const schema = z.object({
   username: z.string().min(1, 'Requerido'),
@@ -38,7 +44,11 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const setUser = useAuthStore((s) => s.setUser)
   const isMobile = useIsMobile()
+  const tauriMobile = isTauriMobile()
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false)
+  const [mobileGoogleDebug, setMobileGoogleDebug] = useState<MobileGoogleDebugEntry[]>(
+    () => (tauriMobile ? getMobileGoogleDebugTimeline() : [])
+  )
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -91,6 +101,72 @@ export default function LoginPage() {
     }
   }
 
+  useEffect(() => {
+    if (!tauriMobile) return
+
+    let active = true
+    let cleanup: (() => void) | undefined
+
+    registerTauriMobileGoogleListener({
+      onSuccess: async (res) => {
+        setUser({
+          username: res.username,
+          role: res.role,
+          token: res.token,
+          mustChangePassword: res.mustChangePassword,
+        })
+        toast.success(`Bienvenido, ${res.username}.`)
+        navigate('/dashboard')
+      },
+      onError: (message) => {
+        setIsGoogleSubmitting(false)
+        form.setError('root', { message })
+        toast.error(message)
+      },
+    })
+      .then((unlisten) => {
+        if (!active) {
+          unlisten()
+          return
+        }
+        cleanup = unlisten
+      })
+      .catch(() => {
+        setIsGoogleSubmitting(false)
+        form.setError('root', { message: 'No se pudo inicializar Google en móvil' })
+      })
+
+    return () => {
+      active = false
+      cleanup?.()
+    }
+  }, [form, navigate, setUser, tauriMobile])
+
+  useEffect(() => {
+    if (!tauriMobile) return
+
+    const syncDebugTimeline = () => {
+      setMobileGoogleDebug(getMobileGoogleDebugTimeline())
+    }
+
+    window.addEventListener(MOBILE_GOOGLE_DEBUG_EVENT, syncDebugTimeline)
+    syncDebugTimeline()
+
+    return () => {
+      window.removeEventListener(MOBILE_GOOGLE_DEBUG_EVENT, syncDebugTimeline)
+    }
+  }, [tauriMobile])
+
+  const startMobileGoogleLogin = async () => {
+    setIsGoogleSubmitting(true)
+    try {
+      await startTauriMobileGoogleLogin()
+    } catch {
+      setIsGoogleSubmitting(false)
+      form.setError('root', { message: 'No se pudo abrir Google en el navegador' })
+    }
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm space-y-4 rounded-lg border bg-card p-4 sm:p-6">
@@ -104,6 +180,20 @@ export default function LoginPage() {
                 {form.formState.errors.root.message}
               </AlertDescription>
             </Alert>
+          )}
+
+          {tauriMobile && mobileGoogleDebug.length > 0 && (
+            <div className="rounded-md border border-muted p-3 text-xs">
+              <p className="font-medium text-foreground">Debug Google móvil</p>
+              <div className="mt-2 space-y-1 text-muted-foreground">
+                {mobileGoogleDebug.slice(-6).map((entry, index) => (
+                  <p key={`${entry.at}-${entry.step}-${index}`}>
+                    [{new Date(entry.at).toLocaleTimeString()}] {entry.step}
+                    {entry.detail ? ` - ${entry.detail}` : ''}
+                  </p>
+                ))}
+              </div>
+            </div>
           )}
 
           <Form {...form}>
@@ -149,15 +239,25 @@ export default function LoginPage() {
             </form>
           </Form>
 
-          {!isTauri() && (
-            <>
-              <div className="relative">
-                <Separator />
-                <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-2 text-xs text-muted-foreground uppercase tracking-wide">
-                  O continúa con
-                </span>
-              </div>
+          <>
+            <div className="relative">
+              <Separator />
+              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-2 text-xs text-muted-foreground uppercase tracking-wide">
+                O continúa con
+              </span>
+            </div>
 
+            {tauriMobile ? (
+              <Button
+                type="button"
+                className="w-full"
+                onClick={startMobileGoogleLogin}
+                disabled={isGoogleSubmitting || form.formState.isSubmitting}
+              >
+                {isGoogleSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Continuar con Google
+              </Button>
+            ) : (
               <GoogleAuthButton
                 label="Continuar con Google"
                 width={isMobile ? '280' : '368'}
@@ -168,8 +268,8 @@ export default function LoginPage() {
                 }}
                 disabled={isGoogleSubmitting || form.formState.isSubmitting}
               />
-            </>
-          )}
+            )}
+          </>
 
           <p className="text-center text-sm text-muted-foreground">
             ¿No tienes cuenta?{' '}

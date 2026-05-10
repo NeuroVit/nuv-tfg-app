@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -14,6 +14,11 @@ import { type CredentialResponse } from '@react-oauth/google'
 import { googleLogin, register } from '@/api/auth'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton'
+import {
+  isTauriMobile,
+  registerTauriMobileGoogleListener,
+  startTauriMobileGoogleLogin,
+} from '@/lib/tauriMobileGoogleAuth'
 import {
   Form,
   FormControl,
@@ -45,13 +50,13 @@ const registerSchema = z
   })
 
 type RegisterFormData = z.infer<typeof registerSchema>
-const isTauri = () => '__TAURI_INTERNALS__' in window
 
 export default function RegisterPage() {
     const navigate = useNavigate()
     const [serverError, setServerError] = useState<string | null>(null)
     const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false)
     const isMobile = useIsMobile()
+    const tauriMobile = isTauriMobile()
 
     const form = useForm<RegisterFormData>({
         resolver: zodResolver(registerSchema),
@@ -120,6 +125,57 @@ const handleGoogleSuccess = async (response: CredentialResponse) => {
         toast.error(msg)
     } finally {
         setIsGoogleSubmitting(false)
+    }
+}
+
+useEffect(() => {
+    if (!tauriMobile) return
+
+    let active = true
+    let cleanup: (() => void) | undefined
+
+    registerTauriMobileGoogleListener({
+      onSuccess: async (res) => {
+        setUser({
+          username: res.username,
+          role: res.role,
+          token: res.token,
+          mustChangePassword: res.mustChangePassword,
+        })
+        toast.success(`Bienvenido, ${res.username}.`)
+        navigate('/dashboard')
+      },
+      onError: (message) => {
+        setIsGoogleSubmitting(false)
+        setServerError(message)
+        toast.error(message)
+      },
+    })
+      .then((unlisten) => {
+        if (!active) {
+          unlisten()
+          return
+        }
+        cleanup = unlisten
+      })
+      .catch(() => {
+        setIsGoogleSubmitting(false)
+        setServerError('No se pudo inicializar Google en móvil')
+      })
+
+    return () => {
+      active = false
+      cleanup?.()
+    }
+}, [navigate, setUser, tauriMobile])
+
+const startMobileGoogleLogin = async () => {
+    setIsGoogleSubmitting(true)
+    try {
+      await startTauriMobileGoogleLogin()
+    } catch {
+      setIsGoogleSubmitting(false)
+      setServerError('No se pudo abrir Google en el navegador')
     }
 }
 
@@ -259,18 +315,28 @@ const handleGoogleSuccess = async (response: CredentialResponse) => {
           
 
           {/* Google */}
-          {!isTauri() && (
-              <GoogleAuthButton
-                className="mx-auto max-w-md hover:bg-accent/90"
-                label="Continuar con Google"
-                width={isMobile ? '280' : '448'}
-                onSuccess={handleGoogleSuccess}
-                onError={() => {
-                  setIsGoogleSubmitting(false)
-                  setServerError('Error al registrarse con Google')
-                }}
-                disabled={isGoogleSubmitting || form.formState.isSubmitting}
-              />
+          {tauriMobile ? (
+            <Button
+              type="button"
+              className="w-full"
+              onClick={startMobileGoogleLogin}
+              disabled={isGoogleSubmitting || form.formState.isSubmitting}
+            >
+              {isGoogleSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Continuar con Google
+            </Button>
+          ) : (
+            <GoogleAuthButton
+              className="mx-auto max-w-md hover:bg-accent/90"
+              label="Continuar con Google"
+              width={isMobile ? '280' : '448'}
+              onSuccess={handleGoogleSuccess}
+              onError={() => {
+                setIsGoogleSubmitting(false)
+                setServerError('Error al registrarse con Google')
+              }}
+              disabled={isGoogleSubmitting || form.formState.isSubmitting}
+            />
           )}
 
           <p className="text-center text-sm text-muted-foreground">
