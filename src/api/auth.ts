@@ -28,7 +28,14 @@ export const googleLogin = async (credential: string) => {
 }
 
 export const consumeGoogleMobileCredential = async (ticket: string) => {
-  const baseUrl = getApiBaseUrl().replace(/\/+$/, '')
+  const mobileBase = resolveMobileApiBase()
+  const normalizedMobileBase = normalizeMobileApiBase(mobileBase)
+  const isAndroid = /android/i.test(navigator.userAgent)
+  if (isAndroid && (normalizedMobileBase.hostname === 'localhost' || normalizedMobileBase.hostname === '127.0.0.1')) {
+    normalizedMobileBase.hostname = '10.0.2.2'
+  }
+
+  const baseUrl = normalizedMobileBase.toString().replace(/\/+$/, '')
   const endpointUrl = new URL(`${baseUrl}/auth/google/mobile/credential`, window.location.origin)
   endpointUrl.searchParams.set('ticket', ticket)
 
