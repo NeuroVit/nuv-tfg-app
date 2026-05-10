@@ -23,6 +23,7 @@ VITE_API_URL_RAILWAY=https://web-production-b34f68.up.railway.app/api
 VITE_MOBILE_BACKEND_MODE=auto       # auto | local | railway
 VITE_MOBILE_API_URL_LOCAL=http://localhost:8080/api
 VITE_MOBILE_API_URL_RAILWAY=https://web-production-b34f68.up.railway.app/api
+VITE_TAURI_MOBILE_GOOGLE_DEBUG=false # true para activar timeline debug en login móvil
 ```
 
 Cómo funciona:
