@@ -20,6 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import {
   AnaliticaShell,
   EmptyChartPlaceholder,
+  RevealDataSection,
   formatCompact,
   formatCurrency,
   useAnaliticaRange,
@@ -202,65 +203,67 @@ export default function AnaliticaPreciosBundlesPage() {
         </article>
       </section>
 
-      <section className="space-y-4">
-        <article className="rounded-lg border bg-card p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Producto</TableHead>
-                <TableHead>Anterior</TableHead>
-                <TableHead>Nuevo</TableHead>
-                <TableHead>Cambio de precio</TableHead>
-                <TableHead>%</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
-              ) : precios.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Sin historial de cambios de precio.</TableCell></TableRow>
-              ) : precios.map((row) => (
-                <TableRow key={row.historyId}>
-                  <TableCell>{new Date(row.changedAt).toLocaleString('es-ES')}</TableCell>
-                  <TableCell>{row.productName} <span className="text-xs text-muted-foreground">({row.sku})</span></TableCell>
-                  <TableCell>{formatCurrency(row.oldPrice)}</TableCell>
-                  <TableCell>{formatCurrency(row.newPrice)}</TableCell>
-                  <TableCell>{formatCurrency(row.priceDelta)}</TableCell>
-                  <TableCell>{row.pctChange}%</TableCell>
+      <RevealDataSection>
+        <section className="space-y-4">
+          <article className="rounded-lg border bg-card p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Producto</TableHead>
+                  <TableHead>Anterior</TableHead>
+                  <TableHead>Nuevo</TableHead>
+                  <TableHead>Cambio de precio</TableHead>
+                  <TableHead>%</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </article>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
+                ) : precios.length === 0 ? (
+                  <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Sin historial de cambios de precio.</TableCell></TableRow>
+                ) : precios.map((row) => (
+                  <TableRow key={row.historyId}>
+                    <TableCell>{new Date(row.changedAt).toLocaleString('es-ES')}</TableCell>
+                    <TableCell>{row.productName} <span className="text-xs text-muted-foreground">({row.sku})</span></TableCell>
+                    <TableCell>{formatCurrency(row.oldPrice)}</TableCell>
+                    <TableCell>{formatCurrency(row.newPrice)}</TableCell>
+                    <TableCell>{formatCurrency(row.priceDelta)}</TableCell>
+                    <TableCell>{row.pctChange}%</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </article>
 
-        <article className="rounded-lg border bg-card p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Producto A</TableHead>
-                <TableHead>Producto B</TableHead>
-                <TableHead>Co-ocurrencia</TableHead>
-                <TableHead>Precio combinado</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
-              ) : bundles.length === 0 ? (
-                <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">No hay sugerencias de bundle disponibles.</TableCell></TableRow>
-              ) : bundles.map((row) => (
-                <TableRow key={`${row.productAId}-${row.productBId}`}>
-                  <TableCell>{row.productAName} <span className="text-xs text-muted-foreground">({row.productASku})</span></TableCell>
-                  <TableCell>{row.productBName} <span className="text-xs text-muted-foreground">({row.productBSku})</span></TableCell>
-                  <TableCell>{formatCompact(row.coOccurrenceCount)}</TableCell>
-                  <TableCell>{formatCurrency(row.combinedPrice)}</TableCell>
+          <article className="rounded-lg border bg-card p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Producto A</TableHead>
+                  <TableHead>Producto B</TableHead>
+                  <TableHead>Co-ocurrencia</TableHead>
+                  <TableHead>Precio combinado</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </article>
-      </section>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
+                ) : bundles.length === 0 ? (
+                  <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">No hay sugerencias de bundle disponibles.</TableCell></TableRow>
+                ) : bundles.map((row) => (
+                  <TableRow key={`${row.productAId}-${row.productBId}`}>
+                    <TableCell>{row.productAName} <span className="text-xs text-muted-foreground">({row.productASku})</span></TableCell>
+                    <TableCell>{row.productBName} <span className="text-xs text-muted-foreground">({row.productBSku})</span></TableCell>
+                    <TableCell>{formatCompact(row.coOccurrenceCount)}</TableCell>
+                    <TableCell>{formatCurrency(row.combinedPrice)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </article>
+        </section>
+      </RevealDataSection>
     </AnaliticaShell>
   )
 }

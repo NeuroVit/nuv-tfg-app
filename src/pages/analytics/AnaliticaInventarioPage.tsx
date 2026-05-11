@@ -29,6 +29,7 @@ import { Button } from '@/components/ui/button'
 import {
   AnaliticaShell,
   EmptyChartPlaceholder,
+  RevealDataSection,
   formatCompact,
   formatCurrency,
   statusFillKey,
@@ -254,56 +255,58 @@ export default function AnaliticaInventarioPage() {
         </article>
       </section>
 
-      <section className="rounded-lg border bg-card p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Producto</TableHead>
-              <TableHead>Categoría</TableHead>
-              <TableHead>Stock</TableHead>
-              <TableHead>Mínimo</TableHead>
-              <TableHead>Valor</TableHead>
-              <TableHead>Estado</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
-            ) : paginatedInventario.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">No hay productos de inventario para mostrar.</TableCell></TableRow>
-            ) : paginatedInventario.map((row) => (
-              <TableRow key={row.productId}>
-                <TableCell>{row.productName} <span className="text-xs text-muted-foreground">({row.sku})</span></TableCell>
-                <TableCell>{row.categoryName}</TableCell>
-                <TableCell>{row.currentQuantity}</TableCell>
-                <TableCell>{row.minimumStockLevel}</TableCell>
-                <TableCell>{formatCurrency(row.stockValue)}</TableCell>
-                <TableCell>{statusLabels[row.stockStatus] ?? row.stockStatus}</TableCell>
+      <RevealDataSection>
+        <section className="rounded-lg border bg-card p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Producto</TableHead>
+                <TableHead>Categoría</TableHead>
+                <TableHead>Stock</TableHead>
+                <TableHead>Mínimo</TableHead>
+                <TableHead>Valor</TableHead>
+                <TableHead>Estado</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </section>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
+              ) : paginatedInventario.length === 0 ? (
+                <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">No hay productos de inventario para mostrar.</TableCell></TableRow>
+              ) : paginatedInventario.map((row) => (
+                <TableRow key={row.productId}>
+                  <TableCell>{row.productName} <span className="text-xs text-muted-foreground">({row.sku})</span></TableCell>
+                  <TableCell>{row.categoryName}</TableCell>
+                  <TableCell>{row.currentQuantity}</TableCell>
+                  <TableCell>{row.minimumStockLevel}</TableCell>
+                  <TableCell>{formatCurrency(row.stockValue)}</TableCell>
+                  <TableCell>{statusLabels[row.stockStatus] ?? row.stockStatus}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </section>
 
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} | {total} registros</p>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setOffset((prev) => Math.max(0, prev - PAGE_SIZE))}
-            disabled={offset === 0}
-          >
-            Anterior
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setOffset((prev) => (prev + PAGE_SIZE >= total ? prev : prev + PAGE_SIZE))}
-            disabled={offset + PAGE_SIZE >= total}
-          >
-            Siguiente
-          </Button>
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} | {total} registros</p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setOffset((prev) => Math.max(0, prev - PAGE_SIZE))}
+              disabled={offset === 0}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setOffset((prev) => (prev + PAGE_SIZE >= total ? prev : prev + PAGE_SIZE))}
+              disabled={offset + PAGE_SIZE >= total}
+            >
+              Siguiente
+            </Button>
+          </div>
         </div>
-      </div>
+      </RevealDataSection>
     </AnaliticaShell>
   )
 }

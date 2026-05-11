@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { isAxiosError } from 'axios'
 import { AlertTriangle, RefreshCw, X } from 'lucide-react'
 import client from '@/api/client'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { ApiError, Categoria } from '@/types/api'
 import type { Producto } from '@/types/producto'
 import type { Proveedor } from '@/types/provider'
@@ -212,7 +213,7 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
       role="presentation"
     >
       <div
-        className="w-full max-w-[560px] rounded-2xl border bg-card shadow-2xl"
+        className="w-full max-w-[560px] rounded-2xl border bg-sidebar-active text-sidebar-active-foreground shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between border-b px-6 py-4">
@@ -249,41 +250,57 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">Categoría</label>
-              <select
+              <Select
                 value={form.categoriaId}
-                onChange={(event) => updateField('categoriaId', event.target.value)}
-                onBlur={() => markTouched('categoriaId')}
-                className={`w-full rounded-xl border bg-card px-3 py-2 text-sm outline-none transition ${
-                  touched.categoriaId && mergedErrors.categoriaId ? 'border-red-500 ring-2 ring-red-100' : 'border-input focus:border-ring'
-                }`}
+                onValueChange={(value) => {
+                  updateField('categoriaId', value)
+                  markTouched('categoriaId')
+                }}
               >
-                <option value="">Selecciona una categoría</option>
-                {categorias.map((categoria) => (
-                  <option key={categoria.id} value={categoria.id}>
-                    {categoria.nombre}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger
+                  aria-invalid={touched.categoriaId && mergedErrors.categoriaId ? true : undefined}
+                  className={`w-full rounded-xl bg-sidebar-active ${
+                    touched.categoriaId && mergedErrors.categoriaId ? 'border-red-500 ring-2 ring-red-100' : 'border-input focus:border-ring'
+                  }`}
+                >
+                  <SelectValue placeholder="Selecciona una categoría" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categorias.map((categoria) => (
+                    <SelectItem key={categoria.id} value={String(categoria.id)}>
+                      {categoria.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {touched.categoriaId && mergedErrors.categoriaId && <p className="text-xs text-red-600">{mergedErrors.categoriaId}</p>}
             </div>
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">Proveedor</label>
-              <select
+              <Select
                 value={form.providerId}
-                onChange={(event) => updateField('providerId', event.target.value)}
-                onBlur={() => markTouched('providerId')}
-                className={`w-full rounded-xl border bg-card px-3 py-2 text-sm outline-none transition ${
-                  touched.providerId && mergedErrors.providerId ? 'border-red-500 ring-2 ring-red-100' : 'border-input focus:border-ring'
-                }`}
+                onValueChange={(value) => {
+                  updateField('providerId', value)
+                  markTouched('providerId')
+                }}
               >
-                <option value="">Selecciona un proveedor</option>
-                {proveedores.map((proveedor) => (
-                  <option key={proveedor.id} value={proveedor.id}>
-                    {proveedor.nombre}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger
+                  aria-invalid={touched.providerId && mergedErrors.providerId ? true : undefined}
+                  className={`w-full rounded-xl bg-sidebar-active ${
+                    touched.providerId && mergedErrors.providerId ? 'border-red-500 ring-2 ring-red-100' : 'border-input focus:border-ring'
+                  }`}
+                >
+                  <SelectValue placeholder="Selecciona un proveedor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {proveedores.map((proveedor) => (
+                    <SelectItem key={proveedor.id} value={String(proveedor.id)}>
+                      {proveedor.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {touched.providerId && mergedErrors.providerId && <p className="text-xs text-red-600">{mergedErrors.providerId}</p>}
             </div>
 
