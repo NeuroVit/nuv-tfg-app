@@ -120,7 +120,19 @@ export function AppSidebar({ isSettingsRoute = false, collapsible = 'icon' }: Ap
     <Sidebar collapsible={collapsible} variant="sidebar">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 z-0"
+        className="pointer-events-none absolute inset-0 z-0 dark:hidden"
+        style={{
+          backgroundImage:
+            "linear-gradient(180deg, rgba(255,255,255,0.90) 0%, rgba(248,250,252,0.86) 45%, rgba(241,245,249,0.82) 100%), url('/moon-texture-registrar.jpg')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          opacity: 0.95,
+        }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-0 hidden dark:block"
         style={{
           backgroundImage:
             "linear-gradient(180deg, rgba(5,5,5,0.92) 0%, rgba(5,5,5,0.74) 45%, rgba(5,5,5,0.38) 100%), url('/moon-texture-registrar.jpg')",
