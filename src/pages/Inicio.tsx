@@ -778,22 +778,44 @@ export default function Inicio() {
         </section>
 
         <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Card>
+          <Card className="bg-card">
             <CardHeader className="pb-2">
-              <CardDescription>Categorías activas</CardDescription>
+              <CardDescription>Categorias activas</CardDescription>
             </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-semibold text-green-600">{totalCategorias}</p>
-              <p className="mt-1 text-xs text-muted-foreground">en inventario</p>
+            <CardContent className="flex items-end justify-between gap-4">
+              <div>
+                <p className="text-4xl font-semibold text-violet-500">{totalCategorias}</p>
+                <p className="mt-1 text-xs text-muted-foreground">en inventario</p>
+              </div>
+              <svg aria-hidden viewBox="0 0 120 40" className="h-10 w-36 text-violet-500/90">
+                <path
+                  d="M2 33 C 12 30, 18 17, 28 21 S 44 34, 54 22 S 72 13, 82 20 S 98 30, 118 8"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.6"
+                  strokeLinecap="round"
+                />
+              </svg>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="bg-card">
             <CardHeader className="pb-2">
               <CardDescription>Movimientos recientes</CardDescription>
             </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-semibold text-amber-600">{movimientos.length}</p>
-              <p className="mt-1 text-xs text-muted-foreground">últimas entradas/salidas</p>
+            <CardContent className="flex items-end justify-between gap-4">
+              <div>
+                <p className="text-4xl font-semibold text-blue-500">{movimientos.length}</p>
+                <p className="mt-1 text-xs text-muted-foreground">ultimas entradas/salidas</p>
+              </div>
+              <div className="flex h-12 items-end gap-1">
+                {[16, 28, 22, 34, 24, 18, 30, 26, 36, 20, 29, 24].map((h, idx) => (
+                  <span
+                    key={idx}
+                    className="w-1.5 rounded-sm bg-blue-500/90"
+                    style={{ height: `${h}px` }}
+                  />
+                ))}
+              </div>
             </CardContent>
           </Card>
         </section>
