@@ -115,7 +115,20 @@ export function AppSidebar({ isSettingsRoute = false }: AppSidebarProps) {
 
   return (
     <Sidebar collapsible="icon" variant="sidebar">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-0"
+        style={{
+          backgroundImage:
+            "linear-gradient(180deg, rgba(5,5,5,0.92) 0%, rgba(5,5,5,0.74) 45%, rgba(5,5,5,0.38) 100%), url('/moon-texture-registrar.jpg')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          opacity: 0.95,
+        }}
+      />
       <SidebarHeader>
+        <div className="relative z-10">
         <SidebarMenu>
           <SidebarMenuItem>
             {isSettingsRoute ? (
@@ -145,9 +158,11 @@ export function AppSidebar({ isSettingsRoute = false }: AppSidebarProps) {
             )}
           </SidebarMenuItem>
         </SidebarMenu>
+        </div>
       </SidebarHeader>
 
       <SidebarContent>
+        <div className="relative z-10">
         {isSettingsRoute ? (
           <SidebarGroup>
             <SidebarGroupLabel>Ajustes</SidebarGroupLabel>
@@ -191,9 +206,11 @@ export function AppSidebar({ isSettingsRoute = false }: AppSidebarProps) {
             </SidebarGroup>
           ))
         )}
+        </div>
       </SidebarContent>
 
       <SidebarFooter>
+        <div className="relative z-10">
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
@@ -238,6 +255,7 @@ export function AppSidebar({ isSettingsRoute = false }: AppSidebarProps) {
             </DropdownMenu>
           </SidebarMenuItem>
         </SidebarMenu>
+        </div>
       </SidebarFooter>
     </Sidebar>
   )
