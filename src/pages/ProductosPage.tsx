@@ -470,23 +470,16 @@ export default function ProductosPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-          <Button className="w-full sm:w-auto" onClick={() => { setProductoEditar(null); setModalOpen(true) }}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo producto
-          </Button>
-        </div>
-
-        <div className="flex flex-col gap-3 md:flex-row md:items-center">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:gap-2">
           <Input
             placeholder="Buscar por nombre, SKU, categoría..."
             value={globalFilter}
             onChange={(event) => setGlobalFilter(event.target.value)}
-            className="w-full md:max-w-sm"
+            className="w-full xl:min-w-[280px] xl:flex-1"
           />
 
           <Select value={filtroCategoria} onValueChange={setFiltroCategoria}>
-            <SelectTrigger className="w-full md:w-56">
+            <SelectTrigger className="w-full xl:w-56">
               <SelectValue placeholder="Filtrar por categoría" />
             </SelectTrigger>
             <SelectContent>
@@ -500,7 +493,7 @@ export default function ProductosPage() {
           </Select>
 
           <Select value={filtroProveedor} onValueChange={setFiltroProveedor}>
-            <SelectTrigger className="w-full md:w-56">
+            <SelectTrigger className="w-full xl:w-56">
               <SelectValue placeholder="Filtrar por proveedor" />
             </SelectTrigger>
             <SelectContent>
@@ -514,7 +507,7 @@ export default function ProductosPage() {
           </Select>
 
           <Select value={filtroEstado} onValueChange={(value) => setFiltroEstado(value as EstadoFiltro)}>
-            <SelectTrigger className="w-full md:w-56">
+            <SelectTrigger className="w-full xl:w-48">
               <SelectValue placeholder="Filtrar por estado" />
             </SelectTrigger>
             <SelectContent>
@@ -523,6 +516,17 @@ export default function ProductosPage() {
               <SelectItem value="normal">Normal</SelectItem>
             </SelectContent>
           </Select>
+
+          <Button
+            className="w-full xl:ml-auto xl:w-auto xl:shrink-0"
+            onClick={() => {
+              setProductoEditar(null)
+              setModalOpen(true)
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Nuevo producto
+          </Button>
         </div>
 
         <div className="rounded-lg border bg-card">

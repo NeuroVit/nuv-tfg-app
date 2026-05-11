@@ -1,25 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router'
+import { Bell } from 'lucide-react'
+
 import { getMetaAnalitica } from '@/api/analitica'
 import { getAlertas } from '@/api/alerta'
 import { getMe } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
+import { useProfileStore } from '@/store/profileStore'
 import type { UserProfile } from '@/types/auth'
 import type { AnaliticaMeta } from '@/types/analitica'
 import type { AlertaStock } from '@/types/alerta'
+import { AppSidebar } from '@/components/AppSidebar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
-import { AppSidebar } from '@/components/AppSidebar'
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from '@/components/ui/sidebar'
-import { BarChart3, Bell, Package, ReceiptText, Sparkles, UserCircle2 } from 'lucide-react'
-import { useProfileStore } from '@/store/profileStore'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 const toTitleCase = (str: string) =>
   str.toLowerCase().replace(/\b\p{L}/gu, (c) => c.toUpperCase())
@@ -28,7 +24,7 @@ type TopTab = { to: string; label: string }
 
 const productosTabs: TopTab[] = [
   { to: '/productos', label: 'Productos' },
-  { to: '/categorias', label: 'Categorías' },
+  { to: '/categorias', label: 'Categorias' },
   { to: '/bundles', label: 'Bundles' },
 ]
 
@@ -47,36 +43,18 @@ const analiticaTabs: TopTab[] = [
 const inRouteGroup = (pathname: string, routes: string[]) =>
   routes.some((route) => pathname === route || pathname.startsWith(`${route}/`))
 
-const latestFeatures = [
-  {
-    icon: UserCircle2,
-    title: 'Perfil en el sidebar',
-    description: 'Accede a tu cuenta, modo oscuro y ajustes desde el pie del menú lateral.',
-  },
-  {
-    icon: Sparkles,
-    title: 'Historial de novedades',
-    description: 'Consulta los últimos cambios y mejoras de NeuralStock en cualquier momento.',
-  },
-  {
-    icon: ReceiptText,
-    title: 'Modales de creación',
-    description: 'Nueva venta y nuevo cliente se abren en un modal limpio sin perder el contexto.',
-  },
-]
-
 export default function AppLayout() {
   const { user } = useAuthStore()
   const setDisplayName = useProfileStore((s) => s.setDisplayName)
   const navigate = useNavigate()
   const location = useLocation()
+
   const isSettingsRoute = location.pathname.startsWith('/settings')
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [analyticsMeta, setAnalyticsMeta] = useState<AnaliticaMeta | null>(null)
   const [openAlertsCount, setOpenAlertsCount] = useState(0)
   const [recentOpenAlerts, setRecentOpenAlerts] = useState<AlertaStock[]>([])
   const [alertsDrawerOpen, setAlertsDrawerOpen] = useState(false)
-  const [whatsNewOpen, setWhatsNewOpen] = useState(false)
 
   const topTabs = useMemo(() => {
     if (isSettingsRoute) return []
@@ -87,10 +65,7 @@ export default function AppLayout() {
   }, [isSettingsRoute, location.pathname])
 
   const accountLabel = useMemo(() => {
-    const fullName = [profile?.nombre?.trim(), profile?.apellidos?.trim()]
-      .filter(Boolean)
-      .join(' ')
-      .trim()
+    const fullName = [profile?.nombre?.trim(), profile?.apellidos?.trim()].filter(Boolean).join(' ').trim()
     return toTitleCase(fullName || user?.username || 'Usuario')
   }, [profile?.apellidos, profile?.nombre, user?.username])
 
@@ -105,7 +80,7 @@ export default function AppLayout() {
     if (inRouteGroup(path, ['/proveedores', '/pedidos'])) return 'Proveedores'
     if (path.startsWith('/movimientos')) return 'Movimientos'
     if (path.startsWith('/alertas')) return 'Alertas'
-    if (path.startsWith('/analitica')) return 'Analítica'
+    if (path.startsWith('/analitica')) return 'Analitica'
     if (path.startsWith('/clientes')) return 'Clientes'
     if (path.startsWith('/ventas')) return 'Ventas'
     if (path.startsWith('/settings')) return 'Ajustes'
@@ -115,7 +90,10 @@ export default function AppLayout() {
   useEffect(() => {
     let isMounted = true
     const loadProfile = async () => {
-      if (!user?.token) { if (isMounted) setProfile(null); return }
+      if (!user?.token) {
+        if (isMounted) setProfile(null)
+        return
+      }
       try {
         const me = await getMe()
         if (!isMounted) return
@@ -126,13 +104,18 @@ export default function AppLayout() {
       }
     }
     void loadProfile()
-    return () => { isMounted = false }
+    return () => {
+      isMounted = false
+    }
   }, [user?.token])
 
   useEffect(() => {
     let isMounted = true
     const loadMeta = async () => {
-      if (!user?.token) { if (isMounted) setAnalyticsMeta(null); return }
+      if (!user?.token) {
+        if (isMounted) setAnalyticsMeta(null)
+        return
+      }
       try {
         const meta = await getMetaAnalitica(30)
         if (!isMounted) return
@@ -143,7 +126,9 @@ export default function AppLayout() {
       }
     }
     void loadMeta()
-    return () => { isMounted = false }
+    return () => {
+      isMounted = false
+    }
   }, [user?.token])
 
   useEffect(() => {
@@ -190,26 +175,38 @@ export default function AppLayout() {
   return (
     <SidebarProvider>
       <AppSidebar isSettingsRoute={isSettingsRoute} />
-      <SidebarInset className="min-w-0 overflow-x-hidden">
-        <header className="shrink-0 border-b bg-background">
+      <SidebarInset className="relative min-w-0 overflow-x-hidden bg-transparent">
+        <div className="pointer-events-none absolute inset-0 -z-10">
+          <div className="absolute inset-0 bg-[#050505]" />
+          <div
+            className="absolute inset-[-20%] blur-[34px]"
+            style={{
+              background:
+                'radial-gradient(circle at 20% 20%, rgba(255,255,255,0.08), transparent 25%), radial-gradient(circle at 80% 30%, rgba(255,255,255,0.05), transparent 30%), linear-gradient(180deg, #0b0b0c, #050505)',
+            }}
+          />
+          <div
+            className="absolute inset-0 opacity-95 blur-[8px]"
+            style={{
+              background:
+                'radial-gradient(120% 60% at 50% 0%, rgba(255,255,255,0.08), transparent 60%), radial-gradient(120% 60% at 50% 25%, rgba(255,255,255,0.05), transparent 60%), radial-gradient(120% 60% at 50% 50%, rgba(255,255,255,0.06), transparent 60%), radial-gradient(120% 60% at 50% 75%, rgba(255,255,255,0.04), transparent 60%)',
+            }}
+          />
+        </div>
+
+        <header className="shrink-0 border-b border-white/5 bg-transparent">
           <div className="flex min-h-14 items-center gap-2 px-3 sm:px-4">
             <SidebarTrigger className="-ml-1" />
             {topTabs.length > 0 ? (
               <Tabs value={location.pathname} className="flex-1">
-                <TabsList
-                  variant="line"
-                  className="h-auto w-auto justify-start gap-0 rounded-none bg-transparent"
-                >
+                <TabsList variant="line" className="h-auto w-auto justify-start gap-0 rounded-none bg-transparent">
                   {topTabs.map((tab) => (
                     <TabsTrigger
                       key={tab.to}
                       value={tab.to}
                       onClick={() => {
                         const shouldKeepSearch = location.pathname.startsWith('/analitica')
-                        navigate({
-                          pathname: tab.to,
-                          search: shouldKeepSearch ? location.search : '',
-                        })
+                        navigate({ pathname: tab.to, search: shouldKeepSearch ? location.search : '' })
                       }}
                       className="flex-none rounded-none px-3 py-2 text-sm"
                     >
@@ -220,21 +217,14 @@ export default function AppLayout() {
               </Tabs>
             ) : (
               <>
-                {sectionLabel && (
-                  <span className="ml-1 text-sm font-medium text-foreground">{sectionLabel}</span>
-                )}
+                {sectionLabel && <span className="ml-1 text-sm font-medium text-foreground">{sectionLabel}</span>}
                 <div className="flex-1" />
               </>
             )}
 
             <Sheet open={alertsDrawerOpen} onOpenChange={setAlertsDrawerOpen}>
               <SheetTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="relative h-8 w-8"
-                  aria-label="Notificaciones de alertas"
-                >
+                <Button variant="ghost" size="icon" className="relative h-8 w-8" aria-label="Notificaciones de alertas">
                   <Bell className="h-4 w-4" />
                   {openAlertsCount > 0 ? (
                     <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold leading-none text-white">
@@ -262,7 +252,7 @@ export default function AppLayout() {
                           navigate('/alertas')
                         }}
                       >
-                        <p className="text-sm font-medium">{alert.productoNombre} · {alert.tipo}</p>
+                        <p className="text-sm font-medium">{alert.productoNombre} - {alert.tipo}</p>
                         <p className="truncate text-xs text-muted-foreground">{alert.mensaje}</p>
                       </button>
                     ))
@@ -289,16 +279,6 @@ export default function AppLayout() {
                 {dataModeLabel}
               </Badge>
             ) : null}
-
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
-              onClick={() => setWhatsNewOpen(true)}
-            >
-              <Sparkles className="h-4 w-4" />
-              <span className="hidden sm:inline">Novedades</span>
-            </Button>
           </div>
         </header>
 
@@ -306,72 +286,6 @@ export default function AppLayout() {
           <Outlet />
         </main>
       </SidebarInset>
-
-      {/* What's New modal */}
-      <Dialog open={whatsNewOpen} onOpenChange={setWhatsNewOpen}>
-        <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-md">
-          <DialogTitle className="sr-only">Novedades de NeuralStock</DialogTitle>
-
-          {/* Hero */}
-          <div className="relative overflow-hidden bg-gradient-to-br from-primary/15 via-primary/5 to-background px-8 pb-6 pt-8">
-            {/* Decorative blur */}
-            <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-primary/20 blur-3xl" />
-            <div className="absolute -left-10 bottom-0 h-32 w-32 rounded-full bg-primary/10 blur-2xl" />
-
-            {/* Connected icons */}
-            <div className="relative mb-6 flex items-center justify-center">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl border bg-background shadow-sm">
-                <Package className="h-5 w-5 text-foreground" />
-              </div>
-              <div className="h-px w-14 bg-gradient-to-r from-border to-primary/60" />
-              <div className="flex h-13 w-13 items-center justify-center rounded-xl border-2 border-primary bg-background shadow-lg ring-4 ring-primary/10">
-                <Sparkles className="h-6 w-6 text-primary" />
-              </div>
-              <div className="h-px w-14 bg-gradient-to-r from-primary/60 to-border" />
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-                <BarChart3 className="h-5 w-5" />
-              </div>
-            </div>
-
-            <p className="mb-1.5 text-center text-[11px] font-semibold uppercase tracking-widest text-primary">
-              Nueva actualización · v1.2
-            </p>
-            <h2 className="text-center text-2xl font-bold tracking-tight text-foreground">
-              Tu espacio de trabajo,<br />renovado
-            </h2>
-          </div>
-
-          {/* Feature list */}
-          <div className="space-y-1 px-6 py-5">
-            {latestFeatures.map((feat) => (
-              <div key={feat.title} className="flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/50">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border bg-muted">
-                  <feat.icon className="h-4 w-4 text-foreground" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground">{feat.title}</p>
-                  <p className="text-xs text-muted-foreground">{feat.description}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Footer */}
-          <div className="flex items-center justify-between border-t px-6 py-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground hover:text-foreground"
-              onClick={() => setWhatsNewOpen(false)}
-            >
-              Más tarde
-            </Button>
-            <Button size="sm" onClick={() => setWhatsNewOpen(false)}>
-              Entendido →
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </SidebarProvider>
   )
 }
