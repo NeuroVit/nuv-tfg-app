@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import {
@@ -14,7 +14,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Archive, MoreHorizontal, Pencil, ReceiptText, RotateCcw } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -60,20 +67,29 @@ export default function ClientesPage() {
 
   const filteredClients = useMemo(() => {
     const term = search.trim().toLowerCase()
-    return clients.filter((client) => {
-      const statusOk =
-        status === 'all' ||
-        (status === 'active' && client.activo) ||
-        (status === 'archived' && !client.activo)
+    return clients
+      .filter((client) => {
+        const statusOk =
+          status === 'all' ||
+          (status === 'active' && client.activo) ||
+          (status === 'archived' && !client.activo)
 
-      const textOk =
-        !term ||
-        client.nombre.toLowerCase().includes(term) ||
-        (client.email ?? '').toLowerCase().includes(term) ||
-        (client.telefono ?? '').toLowerCase().includes(term)
+        const textOk =
+          !term ||
+          client.nombre.toLowerCase().includes(term) ||
+          (client.email ?? '').toLowerCase().includes(term) ||
+          (client.telefono ?? '').toLowerCase().includes(term)
 
-      return statusOk && textOk
-    })
+        return statusOk && textOk
+      })
+      .sort((a, b) => {
+        const aTime = new Date(a.creadoEn).getTime()
+        const bTime = new Date(b.creadoEn).getTime()
+        if (Number.isFinite(aTime) && Number.isFinite(bTime) && aTime !== bTime) {
+          return bTime - aTime
+        }
+        return b.id - a.id
+      })
   }, [clients, search, status])
 
   const total = filteredClients.length
@@ -124,11 +140,11 @@ export default function ClientesPage() {
       return
     }
     if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
-      toast.error('El formato del email no es válido')
+      toast.error('El formato del email no es vÃ¡lido')
       return
     }
     if (form.telefono.trim() && !/^[+\d\s()-]{7,25}$/.test(form.telefono.trim())) {
-      toast.error('El formato del teléfono no es válido')
+      toast.error('El formato del telÃ©fono no es vÃ¡lido')
       return
     }
 
@@ -176,14 +192,10 @@ export default function ClientesPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Clientes</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Gesti�n de cartera de clientes para ventas.</p>
-        </div>
 
         <div className="flex flex-wrap items-center gap-3">
           <Input
-            placeholder="Buscar por nombre, email o tel�fono"
+            placeholder="Buscar por nombre, email o teléfono"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="max-w-xs"
@@ -199,7 +211,6 @@ export default function ClientesPage() {
             </SelectContent>
           </Select>
           <div className="ml-auto flex gap-2">
-            <Button variant="outline" onClick={() => void loadClients()}>Recargar</Button>
             {canEdit && <Button onClick={openCreate}>+ Nuevo cliente</Button>}
           </div>
         </div>
@@ -210,7 +221,7 @@ export default function ClientesPage() {
               <TableRow>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Tel�fono</TableHead>
+                <TableHead>Teléfono</TableHead>
                 <TableHead>Estado</TableHead>
                 {canEdit && <TableHead className="text-right">Acciones</TableHead>}
               </TableRow>
@@ -232,21 +243,33 @@ export default function ClientesPage() {
                 paginatedClients.map((client) => (
                   <TableRow key={client.id}>
                     <TableCell className="font-medium">{client.nombre}</TableCell>
-                    <TableCell>{client.email ?? '�'}</TableCell>
-                    <TableCell>{client.telefono ?? '�'}</TableCell>
+                    <TableCell>{client.email ?? '—'}</TableCell>
+                    <TableCell>{client.telefono ?? '—'}</TableCell>
                     <TableCell>{client.activo ? 'Activo' : 'Archivado'}</TableCell>
                     {canEdit && (
                       <TableCell className="text-right">
-                        <div className="inline-flex gap-2">
-                          <Button variant="outline" size="sm" onClick={() => navigate(`/ventas?clientId=${client.id}`)}>
-                            Ver ventas
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => openEdit(client)}>
-                            Editar
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => void toggleArchive(client)}>
-                            {client.activo ? 'Archivar' : 'Restaurar'}
-                          </Button>
+                        <div className="inline-flex" onClick={(event) => event.stopPropagation()}>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" aria-label="Acciones de cliente">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="min-w-44">
+                              <DropdownMenuItem onSelect={() => navigate(`/ventas?clientId=${client.id}`)}>
+                                <ReceiptText className="h-4 w-4" />
+                                Ver ventas
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => openEdit(client)}>
+                                <Pencil className="h-4 w-4" />
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => void toggleArchive(client)}>
+                                {client.activo ? <Archive className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />}
+                                {client.activo ? 'Archivar' : 'Restaurar'}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </TableCell>
                     )}
@@ -297,7 +320,7 @@ export default function ClientesPage() {
               onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
             />
             <Input
-              placeholder="Tel�fono"
+              placeholder="Teléfono"
               value={form.telefono}
               onChange={(e) => setForm((prev) => ({ ...prev, telefono: e.target.value }))}
             />
@@ -320,4 +343,5 @@ export default function ClientesPage() {
     </div>
   )
 }
+
 

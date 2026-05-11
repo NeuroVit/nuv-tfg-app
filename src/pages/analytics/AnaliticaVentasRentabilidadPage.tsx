@@ -26,6 +26,7 @@ import {
 } from '@/api/analitica'
 import type { AnaliticaMeta, RentabilidadProductoRow, TopProductVelocityRow, VelocitySummaryRow } from '@/types/analitica'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Button } from '@/components/ui/button'
 import {
   AnaliticaShell,
   EmptyChartPlaceholder,
@@ -66,6 +67,8 @@ const marginChartConfig = {
   },
 } satisfies ChartConfig
 
+const PAGE_SIZE = 20
+
 export default function AnaliticaVentasRentabilidadPage() {
   const { timeRange, selectedDays, setTimeRange } = useAnaliticaRange()
   const [loading, setLoading] = useState(true)
@@ -75,6 +78,7 @@ export default function AnaliticaVentasRentabilidadPage() {
   const [velocidadResumen, setVelocidadResumen] = useState<VelocitySummaryRow[]>([])
   const [topProductos, setTopProductos] = useState<TopProductVelocityRow[]>([])
   const [rentabilidad, setRentabilidad] = useState<RentabilidadProductoRow[]>([])
+  const [offset, setOffset] = useState(0)
 
   useEffect(() => {
     const load = async () => {
@@ -251,6 +255,23 @@ export default function AnaliticaVentasRentabilidadPage() {
         : selectedDays === 7
           ? 'Tendencia semanal de ventas'
           : 'Tendencia de ventas (rango)'
+  const total = rentabilidad.length
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const currentPage = Math.floor(offset / PAGE_SIZE) + 1
+  const paginatedRentabilidad = useMemo(
+    () => rentabilidad.slice(offset, offset + PAGE_SIZE),
+    [rentabilidad, offset],
+  )
+
+  useEffect(() => {
+    setOffset(0)
+  }, [selectedDays])
+
+  useEffect(() => {
+    if (offset >= total && total > 0) {
+      setOffset(Math.max(0, (Math.ceil(total / PAGE_SIZE) - 1) * PAGE_SIZE))
+    }
+  }, [offset, total])
 
   return (
     <AnaliticaShell
@@ -437,9 +458,9 @@ export default function AnaliticaVentasRentabilidadPage() {
           <TableBody>
             {loading ? (
               <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
-            ) : rentabilidad.length === 0 ? (
+            ) : paginatedRentabilidad.length === 0 ? (
               <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Sin datos de rentabilidad para este rango.</TableCell></TableRow>
-            ) : rentabilidad.map((row) => (
+            ) : paginatedRentabilidad.map((row) => (
               <TableRow key={row.productId}>
                 <TableCell>{row.productName} <span className="text-xs text-muted-foreground">({row.sku})</span></TableCell>
                 <TableCell>{row.categoryName}</TableCell>
@@ -453,6 +474,26 @@ export default function AnaliticaVentasRentabilidadPage() {
           </TableBody>
         </Table>
       </section>
+
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} | {total} registros</p>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setOffset((prev) => Math.max(0, prev - PAGE_SIZE))}
+            disabled={offset === 0}
+          >
+            Anterior
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setOffset((prev) => (prev + PAGE_SIZE >= total ? prev : prev + PAGE_SIZE))}
+            disabled={offset + PAGE_SIZE >= total}
+          >
+            Siguiente
+          </Button>
+        </div>
+      </div>
     </AnaliticaShell>
   )
 }

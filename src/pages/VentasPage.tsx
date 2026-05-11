@@ -215,11 +215,6 @@ export default function VentasPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Ventas</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Registro de ventas y descarga automática de stock.</p>
-        </div>
-
         <div className="flex flex-wrap items-center gap-3">
           <Select value={filterClientId} onValueChange={setFilterClientId}>
             <SelectTrigger className="w-56">
@@ -241,7 +236,6 @@ export default function VentasPage() {
           <Input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} className="w-44" />
           <Input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} className="w-44" />
           <div className="ml-auto flex gap-2">
-            <Button variant="outline" onClick={() => void loadData()}>Recargar</Button>
             {canCreate && <Button onClick={openModal}>+ Nueva venta</Button>}
           </div>
         </div>
@@ -250,26 +244,30 @@ export default function VentasPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Items</TableHead>
-                <TableHead>Total</TableHead>
+                <TableHead className="text-center">ID</TableHead>
+                <TableHead className="text-center">Cliente</TableHead>
+                <TableHead className="text-center">Fecha</TableHead>
+                <TableHead className="text-center">Artículos</TableHead>
+                <TableHead className="text-center">Productos</TableHead>
+                <TableHead className="text-center">Total</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Cargando ventas...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Cargando ventas...</TableCell></TableRow>
               ) : paginatedSales.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No hay ventas para mostrar.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">No hay ventas para mostrar.</TableCell></TableRow>
               ) : (
                 paginatedSales.map((sale) => (
                   <TableRow key={sale.id} className="cursor-pointer hover:bg-accent" onClick={() => openDetail(sale)}>
-                    <TableCell>#{sale.id}</TableCell>
-                    <TableCell>{sale.clientName}</TableCell>
-                    <TableCell>{new Date(sale.soldAt).toLocaleString('es-ES')}</TableCell>
-                    <TableCell>{sale.items.length}</TableCell>
-                    <TableCell>{euro(sale.totalAmount)}</TableCell>
+                    <TableCell className="text-center align-middle">#{sale.id}</TableCell>
+                    <TableCell className="text-center align-middle">{sale.clientName}</TableCell>
+                    <TableCell className="text-center align-middle">{new Date(sale.soldAt).toLocaleString('es-ES')}</TableCell>
+                    <TableCell className="text-center align-middle">{sale.items.length}</TableCell>
+                    <TableCell className="text-center align-middle">
+                      {sale.items.reduce((totalQuantity, item) => totalQuantity + item.quantity, 0)}
+                    </TableCell>
+                    <TableCell className="text-center align-middle">{euro(sale.totalAmount)}</TableCell>
                   </TableRow>
                 ))
               )}
@@ -309,7 +307,7 @@ export default function VentasPage() {
               <SelectTrigger>
                 <SelectValue placeholder="Selecciona cliente" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent position="popper" sideOffset={6} viewportClassName="max-h-[360px] overflow-y-auto">
                 {activeClients.map((client) => (
                   <SelectItem key={client.id} value={String(client.id)}>{client.nombre}</SelectItem>
                 ))}
@@ -325,7 +323,7 @@ export default function VentasPage() {
                     <SelectTrigger>
                       <SelectValue placeholder="Producto" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="popper" sideOffset={6} viewportClassName="max-h-[360px] overflow-y-auto">
                       {products.map((product) => (
                         <SelectItem key={product.id} value={String(product.id)}>
                           {product.nombre} ({product.sku})
@@ -337,7 +335,20 @@ export default function VentasPage() {
                     type="number"
                     min="1"
                     value={item.quantity}
-                    onChange={(event) => updateItem(index, { quantity: Number(event.target.value) })}
+                    onChange={(event) => {
+                      const digitsOnly = event.target.value.replace(/\D/g, '')
+                      const normalized = digitsOnly.replace(/^0+(?=\d)/, '')
+                      const nextQuantity = normalized === '' ? 1 : Number(normalized)
+                      updateItem(index, { quantity: nextQuantity })
+                    }}
+                    onFocus={(event) => event.currentTarget.select()}
+                    onClick={(event) => event.currentTarget.select()}
+                    onMouseUp={(event) => event.preventDefault()}
+                    onBlur={() => {
+                      if (!Number.isFinite(item.quantity) || item.quantity < 1) {
+                        updateItem(index, { quantity: 1 })
+                      }
+                    }}
                   />
                   <Button variant="outline" onClick={() => removeItem(index)}>Quitar</Button>
                 </div>

@@ -60,11 +60,14 @@ function SelectTrigger({
 
 function SelectContent({
   className,
+  viewportClassName,
   children,
   position = "item-aligned",
   align = "center",
   ...props
-}: React.ComponentProps<typeof SelectPrimitive.Content>) {
+}: React.ComponentProps<typeof SelectPrimitive.Content> & {
+  viewportClassName?: string
+}) {
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
@@ -80,6 +83,7 @@ function SelectContent({
           data-position={position}
           className={cn(
             "data-[position=popper]:h-(--radix-select-trigger-height) data-[position=popper]:w-full data-[position=popper]:min-w-(--radix-select-trigger-width)",
+            viewportClassName,
             position === "popper" && ""
           )}
         >

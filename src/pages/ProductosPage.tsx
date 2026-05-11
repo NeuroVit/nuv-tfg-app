@@ -76,7 +76,7 @@ const productoSchema = z.object({
 
 type ProductoFormValues = z.infer<typeof productoSchema>
 type EstadoFiltro = 'all' | 'low' | 'normal'
-const PAGE_SIZE = 20
+const PAGE_SIZE = 17
 
 const defaultProductoValues: ProductoFormValues = {
   nombre: '',
@@ -359,11 +359,6 @@ export default function ProductosPage() {
       cell: ({ getValue }) => <span className="font-medium text-foreground">{getValue<string>()}</span>,
     },
     {
-      accessorKey: 'categoriaNombre',
-      header: 'Categoría',
-      cell: ({ getValue }) => getValue<string>() ?? '—',
-    },
-    {
       accessorKey: 'providerNombre',
       header: 'Proveedor',
       cell: ({ getValue }) => getValue<string>() ?? '—',
@@ -376,7 +371,7 @@ export default function ProductosPage() {
         const minimo = row.original.nivelMinimoStock
         const low = actual <= minimo
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center gap-2">
             <span className={low ? 'text-red-600 font-semibold' : ''}>{actual}</span>
             {low && <AlertTriangle className="h-3 w-3 text-red-500" />}
           </div>
@@ -412,7 +407,7 @@ export default function ProductosPage() {
       id: 'acciones',
       header: '',
       cell: ({ row }) => (
-        <div className="flex items-center justify-end gap-2" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-center justify-center gap-2" onClick={(event) => event.stopPropagation()}>
           {canEdit && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -475,11 +470,7 @@ export default function ProductosPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Productos</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{total} productos en inventario</p>
-          </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
           <Button className="w-full sm:w-auto" onClick={() => { setProductoEditar(null); setModalOpen(true) }}>
             <Plus className="mr-2 h-4 w-4" />
             Nuevo producto
@@ -535,12 +526,12 @@ export default function ProductosPage() {
         </div>
 
         <div className="rounded-lg border bg-card">
-          <Table className="min-w-[1000px]">
+          <Table className="min-w-[900px]">
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id}>
+                    <TableHead key={header.id} className="text-center">
                       {flexRender(header.column.columnDef.header, header.getContext())}
                     </TableHead>
                   ))}
@@ -571,7 +562,7 @@ export default function ProductosPage() {
                     }}
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
+                      <TableCell key={cell.id} className="text-center align-middle">
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </TableCell>
                     ))}
@@ -583,7 +574,7 @@ export default function ProductosPage() {
         </div>
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} · {total} registros</p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center gap-2">
             <Button
               variant="outline"
               onClick={() => setOffset((prev) => Math.max(0, prev - PAGE_SIZE))}
@@ -1062,4 +1053,8 @@ export default function ProductosPage() {
     </div>
   )
 }
+
+
+
+
 
