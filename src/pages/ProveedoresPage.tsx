@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { Archive, MoreHorizontal, Plus, RotateCcw, Truck } from 'lucide-react'
@@ -137,11 +137,11 @@ export default function ProveedoresPage() {
     }
 
     if (!payload.nombre || !payload.ubicacionAlmacen) {
-      toast.error('Nombre y ubicación de almacén son obligatorios')
+      toast.error('Nombre y ubicaciÃ³n de almacÃ©n son obligatorios')
       return
     }
     if (Number.isNaN(payload.diasEntrega) || payload.diasEntrega < 0) {
-      toast.error('El plazo de entrega debe ser un número mayor o igual a 0')
+      toast.error('El plazo de entrega debe ser un nÃºmero mayor o igual a 0')
       return
     }
 
@@ -189,15 +189,11 @@ export default function ProveedoresPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Proveedores</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Haz clic en una fila para abrir el detalle del proveedor o usa acciones para ver pedidos.</p>
-        </div>
 
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
             <Input
-              placeholder="Buscar proveedor o almacén..."
+              placeholder="Buscar proveedor o almacÃ©n..."
               value={providerSearch}
               onChange={(event) => setProviderSearch(event.target.value)}
               className="w-full md:w-80"
@@ -229,8 +225,8 @@ export default function ProveedoresPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nombre</TableHead>
-                <TableHead>Almacén</TableHead>
-                <TableHead>Entrega (días)</TableHead>
+                <TableHead>AlmacÃ©n</TableHead>
+                <TableHead>Entrega (dÃ­as)</TableHead>
                 <TableHead>Productos</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="w-16 text-right">Acciones</TableHead>
@@ -317,7 +313,7 @@ export default function ProveedoresPage() {
         </div>
 
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} · {total} registros</p>
+          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} Â· {total} registros</p>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -355,7 +351,7 @@ export default function ProveedoresPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Ubicación del almacén</Label>
+              <Label>UbicaciÃ³n del almacÃ©n</Label>
               <Input
                 value={providerForm.ubicacionAlmacen}
                 onChange={(event) =>
@@ -364,7 +360,7 @@ export default function ProveedoresPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Días de entrega</Label>
+              <Label>DÃ­as de entrega</Label>
               <Input
                 type="number"
                 min="0"
@@ -388,4 +384,5 @@ export default function ProveedoresPage() {
     </div>
   )
 }
+
 

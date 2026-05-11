@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
-import { MoreHorizontal } from 'lucide-react'
+import { AlertTriangle, Boxes, CheckCircle2, MoreHorizontal, Search, TrendingUp } from 'lucide-react'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { getAlertas, resolverAlerta } from '@/api/alerta'
@@ -8,12 +8,34 @@ import { useAuthStore } from '@/store/authStore'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 const PAGE_SIZE = 20
 const isStockShortageAlert = (alert: AlertaStock) => alert.tipo === 'LOW_STOCK' || alert.tipo === 'OUT_OF_STOCK'
 const canResolveManually = (alert: AlertaStock) => !isStockShortageAlert(alert)
+
+const typeMeta: Record<string, { label: string; chipClass: string; dotClass: string; rowAccent: string }> = {
+  OUT_OF_STOCK: {
+    label: 'OUT OF STOCK',
+    chipClass: 'bg-red-500/15 text-red-300',
+    dotClass: 'text-red-400',
+    rowAccent: 'before:bg-red-500',
+  },
+  LOW_STOCK: {
+    label: 'LOW STOCK',
+    chipClass: 'bg-amber-500/15 text-amber-300',
+    dotClass: 'text-amber-400',
+    rowAccent: 'before:bg-amber-500',
+  },
+  PRICE_ANOMALY: {
+    label: 'PRICE ANOMALY',
+    chipClass: 'bg-violet-500/15 text-violet-300',
+    dotClass: 'text-violet-400',
+    rowAccent: 'before:bg-violet-500',
+  },
+}
+
 const formatDate = (value: string | null) =>
   value
     ? new Date(value).toLocaleString('es-ES', {
@@ -36,6 +58,7 @@ export default function AlertasPage() {
   const [resolving, setResolving] = useState(false)
   const [offset, setOffset] = useState(0)
   const [selectedAlertIds, setSelectedAlertIds] = useState<number[]>([])
+  const [search, setSearch] = useState('')
 
   const loadAlerts = async () => {
     setLoading(true)
@@ -97,13 +120,33 @@ export default function AlertasPage() {
   const counters = useMemo(() => {
     const open = alerts.filter((alert) => !alert.resuelta).length
     const resolved = alerts.filter((alert) => alert.resuelta).length
-    return { open, resolved }
+    const critical = alerts.filter((alert) => !alert.resuelta && alert.tipo === 'OUT_OF_STOCK').length
+    const low = alerts.filter((alert) => !alert.resuelta && alert.tipo === 'LOW_STOCK').length
+    const anomalies = alerts.filter((alert) => !alert.resuelta && alert.tipo === 'PRICE_ANOMALY').length
+    const resolvedLast7d = alerts.filter((alert) => {
+      if (!alert.resuelta || !alert.resueltaEn) return false
+      const resolvedAt = new Date(alert.resueltaEn).getTime()
+      if (!Number.isFinite(resolvedAt)) return false
+      return Date.now() - resolvedAt <= 7 * 24 * 60 * 60 * 1000
+    }).length
+    return { open, resolved, critical, low, anomalies, resolvedLast7d }
   }, [alerts])
 
-  const total = alerts.length
+  const filteredAlerts = useMemo(() => {
+    const term = search.trim().toLowerCase()
+    if (!term) return alerts
+    return alerts.filter((alert) =>
+      alert.productoNombre.toLowerCase().includes(term) ||
+      alert.productoSku.toLowerCase().includes(term) ||
+      alert.mensaje.toLowerCase().includes(term) ||
+      alert.tipo.toLowerCase().includes(term)
+    )
+  }, [alerts, search])
+
+  const total = filteredAlerts.length
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1
-  const paginatedAlerts = useMemo(() => alerts.slice(offset, offset + PAGE_SIZE), [alerts, offset])
+  const paginatedAlerts = useMemo(() => filteredAlerts.slice(offset, offset + PAGE_SIZE), [filteredAlerts, offset])
   const openAlertsInPage = useMemo(
     () => paginatedAlerts.filter((alert) => !alert.resuelta && canResolveManually(alert)),
     [paginatedAlerts]
@@ -114,7 +157,7 @@ export default function AlertasPage() {
 
   useEffect(() => {
     setOffset(0)
-  }, [filter])
+  }, [filter, search])
 
   useEffect(() => {
     if (offset >= total && total > 0) {
@@ -124,17 +167,55 @@ export default function AlertasPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Alertas</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Gestiona alertas de stock y anomalías.</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Badge variant="destructive">Abiertas: {counters.open}</Badge>
-            <Badge variant="secondary">Resueltas: {counters.resolved}</Badge>
+      <div className="mx-auto max-w-7xl space-y-5">
+        <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <article className="rounded-lg border bg-card p-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-full bg-red-500/15 p-2"><AlertTriangle className="h-5 w-5 text-red-500" /></div>
+              <div><p className="text-2xl font-bold text-red-600">{counters.critical}</p><p className="text-sm font-medium text-foreground">Críticas</p></div>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">Requieren atención</p>
+          </article>
+
+          <article className="rounded-lg border bg-card p-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-full bg-amber-500/15 p-2"><Boxes className="h-5 w-5 text-amber-500" /></div>
+              <div><p className="text-2xl font-bold text-amber-600">{counters.low}</p><p className="text-sm font-medium text-foreground">Stock bajo</p></div>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">Monitorea inventario</p>
+          </article>
+
+          <article className="rounded-lg border bg-card p-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-full bg-violet-500/15 p-2"><TrendingUp className="h-5 w-5 text-violet-500" /></div>
+              <div><p className="text-2xl font-bold text-violet-600">{counters.anomalies}</p><p className="text-sm font-medium text-foreground">Anomalías</p></div>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">Cambios detectados</p>
+          </article>
+
+          <article className="rounded-lg border bg-card p-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-full bg-cyan-500/15 p-2"><CheckCircle2 className="h-5 w-5 text-cyan-500" /></div>
+              <div><p className="text-2xl font-bold text-cyan-600">{counters.resolvedLast7d}</p><p className="text-sm font-medium text-foreground">Resueltas</p></div>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">Últimos 7 días</p>
+          </article>
+        </section>
+
+        <section className="rounded-lg border bg-card p-4">
+          <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Buscar alertas..."
+                className="pl-9"
+              />
+            </div>
+
             <Select value={filter} onValueChange={(value) => setFilter(value as 'all' | 'open' | 'resolved')}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-full md:w-44">
                 <SelectValue placeholder="Filtro" />
               </SelectTrigger>
               <SelectContent>
@@ -143,10 +224,10 @@ export default function AlertasPage() {
                 <SelectItem value="all">Todas</SelectItem>
               </SelectContent>
             </Select>
+
             {canResolve ? (
               <Button
                 variant="outline"
-                size="sm"
                 disabled={selectedAlertIds.length === 0 || resolving}
                 onClick={() => void resolveSelected()}
               >
@@ -154,55 +235,53 @@ export default function AlertasPage() {
               </Button>
             ) : null}
           </div>
-        </div>
 
-        <div className="rounded-lg border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10 text-center">
-                  {showSelection ? (
-                    <input
-                      type="checkbox"
-                      checked={allOpenSelectedInPage}
-                      disabled={resolving}
-                      onChange={(event) => {
-                        if (event.target.checked) {
-                          setSelectedAlertIds((current) => {
-                            const next = new Set(current)
-                            openAlertsInPage.forEach((alert) => next.add(alert.id))
-                            return Array.from(next)
-                          })
-                        } else {
-                          setSelectedAlertIds((current) =>
-                            current.filter((id) => !openAlertsInPage.some((alert) => alert.id === id))
-                          )
-                        }
-                      }}
-                      aria-label="Seleccionar alertas abiertas de esta página"
-                    />
-                  ) : null}
-                </TableHead>
-                <TableHead className="text-center">Tipo</TableHead>
-                <TableHead className="text-center">Producto</TableHead>
-                <TableHead className="text-center">Mensaje</TableHead>
-                <TableHead className="text-center">Creada</TableHead>
-                <TableHead className="text-center">Acción</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Cargando alertas...</TableCell>
-                </TableRow>
-              ) : paginatedAlerts.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">No hay alertas para mostrar.</TableCell>
-                </TableRow>
-              ) : (
-                paginatedAlerts.map((alert) => (
-                  <TableRow key={alert.id}>
-                    <TableCell className="text-center">
+          <div className="space-y-3">
+            <div className="grid grid-cols-[40px_1fr_140px_80px] items-center gap-3 px-3 text-sm text-muted-foreground">
+              <div className="text-center">
+                {showSelection ? (
+                  <input
+                    type="checkbox"
+                    checked={allOpenSelectedInPage}
+                    disabled={resolving}
+                    onChange={(event) => {
+                      if (event.target.checked) {
+                        setSelectedAlertIds((current) => {
+                          const next = new Set(current)
+                          openAlertsInPage.forEach((alert) => next.add(alert.id))
+                          return Array.from(next)
+                        })
+                      } else {
+                        setSelectedAlertIds((current) =>
+                          current.filter((id) => !openAlertsInPage.some((alert) => alert.id === id))
+                        )
+                      }
+                    }}
+                    aria-label="Seleccionar alertas abiertas de esta página"
+                  />
+                ) : null}
+              </div>
+              <div>Alerta</div>
+              <div>Detectada</div>
+              <div className="text-center">Acciones</div>
+            </div>
+
+            {loading ? (
+              <div className="rounded-lg border bg-card px-4 py-10 text-center text-muted-foreground">Cargando alertas...</div>
+            ) : paginatedAlerts.length === 0 ? (
+              <div className="rounded-lg border bg-card px-4 py-10 text-center text-muted-foreground">No hay alertas para mostrar.</div>
+            ) : (
+              paginatedAlerts.map((alert) => {
+                const meta = typeMeta[alert.tipo] ?? {
+                  label: alert.tipo,
+                  chipClass: 'bg-slate-500/20 text-slate-200',
+                  dotClass: 'text-slate-300',
+                  rowAccent: 'before:bg-slate-500',
+                }
+
+                return (
+                  <article key={alert.id} className={`relative grid grid-cols-[40px_1fr_140px_80px] items-center gap-3 rounded-lg border bg-card p-3 before:absolute before:bottom-3 before:left-0 before:top-3 before:w-1 before:rounded-r-md ${meta.rowAccent}`}>
+                    <div className="text-center">
                       {!alert.resuelta && canResolveManually(alert) && showSelection ? (
                         <input
                           type="checkbox"
@@ -218,18 +297,30 @@ export default function AlertasPage() {
                           aria-label={`Seleccionar alerta ${alert.id}`}
                         />
                       ) : null}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={alert.resuelta ? 'secondary' : 'destructive'}>{alert.tipo}</Badge>
-                    </TableCell>
-                    <TableCell className="text-center">{alert.productoNombre}</TableCell>
-                    <TableCell className="text-center">{alert.mensaje}</TableCell>
-                    <TableCell className="text-center">{formatDate(alert.creadaEn)}</TableCell>
-                    <TableCell className="text-center">
+                    </div>
+
+                    <div className="min-w-0">
+                      <div className="mb-1 flex items-center gap-2">
+                        <Badge className={meta.chipClass}>{meta.label}</Badge>
+                      </div>
+                      <p className="truncate font-semibold text-foreground">{alert.productoNombre}</p>
+                      <p className="truncate text-sm text-muted-foreground">{alert.mensaje}</p>
+                      <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+                        <span className="inline-flex items-center gap-1"><Boxes className="h-3.5 w-3.5" /> Inventario</span>
+                        <span className={`inline-flex items-center gap-1 ${meta.dotClass}`}>
+                          <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                          {alert.resuelta ? 'Resuelta' : 'Abierta'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-sm text-foreground">{formatDate(alert.creadaEn)}</div>
+
+                    <div className="text-center">
                       {!alert.resuelta && canResolve ? (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button size="icon" variant="ghost" disabled={resolving} aria-label="Acciones de alerta">
+                            <Button size="icon" variant="outline" disabled={resolving} aria-label="Acciones de alerta">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -248,13 +339,13 @@ export default function AlertasPage() {
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                    </div>
+                  </article>
+                )
+              })
+            )}
+          </div>
+        </section>
 
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} | {total} registros</p>

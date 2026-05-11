@@ -196,10 +196,6 @@ export default function MovimientosPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Movimientos</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Historico completo de entradas y salidas de stock.</p>
-        </div>
 
         {debouncedInvalidDateRange ? (
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -355,3 +351,4 @@ export default function MovimientosPage() {
     </div>
   )
 }
+
