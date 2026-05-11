@@ -88,9 +88,10 @@ const settingsNavItems: NavItem[] = [
 
 type AppSidebarProps = {
   isSettingsRoute?: boolean
+  collapsible?: 'offcanvas' | 'icon' | 'none'
 }
 
-export function AppSidebar({ isSettingsRoute = false }: AppSidebarProps) {
+export function AppSidebar({ isSettingsRoute = false, collapsible = 'icon' }: AppSidebarProps) {
   const { user, logout: clearSession } = useAuthStore()
   const displayName = useProfileStore((s) => s.displayName)
   const organizationName = useProfileStore((s) => s.organizationName)
@@ -116,7 +117,7 @@ export function AppSidebar({ isSettingsRoute = false }: AppSidebarProps) {
   }
 
   return (
-    <Sidebar collapsible="icon" variant="sidebar">
+    <Sidebar collapsible={collapsible} variant="sidebar">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 z-0"

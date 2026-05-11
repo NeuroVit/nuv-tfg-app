@@ -1,4 +1,4 @@
-import { type ReactNode, useRef, useState } from 'react'
+import { type ReactNode, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -111,7 +111,7 @@ export function AnaliticaShell({
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-7xl space-y-6">
+      <div className="w-full space-y-6">
         <section className="rounded-lg border bg-card p-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="space-y-2">
@@ -179,27 +179,14 @@ export function RevealDataSection({
   hideLabel = 'Ocultar tablas y listas',
 }: RevealDataSectionProps) {
   const [isVisible, setIsVisible] = useState(false)
-  const listAnchorRef = useRef<HTMLDivElement | null>(null)
-
-  const toggleVisibility = () => {
-    if (!isVisible) {
-      setIsVisible(true)
-      if (typeof window !== 'undefined') {
-        window.requestAnimationFrame(() => {
-          listAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        })
-      }
-      return
-    }
-    setIsVisible(false)
-  }
+  const toggleVisibility = () => setIsVisible((prev) => !prev)
 
   return (
     <section className="space-y-3">
       <Button variant="outline" onClick={toggleVisibility}>
         {isVisible ? hideLabel : showLabel}
       </Button>
-      {isVisible ? <div ref={listAnchorRef} className={className}>{children}</div> : null}
+      {isVisible ? <div className={className}>{children}</div> : null}
     </section>
   )
 }

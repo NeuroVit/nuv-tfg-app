@@ -50,11 +50,13 @@ export default function AppLayout() {
   const location = useLocation()
 
   const isSettingsRoute = location.pathname.startsWith('/settings')
+  const isAnalyticsRoute = location.pathname.startsWith('/analitica')
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [analyticsMeta, setAnalyticsMeta] = useState<AnaliticaMeta | null>(null)
   const [openAlertsCount, setOpenAlertsCount] = useState(0)
   const [recentOpenAlerts, setRecentOpenAlerts] = useState<AlertaStock[]>([])
   const [alertsDrawerOpen, setAlertsDrawerOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
 
   const topTabs = useMemo(() => {
     if (isSettingsRoute) return []
@@ -172,10 +174,14 @@ export default function AppLayout() {
     return isMockMode ? 'Modo de datos de prueba' : 'API real'
   }, [analyticsMeta])
 
+  useEffect(() => {
+    setSidebarOpen(!isAnalyticsRoute)
+  }, [isAnalyticsRoute])
+
   return (
-    <SidebarProvider>
-      <AppSidebar isSettingsRoute={isSettingsRoute} />
-      <SidebarInset className="relative min-w-0 overflow-x-hidden bg-transparent">
+    <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
+      <AppSidebar isSettingsRoute={isSettingsRoute} collapsible="offcanvas" />
+      <SidebarInset className="relative h-dvh min-h-0 min-w-0 overflow-x-hidden bg-transparent">
         <div className="pointer-events-none absolute inset-0 -z-10">
           <div className="absolute inset-0 bg-[#050505]" />
           <div
@@ -194,7 +200,7 @@ export default function AppLayout() {
           />
         </div>
 
-        <header className="shrink-0 border-b border-white/5 bg-transparent">
+        <header className="sticky top-0 z-40 shrink-0 border-b border-white/5 bg-[#050505]/90 backdrop-blur supports-[backdrop-filter]:bg-[#050505]/75">
           <div className="flex min-h-14 items-center gap-2 px-3 sm:px-4">
             <SidebarTrigger className="-ml-1" />
             {topTabs.length > 0 ? (
@@ -282,7 +288,7 @@ export default function AppLayout() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
           <Outlet />
         </main>
       </SidebarInset>
