@@ -25,7 +25,7 @@ export const statusLabels: Record<string, string> = {
   OVERSTOCK: 'Sobrestock',
 }
 
-export const formatCurrency = (value: number) => `€${value.toLocaleString('es-ES', { maximumFractionDigits: 2 })}`
+export const formatCurrency = (value: number) => `â‚¬${value.toLocaleString('es-ES', { maximumFractionDigits: 2 })}`
 export const formatCompact = (value: number) => value.toLocaleString('es-ES')
 
 export const toDayKey = (date: Date) =>

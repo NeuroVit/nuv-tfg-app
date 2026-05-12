@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Package, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { actualizarBundle, crearBundle, getBundleItems } from '@/api/bundle'
 import type { BundleSummary, BundleUpsertRequest } from '@/types/bundle'
@@ -6,7 +7,7 @@ import type { Producto } from '@/types/producto'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import ModalShell, { ModalFooter, ModalSection, ModalSubmitButton, RequiredMark } from '@/components/ModalShell'
+import ModalShell, { ModalSection, RequiredMark } from '@/components/ModalShell'
 import { parseApiError } from '@/lib/apiError'
 
 type BundleFormItem = {
@@ -156,6 +157,41 @@ export default function BundleFormModal({ open, onClose, onSaved, bundle, produc
     return new Set(ids).size === ids.length
   }, [form])
 
+  const currencyFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat('es-ES', {
+        style: 'currency',
+        currency: 'EUR',
+      }),
+    [],
+  )
+
+  const safeDiscount = useMemo(() => {
+    const parsed = Number(form.descuentoPct)
+    if (!Number.isFinite(parsed)) return 0
+    return Math.min(100, Math.max(0, parsed))
+  }, [form.descuentoPct])
+
+  const lineItems = useMemo(
+    () =>
+      form.items.map((item) => {
+        const selectedProduct = productos.find((producto) => String(producto.id) === item.productoId) ?? null
+        const basePrice = selectedProduct?.precioUnitario ?? 0
+        const subtotalBase = basePrice * item.cantidad
+        return {
+          item,
+          selectedProduct,
+          basePrice,
+          subtotalBase,
+        }
+      }),
+    [form.items, productos],
+  )
+
+  const subtotalProductos = useMemo(() => lineItems.reduce((acc, row) => acc + row.subtotalBase, 0), [lineItems])
+  const descuentoImporte = useMemo(() => subtotalProductos * (safeDiscount / 100), [safeDiscount, subtotalProductos])
+  const totalEstimado = useMemo(() => subtotalProductos - descuentoImporte, [descuentoImporte, subtotalProductos])
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     setFooterError(null)
@@ -186,122 +222,179 @@ export default function BundleFormModal({ open, onClose, onSaved, bundle, produc
       onClose={onClose}
       title={isEdit ? 'Editar bundle' : 'Nuevo bundle'}
       description="Configura el bundle, su descuento y los productos que incluye."
-      widthClassName="max-w-3xl"
+      widthClassName="max-w-2xl"
     >
-      <form onSubmit={handleSubmit} className="space-y-5 px-6 py-5">
-        <ModalSection title="Información básica">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <form onSubmit={handleSubmit} className="flex h-full min-h-0 flex-col">
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-5">
+          <ModalSection title="Información básica">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">Nombre <RequiredMark /></label>
+                <Input
+                  value={form.nombre}
+                  onChange={(event) => setForm((current) => ({ ...current, nombre: event.target.value }))}
+                  placeholder="Ej. Pack Home Office"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">Descuento (%) <RequiredMark /></label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={form.descuentoPct}
+                  onChange={(event) => setForm((current) => ({ ...current, descuentoPct: event.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">Estado</label>
+                <Select
+                  value={form.activo ? 'true' : 'false'}
+                  onValueChange={(value) => setForm((current) => ({ ...current, activo: value === 'true' }))}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="true">Activo</SelectItem>
+                    <SelectItem value="false">Inactivo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">Productos</label>
+                <div className="flex h-9 items-center justify-between rounded-4xl border border-input bg-input/30 px-3 text-sm text-foreground">
+                  <span>{form.items.length}</span>
+                  <Package className="h-4 w-4 text-muted-foreground" />
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Nombre <RequiredMark /></label>
-              <Input
-                value={form.nombre}
-                onChange={(event) => setForm((current) => ({ ...current, nombre: event.target.value }))}
-                placeholder="Ej. Pack Home Office"
+              <label className="text-sm font-medium text-foreground">Descripción (opcional)</label>
+              <Textarea
+                rows={3}
+                value={form.descripcion}
+                onChange={(event) => setForm((current) => ({ ...current, descripcion: event.target.value }))}
+                placeholder="Incluye productos esenciales con descuento para compra conjunta."
               />
             </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Descuento (%) <RequiredMark /></label>
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                step="0.01"
-                value={form.descuentoPct}
-                onChange={(event) => setForm((current) => ({ ...current, descuentoPct: event.target.value }))}
-              />
+          </ModalSection>
+
+          <ModalSection title="Productos del bundle" className="border-t pt-5">
+            <div className="flex items-center justify-end">
+              <button
+                type="button"
+                onClick={addItemRow}
+                className="inline-flex h-11 items-center gap-2 rounded-xl border border-input px-4 text-sm font-semibold text-foreground transition hover:bg-accent"
+              >
+                <Plus className="h-4 w-4" />
+                Añadir producto
+              </button>
             </div>
-          </div>
 
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Descripción (opcional)</label>
-            <Textarea
-              rows={3}
-              value={form.descripcion}
-              onChange={(event) => setForm((current) => ({ ...current, descripcion: event.target.value }))}
-            />
-          </div>
+            <div className="overflow-hidden rounded-2xl border">
+              <div className="grid grid-cols-1 gap-2 border-b bg-muted/30 px-4 py-3 text-sm font-semibold text-foreground lg:grid-cols-[minmax(0,1fr)_92px_112px_112px_44px]">
+                <p>Producto</p>
+                <p>Cantidad</p>
+                <p className="lg:text-right">Precio base</p>
+                <p className="lg:text-right">Subtotal</p>
+                <p className="text-right"> </p>
+              </div>
 
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Estado</label>
-            <Select
-              value={form.activo ? 'true' : 'false'}
-              onValueChange={(value) => setForm((current) => ({ ...current, activo: value === 'true' }))}
-            >
-              <SelectTrigger className="w-full md:w-60">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="true">Activo</SelectItem>
-                <SelectItem value="false">Inactivo</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </ModalSection>
-
-        <ModalSection title="Productos del bundle" className="border-t pt-4">
-          <div className="flex items-center justify-end">
-            <button
-              type="button"
-              onClick={addItemRow}
-              className="rounded-lg border border-input px-3 py-2 text-sm font-medium text-foreground transition hover:bg-accent"
-            >
-              Añadir producto
-            </button>
-          </div>
-
-          <div className="space-y-2">
-            {form.items.map((item, index) => {
-              const selectedProduct = productos.find((producto) => String(producto.id) === item.productoId) ?? null
-              const basePrice = selectedProduct?.precioUnitario ?? 0
-              const discount = Number(form.descuentoPct)
-              const safeDiscount = Number.isFinite(discount) ? Math.min(100, Math.max(0, discount)) : 0
-              const subtotal = basePrice * item.cantidad * (1 - safeDiscount / 100)
-
-              return (
-                <div key={index} className="space-y-2 rounded-md border p-3">
-                  <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_120px_auto]">
-                    <Select value={item.productoId} onValueChange={(value) => updateItemProducto(index, value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona un producto" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {productos.map((producto) => (
-                          <SelectItem key={producto.id} value={String(producto.id)}>
-                            {producto.nombre} ({producto.sku})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+              <div className="divide-y">
+                {lineItems.map(({ item, selectedProduct, basePrice, subtotalBase }, index) => (
+                  <div key={index} className="grid grid-cols-1 gap-2 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_92px_112px_112px_44px] lg:items-start">
+                    <div>
+                      <Select value={item.productoId} onValueChange={(value) => updateItemProducto(index, value)}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Selecciona un producto" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {productos.map((producto) => (
+                            <SelectItem key={producto.id} value={String(producto.id)}>
+                              {producto.nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Disponible: {selectedProduct?.cantidadActual ?? 0} unidades
+                      </p>
+                    </div>
 
                     <Input
+                      className="mt-0.5"
                       type="number"
                       min="1"
                       value={item.cantidad}
                       onChange={(event) => updateItemCantidad(index, Number(event.target.value))}
                     />
 
-                    <button
-                      type="button"
-                      onClick={() => removeItemRow(index)}
-                      className="rounded-lg px-3 py-2 text-sm font-medium text-foreground transition hover:bg-accent"
-                    >
-                      Quitar
-                    </button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Precio base: €{basePrice.toFixed(2)} · Subtotal estimado línea: €{subtotal.toFixed(2)}
-                  </p>
-                </div>
-              )
-            })}
-          </div>
-        </ModalSection>
+                    <p className="mt-1 text-base tabular-nums text-foreground lg:text-right">{currencyFormatter.format(basePrice)}</p>
+                    <p className="mt-1 text-base font-semibold tabular-nums text-foreground lg:text-right">{currencyFormatter.format(subtotalBase)}</p>
 
-        <ModalFooter onCancel={onClose} error={footerError}>
-          <ModalSubmitButton disabled={saving || !isFormValid}>
-            {saving ? 'Guardando…' : 'Guardar bundle'}
-          </ModalSubmitButton>
-        </ModalFooter>
+                    <div className="mt-0.5 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => removeItemRow(index)}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-red-600 transition hover:bg-red-50"
+                        aria-label="Quitar producto"
+                        title="Quitar"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <div className="w-full rounded-2xl border bg-muted/20 p-4 sm:w-[420px]">
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Subtotal productos</span>
+                    <span className="font-medium text-foreground">{currencyFormatter.format(subtotalProductos)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Descuento ({safeDiscount.toFixed(0)}%)</span>
+                    <span className="font-medium text-red-600">-{currencyFormatter.format(descuentoImporte)}</span>
+                  </div>
+                  <div className="h-px bg-border" />
+                  <div className="flex items-center justify-between text-xl font-semibold">
+                    <span>Total estimado</span>
+                    <span>{currencyFormatter.format(totalEstimado)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ModalSection>
+        </div>
+
+        <div className="border-t px-6 py-4">
+          {footerError ? <p className="mb-2 text-right text-xs text-red-600">{footerError}</p> : null}
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg px-4 py-2 text-sm font-medium text-foreground transition hover:bg-accent"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={saving || !isFormValid}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {saving ? 'Guardando…' : 'Guardar bundle'}
+            </button>
+          </div>
+        </div>
       </form>
     </ModalShell>
   )

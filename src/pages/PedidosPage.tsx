@@ -29,14 +29,14 @@ import PedidoFormModal from '@/components/PedidoFormModal'
 import PedidoDetailModal from '@/components/PedidoDetailModal'
 
 const formatDate = (value: string | null) =>
-  value ? new Date(value).toLocaleDateString('es-ES') : 'â€”'
+  value ? new Date(value).toLocaleDateString('es-ES') : '—'
 const formatDateTimeNoSeconds = (value: string | null) =>
   value
     ? new Date(value).toLocaleString('es-ES', {
         dateStyle: 'short',
         timeStyle: 'short',
       })
-    : 'â€”'
+    : '—'
 
 const statusLabelMap: Record<PedidoProveedor['status'], string> = {
   DRAFT: 'Borrador',
@@ -429,4 +429,3 @@ export default function PedidosPage() {
     </div>
   )
 }
-

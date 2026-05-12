@@ -665,28 +665,26 @@ export default function Inicio() {
 
         <Card>
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="space-y-2">
-                <div>
-                  <CardTitle className="text-base">{chartTitleByType[selectedChart]}</CardTitle>
-                  <CardDescription>{chartDescriptionByType[selectedChart]}</CardDescription>
-                </div>
-              <div className="w-full sm:w-[220px]">
-                <Select
-                  value={selectedChart}
-                  onValueChange={(value) => setSelectedChart(value as DashboardChart)}
-                >
-                  <SelectTrigger aria-label="Seleccionar gráfica principal">
-                    <SelectValue placeholder="Selecciona una gráfica" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {chartOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div>
+              <CardTitle className="text-base">{chartTitleByType[selectedChart]}</CardTitle>
+              <CardDescription>{chartDescriptionByType[selectedChart]}</CardDescription>
+            </div>
+            <div className="w-full sm:ml-auto sm:w-[220px]">
+              <Select
+                value={selectedChart}
+                onValueChange={(value) => setSelectedChart(value as DashboardChart)}
+              >
+                <SelectTrigger aria-label="Seleccionar gráfica principal">
+                  <SelectValue placeholder="Selecciona una gráfica" />
+                </SelectTrigger>
+                <SelectContent>
+                  {chartOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </CardHeader>
           <CardContent>
@@ -943,4 +941,3 @@ export default function Inicio() {
     </div>
   )
 }
-

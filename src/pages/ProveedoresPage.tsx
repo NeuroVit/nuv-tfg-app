@@ -134,7 +134,7 @@ export default function ProveedoresPage() {
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
             <Input
-              placeholder="Buscar proveedor o almacÃ©n..."
+              placeholder="Buscar proveedor o almacén..."
               value={providerSearch}
               onChange={(event) => setProviderSearch(event.target.value)}
               className="w-full md:w-80"
@@ -166,8 +166,8 @@ export default function ProveedoresPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nombre</TableHead>
-                <TableHead>AlmacÃ©n</TableHead>
-                <TableHead className="text-center">Entrega (dÃ­as)</TableHead>
+                <TableHead>Almacén</TableHead>
+                <TableHead className="text-center">Entrega (días)</TableHead>
                 <TableHead className="text-center">Productos</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="w-16 text-right">Acciones</TableHead>
@@ -256,7 +256,7 @@ export default function ProveedoresPage() {
         </div>
 
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} Â· {total} registros</p>
+          <p className="text-sm text-muted-foreground">Página {currentPage} de {totalPages} · {total} registros</p>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -285,5 +285,4 @@ export default function ProveedoresPage() {
     </div>
   )
 }
-
 

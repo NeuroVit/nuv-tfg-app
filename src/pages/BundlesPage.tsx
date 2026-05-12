@@ -153,7 +153,7 @@ export default function BundlesPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nombre</TableHead>
-                <TableHead>DescripciÃ³n</TableHead>
+                <TableHead>Descripción</TableHead>
                 <TableHead className="text-center">Descuento</TableHead>
                 <TableHead className="text-center">Productos</TableHead>
                 <TableHead>Estado</TableHead>
@@ -183,7 +183,7 @@ export default function BundlesPage() {
                   >
                     <TableCell className="font-medium">{bundle.nombre}</TableCell>
                     <TableCell className="max-w-[320px] whitespace-normal text-muted-foreground">
-                      {bundle.descripcion || 'Sin descripciÃ³n'}
+                      {bundle.descripcion || 'Sin descripción'}
                     </TableCell>
                     <TableCell className="text-center">{Number(bundle.descuentoPct).toFixed(2)}%</TableCell>
                     <TableCell className="text-center">{bundle.cantidadProductos}</TableCell>
@@ -257,7 +257,7 @@ export default function BundlesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminar bundle</AlertDialogTitle>
             <AlertDialogDescription>
-              Â¿Seguro que quieres eliminar el bundle "{deletingBundle?.nombre}"?
+              ¿Seguro que quieres eliminar el bundle "{deletingBundle?.nombre}"?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -271,6 +271,5 @@ export default function BundlesPage() {
     </div>
   )
 }
-
 
 
