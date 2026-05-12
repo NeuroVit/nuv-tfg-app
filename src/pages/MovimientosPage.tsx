@@ -189,7 +189,13 @@ export default function MovimientosPage() {
               <SelectTrigger className="w-full min-w-0">
                 <SelectValue placeholder="Selecciona producto" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent
+                position="popper"
+                side="bottom"
+                align="start"
+                className="max-h-80"
+                viewportClassName="max-h-80 overflow-y-auto"
+              >
                 <SelectItem value="all">Todos los productos</SelectItem>
                 {productos.map((product) => (
                   <SelectItem key={product.id} value={String(product.id)}>
@@ -264,17 +270,6 @@ export default function MovimientosPage() {
           <p className="text-sm text-red-600">El ano debe estar entre 2000 y 2100.</p>
         )}
 
-        {activeFilterChips.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {activeFilterChips.map((chip) => (
-              <Button key={chip.key} type="button" size="xs" variant="secondary" onClick={chip.onClear}>
-                {chip.label}
-                <X />
-              </Button>
-            ))}
-          </div>
-        )}
-
         <div className="rounded-lg border bg-card">
           <Table>
             <TableHeader>
@@ -284,7 +279,7 @@ export default function MovimientosPage() {
                 <TableHead>SKU</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Razon</TableHead>
-                <TableHead>Cantidad</TableHead>
+                <TableHead className="text-center">Cantidad</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -310,7 +305,7 @@ export default function MovimientosPage() {
                       </span>
                     </TableCell>
                     <TableCell>{formatReason(movimiento.razon)}</TableCell>
-                    <TableCell>{movimiento.cantidad}</TableCell>
+                    <TableCell className="text-center">{movimiento.cantidad}</TableCell>
                   </TableRow>
                 ))
               )}

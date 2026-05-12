@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { Check, Eye, MoreHorizontal, PackagePlus, Plus, Send, X } from 'lucide-react'
@@ -37,9 +37,16 @@ type OrderItemForm = {
 }
 
 const formatDateTime = (value: string | null) =>
-  value ? new Date(value).toLocaleString('es-ES') : '—'
+  value ? new Date(value).toLocaleString('es-ES') : 'â€”'
 const formatDate = (value: string | null) =>
-  value ? new Date(value).toLocaleDateString('es-ES') : '—'
+  value ? new Date(value).toLocaleDateString('es-ES') : 'â€”'
+const formatDateTimeNoSeconds = (value: string | null) =>
+  value
+    ? new Date(value).toLocaleString('es-ES', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+      })
+    : 'â€”'
 
 const statusLabelMap: Record<PedidoProveedor['status'], string> = {
   DRAFT: 'Borrador',
@@ -87,11 +94,11 @@ export default function PedidosPage() {
 
   const recommendedOrderDate = useMemo(() => {
     if (!selectedProvider) return null
-    const arrival = new Date(orderArrivalDate)
-    if (Number.isNaN(arrival.getTime())) return null
-    arrival.setDate(arrival.getDate() - selectedProvider.diasEntrega)
-    return toDateInputValue(arrival)
-  }, [orderArrivalDate, selectedProvider])
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    today.setDate(today.getDate() + selectedProvider.diasEntrega)
+    return toDateInputValue(today)
+  }, [selectedProvider])
 
   const filteredOrders = useMemo(() => {
     const term = orderSearch.trim().toLowerCase()
@@ -273,18 +280,14 @@ export default function PedidosPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Pedidos</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Consulta y gestiona pedidos por proveedor.</p>
-        </div>
-
-        <div className="flex flex-col gap-3 md:flex-row md:items-center">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+          <h1 className="shrink-0 text-2xl font-bold text-foreground">Pedidos</h1>
           <Select
             value={selectedProviderId ? String(selectedProviderId) : ''}
             onValueChange={onChangeProvider}
             disabled={loadingProviders}
           >
-            <SelectTrigger className="w-full md:w-72">
+            <SelectTrigger className="w-full xl:ml-4 xl:w-72">
               <SelectValue placeholder="Selecciona un proveedor" />
             </SelectTrigger>
             <SelectContent>
@@ -300,7 +303,7 @@ export default function PedidosPage() {
             placeholder="Buscar por ID, estado o notas..."
             value={orderSearch}
             onChange={(event) => setOrderSearch(event.target.value)}
-            className="w-full md:w-80"
+            className="w-full xl:w-80"
             disabled={!selectedProvider}
           />
 
@@ -311,7 +314,7 @@ export default function PedidosPage() {
             }
             disabled={!selectedProvider}
           >
-            <SelectTrigger className="w-full md:w-44">
+            <SelectTrigger className="w-full xl:w-44">
               <SelectValue placeholder="Estado" />
             </SelectTrigger>
             <SelectContent>
@@ -324,7 +327,7 @@ export default function PedidosPage() {
           </Select>
 
           {canEdit && selectedProvider?.activo && (
-            <Button className="w-full md:ml-auto md:w-auto" onClick={openCreateOrder}>
+            <Button className="w-full xl:ml-auto xl:w-auto" onClick={openCreateOrder}>
               <PackagePlus className="mr-2 h-4 w-4" />
               Crear pedido
             </Button>
@@ -345,12 +348,6 @@ export default function PedidosPage() {
               <div className="rounded-lg border bg-card p-3 text-sm"><span className="text-muted-foreground">Cancelados</span><p className="text-xl font-semibold">{orderSummary.CANCELLED}</p></div>
             </div>
 
-            <div className="rounded-lg border bg-card p-3 text-sm text-muted-foreground">
-              Proveedor seleccionado: <span className="font-medium text-foreground">{selectedProvider.nombre}</span>
-              {' · '}
-              Fecha pedido recomendada = llegada deseada - {selectedProvider.diasEntrega} días
-            </div>
-
             <div className="rounded-lg border bg-card">
               <Table>
                 <TableHeader>
@@ -358,9 +355,7 @@ export default function PedidosPage() {
                     <TableHead>ID</TableHead>
                     <TableHead>Estado</TableHead>
                     <TableHead>Llegada deseada</TableHead>
-                    <TableHead>Pedido recomendado</TableHead>
                     <TableHead>Creado</TableHead>
-                    <TableHead>Enviado</TableHead>
                     <TableHead>Recibido</TableHead>
                     <TableHead className="w-16 text-right">Acciones</TableHead>
                   </TableRow>
@@ -368,13 +363,13 @@ export default function PedidosPage() {
                 <TableBody>
                   {loadingOrders ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
+                      <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                         Cargando pedidos...
                       </TableCell>
                     </TableRow>
                   ) : filteredOrders.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
+                      <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                         No hay pedidos para mostrar con los filtros actuales.
                       </TableCell>
                     </TableRow>
@@ -388,11 +383,9 @@ export default function PedidosPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>{formatDate(order.fechaLlegadaDeseada)}</TableCell>
-                        <TableCell>{formatDate(order.fechaPedidoRecomendada)}</TableCell>
-                        <TableCell>{formatDateTime(order.creadoEn)}</TableCell>
-                        <TableCell>{formatDateTime(order.enviadoEn)}</TableCell>
+                        <TableCell>{formatDate(order.creadoEn)}</TableCell>
                         <TableCell>
-                          {formatDateTime(order.recibidoEn)}
+                          {formatDateTimeNoSeconds(order.recibidoEn)}
                           {computeDelayDays(order) !== null ? (
                             <span className={`ml-2 text-xs ${computeDelayDays(order)! > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                               {computeDelayDays(order)! > 0 ? `Retraso: +${computeDelayDays(order)}d` : 'En plazo'}
@@ -473,7 +466,7 @@ export default function PedidosPage() {
               </div>
               <div className="space-y-2">
                 <Label>Fecha de pedido recomendada</Label>
-                <Input value={recommendedOrderDate ?? '—'} readOnly />
+                <Input value={recommendedOrderDate ?? 'â€”'} readOnly />
               </div>
             </div>
 
@@ -491,7 +484,7 @@ export default function PedidosPage() {
                 <Label>Productos</Label>
                 <Button variant="outline" size="sm" onClick={addOrderItem}>
                   <Plus className="mr-1 h-4 w-4" />
-                  Añadir línea
+                  AÃ±adir lÃ­nea
                 </Button>
               </div>
               {orderItems.map((item, index) => (
@@ -536,7 +529,7 @@ export default function PedidosPage() {
                     onChange={(event) =>
                       updateOrderItem(index, { precioUnitario: Number(event.target.value) })
                     }
-                    placeholder="Coste unitario (€)"
+                    placeholder="Coste unitario (â‚¬)"
                   />
                   <Button
                     variant="outline"
@@ -593,8 +586,8 @@ export default function PedidosPage() {
                         <TableCell>{item.productoNombre}</TableCell>
                         <TableCell className="font-mono text-xs">{item.sku}</TableCell>
                         <TableCell>{item.cantidad}</TableCell>
-                        <TableCell>€{Number(item.precioUnitarioSnapshot).toFixed(2)}</TableCell>
-                        <TableCell>€{(Number(item.precioUnitarioSnapshot) * item.cantidad).toFixed(2)}</TableCell>
+                        <TableCell>â‚¬{Number(item.precioUnitarioSnapshot).toFixed(2)}</TableCell>
+                        <TableCell>â‚¬{(Number(item.precioUnitarioSnapshot) * item.cantidad).toFixed(2)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -607,3 +600,6 @@ export default function PedidosPage() {
     </div>
   )
 }
+
+
+

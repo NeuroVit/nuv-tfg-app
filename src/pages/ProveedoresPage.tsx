@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
-import { Archive, MoreHorizontal, Plus, RotateCcw, Truck } from 'lucide-react'
+import { Archive, Eye, MoreHorizontal, Pencil, Plus, RotateCcw, Truck } from 'lucide-react'
 import {
   archivarProveedor,
   crearProveedor,
@@ -275,11 +275,13 @@ export default function ProveedoresPage() {
                               Ver pedidos de este proveedor
                             </DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => goToProviderDetail(provider)}>
+                              <Eye className="h-4 w-4" />
                               Ver detalle del proveedor
                             </DropdownMenuItem>
                             {canEdit && (
                               <>
                                 <DropdownMenuItem onSelect={() => openEditProvider(provider)}>
+                                  <Pencil className="h-4 w-4" />
                                   Editar proveedor
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
