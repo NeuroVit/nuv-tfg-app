@@ -114,7 +114,7 @@ export default function AlertasPage() {
 
   const goToPedidosForRestock = (alert: AlertaStock) => {
     toast.info(`Abriendo pedidos para reponer stock de ${alert.productoNombre}`)
-    navigate('/pedidos')
+    navigate(`/pedidos?restockProductId=${alert.productoId}&autoCreate=1`)
   }
 
   const counters = useMemo(() => {

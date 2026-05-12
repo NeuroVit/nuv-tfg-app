@@ -13,7 +13,7 @@ export const timeRangeOptions: Array<{ value: TimeRangeValue; label: string; day
   { value: 'all', label: 'Todo el tiempo', days: 0 },
   { value: '180', label: '6 meses', days: 180 },
   { value: '90', label: '3 meses', days: 90 },
-  { value: '30', label: '30 días', days: 30 },
+  { value: '30', label: '30 dias', days: 30 },
   { value: '7', label: 'Semanal', days: 7 },
   { value: '1', label: 'Diario', days: 1 },
 ]
@@ -21,11 +21,11 @@ export const timeRangeOptions: Array<{ value: TimeRangeValue; label: string; day
 export const statusLabels: Record<string, string> = {
   OUT_OF_STOCK: 'Sin stock',
   LOW_STOCK: 'Stock bajo',
-  OK: 'Óptimo',
+  OK: 'Optimo',
   OVERSTOCK: 'Sobrestock',
 }
 
-export const formatCurrency = (value: number) => `€${value.toLocaleString('es-ES', { maximumFractionDigits: 2 })}`
+export const formatCurrency = (value: number) => `�${value.toLocaleString('es-ES', { maximumFractionDigits: 2 })}`
 export const formatCompact = (value: number) => value.toLocaleString('es-ES')
 
 export const toDayKey = (date: Date) =>
@@ -91,43 +91,56 @@ type AnaliticaShellProps = {
   lastUpdatedAt: Date | null
   timeRange: TimeRangeValue
   onTimeRangeChange: (value: TimeRangeValue) => void
+  hideHeader?: boolean
 }
 
 export function AnaliticaShell({
   children,
+  title,
+  description,
   metadata,
   loadState,
   lastUpdatedAt,
   timeRange,
   onTimeRangeChange,
+  hideHeader = false,
 }: AnaliticaShellProps) {
   const rangeLabel =
     timeRangeOptions.find((option) => option.value === timeRange)?.label ??
     timeRangeOptions.find((option) => option.value === '30')?.label ??
-    '30 días'
+    '30 dias'
 
   const loadStateLabel =
     loadState === 'loading' ? 'Cargando' : loadState === 'error' ? 'Error' : 'Actualizado'
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      <div className="w-full space-y-6">
-        <section className="rounded-lg border bg-card p-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant={loadState === 'error' ? 'destructive' : 'secondary'}>{sourceLabel(metadata)}</Badge>
-                <Badge variant="outline">Rango: {rangeLabel}</Badge>
-                <Badge variant="outline">Estado: {loadStateLabel}</Badge>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Seed local: {metadata?.seedEnabled ? 'Activo' : 'Inactivo'} · Última carga UI:{' '}
-                {lastUpdatedAt ? lastUpdatedAt.toLocaleString('es-ES') : 'Sin datos'} · Último movimiento backend:{' '}
-                {metadata?.generatedAt ? new Date(metadata.generatedAt).toLocaleString('es-ES') : 'Sin datos'}
-              </p>
+      <div className="mx-auto max-w-7xl space-y-6">
+        {!hideHeader ? (
+          <>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">{title}</h1>
+              <p className="mt-1 text-sm text-muted-foreground">{description}</p>
             </div>
-          </div>
-        </section>
+
+            <section className="rounded-lg border bg-card p-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={loadState === 'error' ? 'destructive' : 'secondary'}>{sourceLabel(metadata)}</Badge>
+                    <Badge variant="outline">Rango: {rangeLabel}</Badge>
+                    <Badge variant="outline">Estado: {loadStateLabel}</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Seed local: {metadata?.seedEnabled ? 'Activo' : 'Inactivo'} - Ultima carga UI:{' '}
+                    {lastUpdatedAt ? lastUpdatedAt.toLocaleString('es-ES') : 'Sin datos'} - Ultimo movimiento backend:{' '}
+                    {metadata?.generatedAt ? new Date(metadata.generatedAt).toLocaleString('es-ES') : 'Sin datos'}
+                  </p>
+                </div>
+              </div>
+            </section>
+          </>
+        ) : null}
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
           <span className="text-sm text-muted-foreground">Rango temporal</span>

@@ -325,6 +325,7 @@ export default function AnaliticaVentasRentabilidadPage() {
       lastUpdatedAt={lastUpdatedAt}
       timeRange={timeRange}
       onTimeRangeChange={setTimeRange}
+      hideHeader
     >
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <article className="rounded-lg border bg-card p-4 xl:col-span-2">

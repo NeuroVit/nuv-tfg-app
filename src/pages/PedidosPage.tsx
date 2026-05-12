@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { Check, Eye, MoreHorizontal, PackagePlus, Send, X } from 'lucide-react'
@@ -28,10 +28,15 @@ import { parseApiError } from '@/lib/apiError'
 import PedidoFormModal from '@/components/PedidoFormModal'
 import PedidoDetailModal from '@/components/PedidoDetailModal'
 
-const formatDateTime = (value: string | null) =>
-  value ? new Date(value).toLocaleString('es-ES') : '—'
 const formatDate = (value: string | null) =>
-  value ? new Date(value).toLocaleDateString('es-ES') : '—'
+  value ? new Date(value).toLocaleDateString('es-ES') : 'â€”'
+const formatDateTimeNoSeconds = (value: string | null) =>
+  value
+    ? new Date(value).toLocaleString('es-ES', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+      })
+    : 'â€”'
 
 const statusLabelMap: Record<PedidoProveedor['status'], string> = {
   DRAFT: 'Borrador',
@@ -43,6 +48,8 @@ const statusLabelMap: Record<PedidoProveedor['status'], string> = {
 export default function PedidosPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedProviderId = Number(searchParams.get('providerId')) || null
+  const restockProductId = Number(searchParams.get('restockProductId')) || null
+  const autoCreateFromRestock = searchParams.get('autoCreate') === '1'
 
   const { hasRole } = useAuthStore()
   const canEdit = hasRole('ROLE_ADMIN') || hasRole('ROLE_MANAGER')
@@ -60,6 +67,7 @@ export default function PedidosPage() {
   const [orderDialogOpen, setOrderDialogOpen] = useState(false)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
   const [detailOrder, setDetailOrder] = useState<PedidoProveedor | null>(null)
+  const [restockFlowHandled, setRestockFlowHandled] = useState(false)
 
   const selectedProvider = useMemo(
     () => providers.find((provider) => provider.id === selectedProviderId) ?? null,
@@ -148,8 +156,56 @@ export default function PedidosPage() {
     void loadOrders(selectedProviderId)
   }, [selectedProviderId])
 
+  useEffect(() => {
+    if (!autoCreateFromRestock || !restockProductId || restockFlowHandled) return
+    if (products.length === 0) return
+
+    const productToRestock = products.find((product) => product.id === restockProductId)
+    if (!productToRestock) {
+      toast.error('No se encontro el producto a reponer')
+      setRestockFlowHandled(true)
+      return
+    }
+    if (!productToRestock.providerId) {
+      toast.error('El producto no tiene proveedor asignado para crear el pedido')
+      setRestockFlowHandled(true)
+      return
+    }
+
+    if (selectedProviderId !== productToRestock.providerId) {
+      const next = new URLSearchParams(searchParams)
+      next.set('providerId', String(productToRestock.providerId))
+      setSearchParams(next, { replace: true })
+      return
+    }
+
+    if (canEdit) {
+      setOrderDialogOpen(true)
+      toast.success(`Pedido preparado para reponer ${productToRestock.nombre}`)
+    }
+
+    const cleaned = new URLSearchParams(searchParams)
+    cleaned.delete('restockProductId')
+    cleaned.delete('autoCreate')
+    setSearchParams(cleaned, { replace: true })
+    setRestockFlowHandled(true)
+  }, [
+    autoCreateFromRestock,
+    canEdit,
+    products,
+    restockFlowHandled,
+    restockProductId,
+    searchParams,
+    selectedProviderId,
+    setSearchParams,
+  ])
+
   const onChangeProvider = (value: string) => {
-    setSearchParams({ providerId: value })
+    const next = new URLSearchParams(searchParams)
+    next.set('providerId', value)
+    next.delete('restockProductId')
+    next.delete('autoCreate')
+    setSearchParams(next, { replace: true })
   }
 
   const openCreateOrder = () => {
@@ -188,18 +244,14 @@ export default function PedidosPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Pedidos</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Consulta y gestiona pedidos por proveedor.</p>
-        </div>
-
-        <div className="flex flex-col gap-3 md:flex-row md:items-center">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+          <h1 className="shrink-0 text-2xl font-bold text-foreground">Pedidos</h1>
           <Select
             value={selectedProviderId ? String(selectedProviderId) : ''}
             onValueChange={onChangeProvider}
             disabled={loadingProviders}
           >
-            <SelectTrigger className="w-full md:w-72">
+            <SelectTrigger className="w-full xl:ml-4 xl:w-72">
               <SelectValue placeholder="Selecciona un proveedor" />
             </SelectTrigger>
             <SelectContent>
@@ -215,7 +267,7 @@ export default function PedidosPage() {
             placeholder="Buscar por ID, estado o notas..."
             value={orderSearch}
             onChange={(event) => setOrderSearch(event.target.value)}
-            className="w-full md:w-80"
+            className="w-full xl:w-80"
             disabled={!selectedProvider}
           />
 
@@ -226,7 +278,7 @@ export default function PedidosPage() {
             }
             disabled={!selectedProvider}
           >
-            <SelectTrigger className="w-full md:w-44">
+            <SelectTrigger className="w-full xl:w-44">
               <SelectValue placeholder="Estado" />
             </SelectTrigger>
             <SelectContent>
@@ -239,7 +291,7 @@ export default function PedidosPage() {
           </Select>
 
           {canEdit && selectedProvider?.activo && (
-            <Button className="w-full md:ml-auto md:w-auto" onClick={openCreateOrder}>
+            <Button className="w-full xl:ml-auto xl:w-auto" onClick={openCreateOrder}>
               <PackagePlus className="mr-2 h-4 w-4" />
               Crear pedido
             </Button>
@@ -260,12 +312,6 @@ export default function PedidosPage() {
               <div className="rounded-lg border bg-card p-3 text-sm"><span className="text-muted-foreground">Cancelados</span><p className="text-xl font-semibold">{orderSummary.CANCELLED}</p></div>
             </div>
 
-            <div className="rounded-lg border bg-card p-3 text-sm text-muted-foreground">
-              Proveedor seleccionado: <span className="font-medium text-foreground">{selectedProvider.nombre}</span>
-              {' · '}
-              Fecha pedido recomendada = llegada deseada - {selectedProvider.diasEntrega} días
-            </div>
-
             <div className="rounded-lg border bg-card">
               <Table>
                 <TableHeader>
@@ -273,9 +319,7 @@ export default function PedidosPage() {
                     <TableHead>ID</TableHead>
                     <TableHead>Estado</TableHead>
                     <TableHead>Llegada deseada</TableHead>
-                    <TableHead>Pedido recomendado</TableHead>
                     <TableHead>Creado</TableHead>
-                    <TableHead>Enviado</TableHead>
                     <TableHead>Recibido</TableHead>
                     <TableHead className="w-16 text-right">Acciones</TableHead>
                   </TableRow>
@@ -283,13 +327,13 @@ export default function PedidosPage() {
                 <TableBody>
                   {loadingOrders ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
+                      <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                         Cargando pedidos...
                       </TableCell>
                     </TableRow>
                   ) : filteredOrders.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
+                      <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                         No hay pedidos para mostrar con los filtros actuales.
                       </TableCell>
                     </TableRow>
@@ -303,11 +347,9 @@ export default function PedidosPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>{formatDate(order.fechaLlegadaDeseada)}</TableCell>
-                        <TableCell>{formatDate(order.fechaPedidoRecomendada)}</TableCell>
-                        <TableCell>{formatDateTime(order.creadoEn)}</TableCell>
-                        <TableCell>{formatDateTime(order.enviadoEn)}</TableCell>
+                        <TableCell>{formatDate(order.creadoEn)}</TableCell>
                         <TableCell>
-                          {formatDateTime(order.recibidoEn)}
+                          {formatDateTimeNoSeconds(order.recibidoEn)}
                           {computeDelayDays(order) !== null ? (
                             <span className={`ml-2 text-xs ${computeDelayDays(order)! > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                               {computeDelayDays(order)! > 0 ? `Retraso: +${computeDelayDays(order)}d` : 'En plazo'}
@@ -387,3 +429,4 @@ export default function PedidosPage() {
     </div>
   )
 }
+

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { X } from 'lucide-react'
 import { toast } from 'sonner'
 import { getMovimientos } from '@/api/movimiento'
 import { getProductos } from '@/api/producto'
@@ -14,7 +13,30 @@ const PAGE_SIZE = 20
 const MIN_DATE = '2000-01-01'
 const MAX_DATE = '2100-12-31'
 
-const formatDate = (value: string) => new Date(value).toLocaleString('es-ES')
+const formatDate = (value: string) => {
+  const date = new Date(value)
+  const now = new Date()
+
+  const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const todayOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const yesterdayOnly = new Date(todayOnly)
+  yesterdayOnly.setDate(todayOnly.getDate() - 1)
+
+  const time = date.toLocaleTimeString('es-ES', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+
+  if (dateOnly.getTime() === todayOnly.getTime()) {
+    return `Hoy, ${time}`
+  }
+  if (dateOnly.getTime() === yesterdayOnly.getTime()) {
+    return `Ayer, ${time}`
+  }
+
+  const calendarDate = date.toLocaleDateString('es-ES')
+  return `${calendarDate}, ${time}`
+}
 const formatReason = (reason: string) => {
   const reasonLabels: Record<string, string> = {
     SALE: 'Venta',
@@ -127,49 +149,6 @@ export default function MovimientosPage() {
     []
   )
 
-  const activeFilterChips = useMemo(() => {
-    const selectedProduct = productos.find((product) => String(product.id) === productId)
-    const chips: Array<{ key: string; label: string; onClear: () => void }> = []
-
-    if (productId !== 'all' && selectedProduct) {
-      chips.push({
-        key: 'product',
-        label: `Producto: ${selectedProduct.nombre}`,
-        onClear: () => setProductId('all'),
-      })
-    }
-    if (tipo !== 'all') {
-      chips.push({
-        key: 'tipo',
-        label: `Tipo: ${tipo === 'ENTRADA' ? 'Entrada' : 'Salida'}`,
-        onClear: () => setTipo('all'),
-      })
-    }
-    if (razon !== 'all') {
-      chips.push({
-        key: 'razon',
-        label: `Razon: ${formatReason(razon)}`,
-        onClear: () => setRazon('all'),
-      })
-    }
-    if (desde) {
-      chips.push({
-        key: 'desde',
-        label: `Desde: ${desde}`,
-        onClear: () => setDesde(''),
-      })
-    }
-    if (hasta) {
-      chips.push({
-        key: 'hasta',
-        label: `Hasta: ${hasta}`,
-        onClear: () => setHasta(''),
-      })
-    }
-
-    return chips
-  }, [productos, productId, tipo, razon, desde, hasta])
-
   const resetFilters = () => {
     setProductId('all')
     setTipo('all')
@@ -189,7 +168,13 @@ export default function MovimientosPage() {
               <SelectTrigger className="w-full min-w-0">
                 <SelectValue placeholder="Selecciona producto" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent
+                position="popper"
+                side="bottom"
+                align="start"
+                className="max-h-80"
+                viewportClassName="max-h-80 overflow-y-auto"
+              >
                 <SelectItem value="all">Todos los productos</SelectItem>
                 {productos.map((product) => (
                   <SelectItem key={product.id} value={String(product.id)}>
@@ -264,17 +249,6 @@ export default function MovimientosPage() {
           <p className="text-sm text-red-600">El ano debe estar entre 2000 y 2100.</p>
         )}
 
-        {activeFilterChips.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {activeFilterChips.map((chip) => (
-              <Button key={chip.key} type="button" size="xs" variant="secondary" onClick={chip.onClear}>
-                {chip.label}
-                <X />
-              </Button>
-            ))}
-          </div>
-        )}
-
         <div className="rounded-lg border bg-card">
           <Table>
             <TableHeader>
@@ -284,7 +258,7 @@ export default function MovimientosPage() {
                 <TableHead>SKU</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Razon</TableHead>
-                <TableHead>Cantidad</TableHead>
+                <TableHead className="text-center">Cantidad</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -310,7 +284,7 @@ export default function MovimientosPage() {
                       </span>
                     </TableCell>
                     <TableCell>{formatReason(movimiento.razon)}</TableCell>
-                    <TableCell>{movimiento.cantidad}</TableCell>
+                    <TableCell className="text-center">{movimiento.cantidad}</TableCell>
                   </TableRow>
                 ))
               )}
