@@ -69,8 +69,8 @@ const productoSchema = z.object({
   precioUnitario: z.coerce.number().positive('El precio debe ser mayor a 0'),
   costoUnitario: z.coerce.number().positive('El coste debe ser mayor a 0'),
   cantidadActual: z.coerce.number().int().min(0, 'La cantidad no puede ser negativa'),
-  nivelMinimoStock: z.coerce.number().int().min(0, 'El stock mÃ­nimo no puede ser negativo'),
-  categoriaId: z.string().min(1, 'La categorÃ­a es obligatoria'),
+  nivelMinimoStock: z.coerce.number().int().min(0, 'El stock mínimo no puede ser negativo'),
+  categoriaId: z.string().min(1, 'La categoría es obligatoria'),
   providerId: z.string().min(1, 'El proveedor es obligatorio'),
 })
 
@@ -385,7 +385,7 @@ export default function ProductosPage() {
     },
     {
       accessorKey: 'nivelMinimoStock',
-      header: 'Stock MÃ­nimo',
+      header: 'Stock Mínimo',
     },
     {
       accessorKey: 'precioUnitario',
@@ -477,7 +477,7 @@ export default function ProductosPage() {
       <div className="mx-auto max-w-7xl space-y-6">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:gap-2">
           <Input
-            placeholder="Buscar por nombre, SKU, categorÃ­a..."
+            placeholder="Buscar por nombre, SKU, categoría..."
             value={globalFilter}
             onChange={(event) => setGlobalFilter(event.target.value)}
             className="w-full xl:min-w-[280px] xl:flex-1"
@@ -485,10 +485,10 @@ export default function ProductosPage() {
 
           <Select value={filtroCategoria} onValueChange={setFiltroCategoria}>
             <SelectTrigger className="w-full xl:w-56">
-              <SelectValue placeholder="Filtrar por categorÃ­a" />
+              <SelectValue placeholder="Filtrar por categoría" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todas las categorÃ­as</SelectItem>
+              <SelectItem value="all">Todas las categorías</SelectItem>
               {categorias.map((categoria) => (
                 <SelectItem key={categoria.id} value={String(categoria.id)}>
                   {categoria.nombre}
@@ -582,7 +582,7 @@ export default function ProductosPage() {
           </Table>
         </div>
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} Â· {total} registros</p>
+          <p className="text-sm text-muted-foreground">Página {currentPage} de {totalPages} · {total} registros</p>
           <div className="flex items-center justify-center gap-2">
             <Button
               variant="outline"
@@ -677,11 +677,11 @@ export default function ProductosPage() {
                   name="categoriaId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>CategorÃ­a</FormLabel>
+                      <FormLabel>Categoría</FormLabel>
                       <Select value={field.value} onValueChange={field.onChange}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Selecciona una categorÃ­a" />
+                            <SelectValue placeholder="Selecciona una categoría" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -741,7 +741,7 @@ export default function ProductosPage() {
                   name="nivelMinimoStock"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Stock mÃ­nimo</FormLabel>
+                      <FormLabel>Stock mínimo</FormLabel>
                       <FormControl>
                         <Input type="number" min="0" {...field} />
                       </FormControl>
@@ -756,7 +756,7 @@ export default function ProductosPage() {
                 name="descripcion"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>DescripciÃ³n (opcional)</FormLabel>
+                    <FormLabel>Descripción (opcional)</FormLabel>
                     <FormControl>
                       <Textarea rows={3} {...field} />
                     </FormControl>
@@ -765,8 +765,8 @@ export default function ProductosPage() {
                 )}
               />
 
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setCreateDialog(false)}>
+              <DialogFooter className="flex-row justify-end">
+                <Button type="button" variant="ghost" onClick={() => setCreateDialog(false)}>
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={submittingCreate}>
@@ -859,11 +859,11 @@ export default function ProductosPage() {
                   name="categoriaId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>CategorÃ­a</FormLabel>
+                      <FormLabel>Categoría</FormLabel>
                       <Select value={field.value} onValueChange={field.onChange}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Selecciona una categorÃ­a" />
+                            <SelectValue placeholder="Selecciona una categoría" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -923,7 +923,7 @@ export default function ProductosPage() {
                   name="nivelMinimoStock"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Stock mÃ­nimo</FormLabel>
+                      <FormLabel>Stock mínimo</FormLabel>
                       <FormControl>
                         <Input type="number" min="0" {...field} />
                       </FormControl>
@@ -938,7 +938,7 @@ export default function ProductosPage() {
                 name="descripcion"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>DescripciÃ³n (opcional)</FormLabel>
+                    <FormLabel>Descripción (opcional)</FormLabel>
                     <FormControl>
                       <Textarea rows={3} {...field} />
                     </FormControl>
@@ -963,7 +963,7 @@ export default function ProductosPage() {
       <Dialog open={stockDialog} onOpenChange={setStockDialog}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Actualizar Stock â€” {selectedProducto?.nombre}</DialogTitle>
+            <DialogTitle>Actualizar Stock — {selectedProducto?.nombre}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             {stockError && (
@@ -975,7 +975,7 @@ export default function ProductosPage() {
               <Label>Cantidad a ajustar en el stock</Label>
               <Input
                 type="number"
-                placeholder="Usa un nÃºmero positivo si entra stock o negativo si sale stock."
+                placeholder="Usa un número positivo si entra stock o negativo si sale stock."
                 value={stockForm.delta}
                 onChange={(event) =>
                   setStockForm((current) => ({ ...current, delta: Number(event.target.value) }))
@@ -983,7 +983,7 @@ export default function ProductosPage() {
               />
             </div>
             <div className="space-y-1">
-              <Label>RazÃ³n</Label>
+              <Label>Razón</Label>
               <Select
                 value={stockForm.razon}
                 onValueChange={(value) =>
@@ -1000,7 +1000,7 @@ export default function ProductosPage() {
                   <SelectItem value="PURCHASE">Compra</SelectItem>
                   <SelectItem value="SALE">Venta</SelectItem>
                   <SelectItem value="ADJUSTMENT">Ajuste</SelectItem>
-                  <SelectItem value="RETURN">DevoluciÃ³n</SelectItem>
+                  <SelectItem value="RETURN">Devolución</SelectItem>
                   <SelectItem value="DAMAGE">Merma</SelectItem>
                 </SelectContent>
               </Select>
@@ -1039,7 +1039,7 @@ export default function ProductosPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminar producto</AlertDialogTitle>
             <AlertDialogDescription>
-              Â¿Seguro que quieres eliminar el producto "{productoEliminando?.nombre}"?
+              ¿Seguro que quieres eliminar el producto "{productoEliminando?.nombre}"?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1062,9 +1062,3 @@ export default function ProductosPage() {
     </div>
   )
 }
-
-
-
-
-
-

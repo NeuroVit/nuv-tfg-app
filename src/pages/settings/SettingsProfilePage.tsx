@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { getMe, updateMe } from '@/api/auth'
-import type { UserProfile } from '@/types/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { parseApiError } from '@/lib/apiError'
+import { useProfileStore } from '@/store/profileStore'
 
 export default function SettingsProfilePage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const profile = useProfileStore((s) => s.profile)
+  const setProfile = useProfileStore((s) => s.setProfile)
   const [form, setForm] = useState({ nombre: '', apellidos: '', email: '' })
 
   useEffect(() => {
@@ -32,6 +33,7 @@ export default function SettingsProfilePage() {
     }
 
     void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const onSave = async () => {

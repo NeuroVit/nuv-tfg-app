@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { X } from 'lucide-react'
 import { toast } from 'sonner'
 import { getMovimientos } from '@/api/movimiento'
 import { getProductos } from '@/api/producto'
@@ -149,49 +148,6 @@ export default function MovimientosPage() {
     () => ['SALE', 'PURCHASE', 'ADJUSTMENT', 'RETURN', 'DAMAGE', 'INITIAL'],
     []
   )
-
-  const activeFilterChips = useMemo(() => {
-    const selectedProduct = productos.find((product) => String(product.id) === productId)
-    const chips: Array<{ key: string; label: string; onClear: () => void }> = []
-
-    if (productId !== 'all' && selectedProduct) {
-      chips.push({
-        key: 'product',
-        label: `Producto: ${selectedProduct.nombre}`,
-        onClear: () => setProductId('all'),
-      })
-    }
-    if (tipo !== 'all') {
-      chips.push({
-        key: 'tipo',
-        label: `Tipo: ${tipo === 'ENTRADA' ? 'Entrada' : 'Salida'}`,
-        onClear: () => setTipo('all'),
-      })
-    }
-    if (razon !== 'all') {
-      chips.push({
-        key: 'razon',
-        label: `Razon: ${formatReason(razon)}`,
-        onClear: () => setRazon('all'),
-      })
-    }
-    if (desde) {
-      chips.push({
-        key: 'desde',
-        label: `Desde: ${desde}`,
-        onClear: () => setDesde(''),
-      })
-    }
-    if (hasta) {
-      chips.push({
-        key: 'hasta',
-        label: `Hasta: ${hasta}`,
-        onClear: () => setHasta(''),
-      })
-    }
-
-    return chips
-  }, [productos, productId, tipo, razon, desde, hasta])
 
   const resetFilters = () => {
     setProductId('all')
