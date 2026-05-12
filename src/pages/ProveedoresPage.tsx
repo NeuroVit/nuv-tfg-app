@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
-import { Archive, MoreHorizontal, Plus, RotateCcw, Truck } from 'lucide-react'
+import { Archive, Eye, MoreHorizontal, Pencil, Plus, RotateCcw, Truck } from 'lucide-react'
 import {
   archivarProveedor,
   crearProveedor,
@@ -226,8 +226,8 @@ export default function ProveedoresPage() {
               <TableRow>
                 <TableHead>Nombre</TableHead>
                 <TableHead>AlmacÃ©n</TableHead>
-                <TableHead>Entrega (dÃ­as)</TableHead>
-                <TableHead>Productos</TableHead>
+                <TableHead className="text-center">Entrega (dÃ­as)</TableHead>
+                <TableHead className="text-center">Productos</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="w-16 text-right">Acciones</TableHead>
               </TableRow>
@@ -254,8 +254,8 @@ export default function ProveedoresPage() {
                   >
                     <TableCell className="font-medium">{provider.nombre}</TableCell>
                     <TableCell>{provider.ubicacionAlmacen}</TableCell>
-                    <TableCell>{provider.diasEntrega}</TableCell>
-                    <TableCell>{provider.cantidadProductos}</TableCell>
+                    <TableCell className="text-center">{provider.diasEntrega}</TableCell>
+                    <TableCell className="text-center">{provider.cantidadProductos}</TableCell>
                     <TableCell>
                       <Badge variant={provider.activo ? 'default' : 'secondary'}>
                         {provider.activo ? 'Activo' : 'Archivado'}
@@ -275,11 +275,13 @@ export default function ProveedoresPage() {
                               Ver pedidos de este proveedor
                             </DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => goToProviderDetail(provider)}>
+                              <Eye className="h-4 w-4" />
                               Ver detalle del proveedor
                             </DropdownMenuItem>
                             {canEdit && (
                               <>
                                 <DropdownMenuItem onSelect={() => openEditProvider(provider)}>
+                                  <Pencil className="h-4 w-4" />
                                   Editar proveedor
                                 </DropdownMenuItem>
                                 <DropdownMenuItem

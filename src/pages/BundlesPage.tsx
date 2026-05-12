@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import {
   actualizarBundle,
@@ -156,7 +156,7 @@ export default function BundlesPage() {
       })
       setUpsertOpen(true)
     } catch (error: unknown) {
-      toast.error(parseApiError(error, 'No se pudo abrir el bundle para edición'))
+      toast.error(parseApiError(error, 'No se pudo abrir el bundle para ediciÃ³n'))
     }
   }
 
@@ -283,28 +283,16 @@ export default function BundlesPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Bundles</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{bundlesFiltrados.length} bundles visibles</p>
-          </div>
-          {canEdit && (
-            <Button className="w-full sm:w-auto" onClick={openCreateDialog}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nuevo bundle
-            </Button>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-3 md:flex-row md:items-center">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <h1 className="shrink-0 text-2xl font-bold text-foreground">Bundles</h1>
           <Input
             value={bundleSearch}
             onChange={(event) => setBundleSearch(event.target.value)}
             placeholder="Buscar por nombre o descripción"
-            className="w-full md:max-w-sm"
+            className="w-full lg:ml-4 lg:max-w-sm"
           />
           <Select value={bundleStatus} onValueChange={(value) => setBundleStatus(value as 'all' | 'active' | 'inactive')}>
-            <SelectTrigger className="w-full md:w-52">
+            <SelectTrigger className="w-full lg:w-52">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -313,16 +301,21 @@ export default function BundlesPage() {
               <SelectItem value="inactive">Inactivos</SelectItem>
             </SelectContent>
           </Select>
+          {canEdit && (
+            <Button className="w-full lg:ml-auto lg:w-auto" onClick={openCreateDialog}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo bundle
+            </Button>
+          )}
         </div>
-
-        <div className="rounded-lg border bg-card">
+<div className="rounded-lg border bg-card">
           <Table className="min-w-[1020px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Nombre</TableHead>
-                <TableHead>Descripción</TableHead>
-                <TableHead>Descuento</TableHead>
-                <TableHead>Productos</TableHead>
+                <TableHead>DescripciÃ³n</TableHead>
+                <TableHead className="text-center">Descuento</TableHead>
+                <TableHead className="text-center">Productos</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead>Actualizado</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
@@ -352,10 +345,10 @@ export default function BundlesPage() {
                   >
                     <TableCell className="font-medium">{bundle.nombre}</TableCell>
                     <TableCell className="max-w-[320px] whitespace-normal text-muted-foreground">
-                      {bundle.descripcion || 'Sin descripción'}
+                      {bundle.descripcion || 'Sin descripciÃ³n'}
                     </TableCell>
-                    <TableCell>{Number(bundle.descuentoPct).toFixed(2)}%</TableCell>
-                    <TableCell>{bundle.cantidadProductos}</TableCell>
+                    <TableCell className="text-center">{Number(bundle.descuentoPct).toFixed(2)}%</TableCell>
+                    <TableCell className="text-center">{bundle.cantidadProductos}</TableCell>
                     <TableCell>
                       <Badge variant={bundle.activo ? 'default' : 'secondary'}>
                         {bundle.activo ? 'Activo' : 'Inactivo'}
@@ -491,15 +484,41 @@ export default function BundlesPage() {
                   max="100"
                   step="0.01"
                   value={bundleForm.descuentoPct}
-                  onChange={(event) =>
-                    setBundleForm((current) => ({ ...current, descuentoPct: event.target.value }))
-                  }
+                  onChange={(event) => {
+                    const rawValue = event.target.value
+                    if (rawValue === '') {
+                      setBundleForm((current) => ({ ...current, descuentoPct: '' }))
+                      return
+                    }
+
+                    const numericValue = Number(rawValue)
+                    if (Number.isNaN(numericValue)) return
+
+                    const clamped = Math.min(100, Math.max(0, numericValue))
+                    setBundleForm((current) => ({ ...current, descuentoPct: String(clamped) }))
+                  }}
+                  onBlur={(event) => {
+                    const rawValue = event.target.value
+                    if (rawValue === '') {
+                      setBundleForm((current) => ({ ...current, descuentoPct: '0' }))
+                      return
+                    }
+
+                    const numericValue = Number(rawValue)
+                    if (Number.isNaN(numericValue)) {
+                      setBundleForm((current) => ({ ...current, descuentoPct: '0' }))
+                      return
+                    }
+
+                    const clamped = Math.min(100, Math.max(0, numericValue))
+                    setBundleForm((current) => ({ ...current, descuentoPct: String(clamped) }))
+                  }}
                 />
               </div>
             </div>
 
             <div className="space-y-1">
-              <Label>Descripción (opcional)</Label>
+              <Label>DescripciÃ³n (opcional)</Label>
               <Textarea
                 rows={3}
                 value={bundleForm.descripcion}
@@ -527,7 +546,7 @@ export default function BundlesPage() {
               <div className="flex items-center justify-between">
                 <Label>Productos del bundle</Label>
                 <Button type="button" variant="outline" size="sm" onClick={addItemRow}>
-                  Añadir producto
+                  AÃ±adir producto
                 </Button>
               </div>
 
@@ -547,7 +566,13 @@ export default function BundlesPage() {
                             <SelectTrigger>
                               <SelectValue placeholder="Selecciona un producto" />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent
+                              position="popper"
+                              side="bottom"
+                              align="start"
+                              className="max-h-80"
+                              viewportClassName="max-h-80 overflow-y-auto"
+                            >
                               {productos.map((producto) => (
                                 <SelectItem key={producto.id} value={String(producto.id)}>
                                   {producto.nombre} ({producto.sku})
@@ -568,7 +593,7 @@ export default function BundlesPage() {
                           </Button>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Precio base: €{basePrice.toFixed(2)} · Subtotal estimado línea: €{subtotal.toFixed(2)}
+                          Precio base: â‚¬{basePrice.toFixed(2)} Â· Subtotal estimado lÃ­nea: â‚¬{subtotal.toFixed(2)}
                         </p>
                       </div>
                     )
@@ -594,7 +619,7 @@ export default function BundlesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminar bundle</AlertDialogTitle>
             <AlertDialogDescription>
-              ¿Seguro que quieres eliminar el bundle "{deletingBundle?.nombre}"?
+              Â¿Seguro que quieres eliminar el bundle "{deletingBundle?.nombre}"?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -608,3 +633,7 @@ export default function BundlesPage() {
     </div>
   )
 }
+
+
+
+

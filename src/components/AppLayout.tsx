@@ -20,6 +20,16 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 const toTitleCase = (str: string) =>
   str.toLowerCase().replace(/\b\p{L}/gu, (c) => c.toUpperCase())
 
+const getReadableNameFromUsername = (username: string) => {
+  const trimmed = username.trim()
+  if (!trimmed) return ''
+  const rawBase = trimmed.includes('@') ? trimmed.split('@')[0] ?? '' : trimmed
+  const base = rawBase.replace(/[._-]+/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!base) return ''
+  const withoutTrailingNumbers = base.replace(/\d+$/g, '').trim()
+  return toTitleCase(withoutTrailingNumbers || base)
+}
+
 type TopTab = { to: string; label: string }
 
 const productosTabs: TopTab[] = [
@@ -68,7 +78,9 @@ export default function AppLayout() {
 
   const accountLabel = useMemo(() => {
     const fullName = [profile?.nombre?.trim(), profile?.apellidos?.trim()].filter(Boolean).join(' ').trim()
-    return toTitleCase(fullName || user?.username || 'Usuario')
+    if (fullName) return toTitleCase(fullName)
+    const fallbackName = user?.username ? getReadableNameFromUsername(user.username) : ''
+    return fallbackName || 'Usuario'
   }, [profile?.apellidos, profile?.nombre, user?.username])
 
   useEffect(() => {

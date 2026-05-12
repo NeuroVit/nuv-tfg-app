@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -69,8 +69,8 @@ const productoSchema = z.object({
   precioUnitario: z.coerce.number().positive('El precio debe ser mayor a 0'),
   costoUnitario: z.coerce.number().positive('El coste debe ser mayor a 0'),
   cantidadActual: z.coerce.number().int().min(0, 'La cantidad no puede ser negativa'),
-  nivelMinimoStock: z.coerce.number().int().min(0, 'El stock mínimo no puede ser negativo'),
-  categoriaId: z.string().min(1, 'La categoría es obligatoria'),
+  nivelMinimoStock: z.coerce.number().int().min(0, 'El stock mÃ­nimo no puede ser negativo'),
+  categoriaId: z.string().min(1, 'La categorÃ­a es obligatoria'),
   providerId: z.string().min(1, 'El proveedor es obligatorio'),
 })
 
@@ -329,7 +329,7 @@ export default function ProductosPage() {
   }
 
   const productosFiltrados = useMemo(() => {
-    return productos.filter((producto) => {
+    const filtrados = productos.filter((producto) => {
       const categoriaOk =
         filtroCategoria === 'all' || String(producto.categoriaId) === filtroCategoria
       const providerOk =
@@ -342,6 +342,16 @@ export default function ProductosPage() {
         (filtroEstado === 'normal' && !esStockBajo)
 
       return categoriaOk && providerOk && estadoOk
+    })
+
+    return filtrados.sort((a, b) => {
+      const aTime = a.creadoEn ? new Date(a.creadoEn).getTime() : Number.NaN
+      const bTime = b.creadoEn ? new Date(b.creadoEn).getTime() : Number.NaN
+      const safeATime = Number.isFinite(aTime) ? aTime : 0
+      const safeBTime = Number.isFinite(bTime) ? bTime : 0
+
+      if (safeBTime !== safeATime) return safeBTime - safeATime
+      return b.id - a.id
     })
   }, [productos, filtroCategoria, filtroProveedor, filtroEstado])
 
@@ -357,11 +367,6 @@ export default function ProductosPage() {
       accessorKey: 'nombre',
       header: 'Nombre',
       cell: ({ getValue }) => <span className="font-medium text-foreground">{getValue<string>()}</span>,
-    },
-    {
-      accessorKey: 'providerNombre',
-      header: 'Proveedor',
-      cell: ({ getValue }) => getValue<string>() ?? '—',
     },
     {
       accessorKey: 'cantidadActual',
@@ -380,7 +385,7 @@ export default function ProductosPage() {
     },
     {
       accessorKey: 'nivelMinimoStock',
-      header: 'Stock Mínimo',
+      header: 'Stock MÃ­nimo',
     },
     {
       accessorKey: 'precioUnitario',
@@ -472,7 +477,7 @@ export default function ProductosPage() {
       <div className="mx-auto max-w-7xl space-y-6">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:gap-2">
           <Input
-            placeholder="Buscar por nombre, SKU, categoría..."
+            placeholder="Buscar por nombre, SKU, categorÃ­a..."
             value={globalFilter}
             onChange={(event) => setGlobalFilter(event.target.value)}
             className="w-full xl:min-w-[280px] xl:flex-1"
@@ -480,10 +485,10 @@ export default function ProductosPage() {
 
           <Select value={filtroCategoria} onValueChange={setFiltroCategoria}>
             <SelectTrigger className="w-full xl:w-56">
-              <SelectValue placeholder="Filtrar por categoría" />
+              <SelectValue placeholder="Filtrar por categorÃ­a" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todas las categorías</SelectItem>
+              <SelectItem value="all">Todas las categorÃ­as</SelectItem>
               {categorias.map((categoria) => (
                 <SelectItem key={categoria.id} value={String(categoria.id)}>
                   {categoria.nombre}
@@ -577,7 +582,7 @@ export default function ProductosPage() {
           </Table>
         </div>
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} · {total} registros</p>
+          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} Â· {total} registros</p>
           <div className="flex items-center justify-center gap-2">
             <Button
               variant="outline"
@@ -672,11 +677,11 @@ export default function ProductosPage() {
                   name="categoriaId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Categoría</FormLabel>
+                      <FormLabel>CategorÃ­a</FormLabel>
                       <Select value={field.value} onValueChange={field.onChange}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Selecciona una categoría" />
+                            <SelectValue placeholder="Selecciona una categorÃ­a" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -736,7 +741,7 @@ export default function ProductosPage() {
                   name="nivelMinimoStock"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Stock mínimo</FormLabel>
+                      <FormLabel>Stock mÃ­nimo</FormLabel>
                       <FormControl>
                         <Input type="number" min="0" {...field} />
                       </FormControl>
@@ -751,7 +756,7 @@ export default function ProductosPage() {
                 name="descripcion"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Descripción (opcional)</FormLabel>
+                    <FormLabel>DescripciÃ³n (opcional)</FormLabel>
                     <FormControl>
                       <Textarea rows={3} {...field} />
                     </FormControl>
@@ -854,11 +859,11 @@ export default function ProductosPage() {
                   name="categoriaId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Categoría</FormLabel>
+                      <FormLabel>CategorÃ­a</FormLabel>
                       <Select value={field.value} onValueChange={field.onChange}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Selecciona una categoría" />
+                            <SelectValue placeholder="Selecciona una categorÃ­a" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -918,7 +923,7 @@ export default function ProductosPage() {
                   name="nivelMinimoStock"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Stock mínimo</FormLabel>
+                      <FormLabel>Stock mÃ­nimo</FormLabel>
                       <FormControl>
                         <Input type="number" min="0" {...field} />
                       </FormControl>
@@ -933,7 +938,7 @@ export default function ProductosPage() {
                 name="descripcion"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Descripción (opcional)</FormLabel>
+                    <FormLabel>DescripciÃ³n (opcional)</FormLabel>
                     <FormControl>
                       <Textarea rows={3} {...field} />
                     </FormControl>
@@ -958,7 +963,7 @@ export default function ProductosPage() {
       <Dialog open={stockDialog} onOpenChange={setStockDialog}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Actualizar Stock — {selectedProducto?.nombre}</DialogTitle>
+            <DialogTitle>Actualizar Stock â€” {selectedProducto?.nombre}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             {stockError && (
@@ -970,7 +975,7 @@ export default function ProductosPage() {
               <Label>Cantidad a ajustar en el stock</Label>
               <Input
                 type="number"
-                placeholder="Usa un número positivo si entra stock o negativo si sale stock."
+                placeholder="Usa un nÃºmero positivo si entra stock o negativo si sale stock."
                 value={stockForm.delta}
                 onChange={(event) =>
                   setStockForm((current) => ({ ...current, delta: Number(event.target.value) }))
@@ -978,7 +983,7 @@ export default function ProductosPage() {
               />
             </div>
             <div className="space-y-1">
-              <Label>Razón</Label>
+              <Label>RazÃ³n</Label>
               <Select
                 value={stockForm.razon}
                 onValueChange={(value) =>
@@ -995,7 +1000,7 @@ export default function ProductosPage() {
                   <SelectItem value="PURCHASE">Compra</SelectItem>
                   <SelectItem value="SALE">Venta</SelectItem>
                   <SelectItem value="ADJUSTMENT">Ajuste</SelectItem>
-                  <SelectItem value="RETURN">Devolución</SelectItem>
+                  <SelectItem value="RETURN">DevoluciÃ³n</SelectItem>
                   <SelectItem value="DAMAGE">Merma</SelectItem>
                 </SelectContent>
               </Select>
@@ -1034,7 +1039,7 @@ export default function ProductosPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminar producto</AlertDialogTitle>
             <AlertDialogDescription>
-              ¿Seguro que quieres eliminar el producto "{productoEliminando?.nombre}"?
+              Â¿Seguro que quieres eliminar el producto "{productoEliminando?.nombre}"?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1057,6 +1062,7 @@ export default function ProductosPage() {
     </div>
   )
 }
+
 
 
 

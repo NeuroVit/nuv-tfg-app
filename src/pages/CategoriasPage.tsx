@@ -115,8 +115,6 @@ export default function CategoriasPage() {
     })
   }, [categories, search])
 
-  const categoryCountLabel = `${filteredCategories.length} ${filteredCategories.length === 1 ? 'categoría' : 'categorías'}`
-
   const openCreateDialog = () => {
     setDialogMode('create')
     setEditingCategory(null)
@@ -210,12 +208,9 @@ export default function CategoriasPage() {
       toast.success(`Categoría "${deletedName}" eliminada correctamente.`)
     } catch (error: unknown) {
       const rawMessage = parseApiError(error, 'No se pudo eliminar la categoría')
-      const errorMessage = /foreign key|constraint|referenc/i.test(rawMessage)
+      const errorMessage = /foreign key|constraint|referenc|error interno del servidor|internal server|unexpected error/i.test(rawMessage)
         ? 'No puedes eliminar esta categoría porque tiene productos asociados.'
         : rawMessage
-      form.setError('root', {
-        message: errorMessage,
-      })
       setDeleteOpen(false)
       toast.error(errorMessage)
     } finally {
@@ -226,13 +221,16 @@ export default function CategoriasPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-5xl space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Categorías</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{categoryCountLabel}</p>
-          </div>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <h1 className="shrink-0 text-2xl font-bold text-foreground">Categorías</h1>
+          <Input
+            placeholder="Buscar por nombre o descripción..."
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            className="w-full lg:ml-4 lg:max-w-sm"
+          />
           {canEdit && (
-            <Button className="w-full sm:w-auto" onClick={openCreateDialog}>
+            <Button className="w-full lg:ml-auto lg:w-auto" onClick={openCreateDialog}>
               <Plus className="mr-2 h-4 w-4" />
               Nueva categoría
             </Button>
@@ -252,13 +250,6 @@ export default function CategoriasPage() {
             <AlertDescription>{form.formState.errors.root.message}</AlertDescription>
           </Alert>
         )}
-
-        <Input
-          placeholder="Buscar por nombre o descripción..."
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          className="w-full sm:max-w-sm"
-        />
 
         <div className="rounded-lg border bg-card">
           <Table className="min-w-[640px]">
