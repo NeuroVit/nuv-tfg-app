@@ -32,6 +32,7 @@ export interface ProveedorDetalle {
   proveedor: {
     id: number
     nombre: string
+    email: string | null
     ubicacionAlmacen: string
     diasEntrega: number
     activo: boolean
