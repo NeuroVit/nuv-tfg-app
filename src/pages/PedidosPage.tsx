@@ -60,6 +60,8 @@ const toDateInputValue = (date: Date) => date.toISOString().split('T')[0]
 export default function PedidosPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedProviderId = Number(searchParams.get('providerId')) || null
+  const restockProductId = Number(searchParams.get('restockProductId')) || null
+  const autoCreateFromRestock = searchParams.get('autoCreate') === '1'
 
   const { hasRole } = useAuthStore()
   const canEdit = hasRole('ROLE_ADMIN') || hasRole('ROLE_MANAGER')
@@ -81,6 +83,7 @@ export default function PedidosPage() {
   const [orderNotes, setOrderNotes] = useState('')
   const [orderItems, setOrderItems] = useState<OrderItemForm[]>([{ productoId: '', cantidad: 1, precioUnitario: 0 }])
   const [creatingOrder, setCreatingOrder] = useState(false)
+  const [restockFlowHandled, setRestockFlowHandled] = useState(false)
 
   const selectedProvider = useMemo(
     () => providers.find((provider) => provider.id === selectedProviderId) ?? null,
@@ -177,8 +180,60 @@ export default function PedidosPage() {
     void loadOrders(selectedProviderId)
   }, [selectedProviderId])
 
+  useEffect(() => {
+    if (!autoCreateFromRestock || !restockProductId || restockFlowHandled) return
+    if (products.length === 0) return
+
+    const productToRestock = products.find((product) => product.id === restockProductId)
+    if (!productToRestock) {
+      toast.error('No se encontro el producto a reponer')
+      setRestockFlowHandled(true)
+      return
+    }
+    if (!productToRestock.providerId) {
+      toast.error('El producto no tiene proveedor asignado para crear el pedido')
+      setRestockFlowHandled(true)
+      return
+    }
+
+    if (selectedProviderId !== productToRestock.providerId) {
+      const next = new URLSearchParams(searchParams)
+      next.set('providerId', String(productToRestock.providerId))
+      setSearchParams(next, { replace: true })
+      return
+    }
+
+    if (canEdit) {
+      const unitPrice = productToRestock.costoUnitario ?? productToRestock.precioUnitario ?? 0
+      setOrderArrivalDate(toDateInputValue(new Date()))
+      setOrderNotes('')
+      setOrderItems([{ productoId: String(productToRestock.id), cantidad: 1, precioUnitario: unitPrice }])
+      setOrderDialogOpen(true)
+      toast.success(`Pedido preparado para reponer ${productToRestock.nombre}`)
+    }
+
+    const cleaned = new URLSearchParams(searchParams)
+    cleaned.delete('restockProductId')
+    cleaned.delete('autoCreate')
+    setSearchParams(cleaned, { replace: true })
+    setRestockFlowHandled(true)
+  }, [
+    autoCreateFromRestock,
+    canEdit,
+    products,
+    restockFlowHandled,
+    restockProductId,
+    searchParams,
+    selectedProviderId,
+    setSearchParams,
+  ])
+
   const onChangeProvider = (value: string) => {
-    setSearchParams({ providerId: value })
+    const next = new URLSearchParams(searchParams)
+    next.set('providerId', value)
+    next.delete('restockProductId')
+    next.delete('autoCreate')
+    setSearchParams(next, { replace: true })
   }
 
   const resetOrderForm = () => {

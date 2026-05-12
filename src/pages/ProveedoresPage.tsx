@@ -226,8 +226,8 @@ export default function ProveedoresPage() {
               <TableRow>
                 <TableHead>Nombre</TableHead>
                 <TableHead>AlmacÃ©n</TableHead>
-                <TableHead>Entrega (dÃ­as)</TableHead>
-                <TableHead>Productos</TableHead>
+                <TableHead className="text-center">Entrega (dÃ­as)</TableHead>
+                <TableHead className="text-center">Productos</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="w-16 text-right">Acciones</TableHead>
               </TableRow>
@@ -254,8 +254,8 @@ export default function ProveedoresPage() {
                   >
                     <TableCell className="font-medium">{provider.nombre}</TableCell>
                     <TableCell>{provider.ubicacionAlmacen}</TableCell>
-                    <TableCell>{provider.diasEntrega}</TableCell>
-                    <TableCell>{provider.cantidadProductos}</TableCell>
+                    <TableCell className="text-center">{provider.diasEntrega}</TableCell>
+                    <TableCell className="text-center">{provider.cantidadProductos}</TableCell>
                     <TableCell>
                       <Badge variant={provider.activo ? 'default' : 'secondary'}>
                         {provider.activo ? 'Activo' : 'Archivado'}
