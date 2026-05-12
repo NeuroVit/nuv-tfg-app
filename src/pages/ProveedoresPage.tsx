@@ -28,12 +28,14 @@ import { parseApiError } from '@/lib/apiError'
 
 type ProviderFormState = {
   nombre: string
+  email: string
   ubicacionAlmacen: string
   diasEntrega: string
 }
 
 const emptyProviderForm: ProviderFormState = {
   nombre: '',
+  email: '',
   ubicacionAlmacen: '',
   diasEntrega: '0',
 }
@@ -123,6 +125,7 @@ export default function ProveedoresPage() {
     setEditingProvider(provider)
     setProviderForm({
       nombre: provider.nombre,
+      email: provider.email ?? '',
       ubicacionAlmacen: provider.ubicacionAlmacen,
       diasEntrega: String(provider.diasEntrega),
     })
@@ -132,6 +135,7 @@ export default function ProveedoresPage() {
   const submitProvider = async () => {
     const payload: ProveedorRequest = {
       nombre: providerForm.nombre.trim(),
+      email: providerForm.email.trim() || undefined,
       ubicacionAlmacen: providerForm.ubicacionAlmacen.trim(),
       diasEntrega: Number(providerForm.diasEntrega),
     }
@@ -142,6 +146,10 @@ export default function ProveedoresPage() {
     }
     if (Number.isNaN(payload.diasEntrega) || payload.diasEntrega < 0) {
       toast.error('El plazo de entrega debe ser un nÃºmero mayor o igual a 0')
+      return
+    }
+    if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
+      toast.error('El email del proveedor no es vÃ¡lido')
       return
     }
 
@@ -358,6 +366,17 @@ export default function ProveedoresPage() {
                 value={providerForm.ubicacionAlmacen}
                 onChange={(event) =>
                   setProviderForm((current) => ({ ...current, ubicacionAlmacen: event.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Email (opcional)</Label>
+              <Input
+                type="email"
+                placeholder="proveedor@empresa.com"
+                value={providerForm.email}
+                onChange={(event) =>
+                  setProviderForm((current) => ({ ...current, email: event.target.value }))
                 }
               />
             </div>
