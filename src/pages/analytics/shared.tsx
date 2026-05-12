@@ -1,6 +1,7 @@
-import { type ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { AnaliticaMeta } from '@/types/analitica'
 import type { LucideIcon } from 'lucide-react'
@@ -94,8 +95,6 @@ type AnaliticaShellProps = {
 
 export function AnaliticaShell({
   children,
-  title,
-  description,
   metadata,
   loadState,
   lastUpdatedAt,
@@ -112,12 +111,7 @@ export function AnaliticaShell({
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{title}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-        </div>
-
+      <div className="w-full space-y-6">
         <section className="rounded-lg border bg-card p-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="space-y-2">
@@ -168,5 +162,31 @@ export function EmptyChartPlaceholder({ icon: Icon, message }: EmptyChartPlaceho
       <Icon className="mb-3 h-8 w-8 text-muted-foreground" />
       <p className="text-sm text-muted-foreground">{message}</p>
     </div>
+  )
+}
+
+type RevealDataSectionProps = {
+  children: ReactNode
+  className?: string
+  showLabel?: string
+  hideLabel?: string
+}
+
+export function RevealDataSection({
+  children,
+  className = 'space-y-4',
+  showLabel = 'Ver tablas y listas',
+  hideLabel = 'Ocultar tablas y listas',
+}: RevealDataSectionProps) {
+  const [isVisible, setIsVisible] = useState(false)
+  const toggleVisibility = () => setIsVisible((prev) => !prev)
+
+  return (
+    <section className="space-y-3">
+      <Button variant="outline" onClick={toggleVisibility}>
+        {isVisible ? hideLabel : showLabel}
+      </Button>
+      {isVisible ? <div className={className}>{children}</div> : null}
+    </section>
   )
 }

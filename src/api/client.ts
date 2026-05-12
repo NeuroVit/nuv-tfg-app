@@ -61,8 +61,7 @@ client.interceptors.request.use((config) => {
 
   if (!useAuthStore.getState().isAuthenticated()) {
     if (!isPublicRoute && !isAuthCall) {
-      useAuthStore.getState().logout()
-      window.location.href = '/login'
+      throw new axios.CanceledError('AUTH_REQUIRED')
     }
     return config
   }
@@ -86,6 +85,11 @@ let refreshPromise: Promise<string> | null = null
 client.interceptors.response.use(
   (res) => res,
   async (error: AxiosError) => {
+    if (axios.isCancel(error) && error.message === 'AUTH_REQUIRED') {
+      redirectToLogin()
+      return Promise.reject(error)
+    }
+
     const status = error.response?.status
     const originalRequest = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined
 

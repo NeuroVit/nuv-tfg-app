@@ -30,10 +30,10 @@ import { Button } from '@/components/ui/button'
 import {
   AnaliticaShell,
   EmptyChartPlaceholder,
+  RevealDataSection,
   formatCompact,
   formatCurrency,
   toDayKey,
-  toMonthKey,
   useAnaliticaRange,
   type LoadState,
 } from './shared'
@@ -68,6 +68,18 @@ const marginChartConfig = {
 } satisfies ChartConfig
 
 const PAGE_SIZE = 20
+
+function formatDayMonth(date: Date) {
+  return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`
+}
+
+function formatHour(date: Date) {
+  return `${String(date.getHours()).padStart(2, '0')}:00`
+}
+
+function formatWeekday(date: Date) {
+  return date.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '')
+}
 
 export default function AnaliticaVentasRentabilidadPage() {
   const { timeRange, selectedDays, setTimeRange } = useAnaliticaRange()
@@ -119,36 +131,62 @@ export default function AnaliticaVentasRentabilidadPage() {
       }))
       .filter((row) => !Number.isNaN(row.parsedDate.getTime()))
 
-    if (selectedDays <= 0) {
-      if (safeRows.length === 0) return []
+    if (selectedDays === 1) {
+      const dayKey = toDayKey(now)
+      const hours: Record<string, { date: string; unitsSold: number; revenue: number }> = {}
 
-      const firstDate = safeRows.reduce(
-        (minDate, row) => (row.parsedDate < minDate ? row.parsedDate : minDate),
-        safeRows[0]!.parsedDate,
-      )
-
-      const months: Record<string, { date: string; unitsSold: number; revenue: number }> = {}
-      const cursor = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1)
-      const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-
-      while (cursor <= currentMonth) {
-        const key = toMonthKey(cursor)
-        months[key] = {
-          date: cursor.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }),
+      for (let hour = 0; hour < 24; hour++) {
+        const slotDate = new Date(now)
+        slotDate.setHours(hour, 0, 0, 0)
+        const key = `${dayKey}-${String(hour).padStart(2, '0')}`
+        hours[key] = {
+          date: formatHour(slotDate),
           unitsSold: 0,
           revenue: 0,
         }
-        cursor.setMonth(cursor.getMonth() + 1)
       }
 
       safeRows.forEach((row) => {
-        const key = toMonthKey(row.parsedDate)
-        if (!(key in months)) return
-        months[key]!.unitsSold += row.unitsSold
-        months[key]!.revenue += row.revenue
+        if (toDayKey(row.parsedDate) !== dayKey) return
+        const key = `${dayKey}-${String(row.parsedDate.getHours()).padStart(2, '0')}`
+        if (!(key in hours)) return
+        hours[key]!.unitsSold += row.unitsSold
+        hours[key]!.revenue += row.revenue
       })
 
-      return Object.values(months)
+      return Object.values(hours)
+    }
+
+    if (selectedDays <= 0) {
+      if (safeRows.length === 0) return []
+
+      const firstDate = new Date(safeRows.reduce(
+        (minDate, row) => (row.parsedDate < minDate ? row.parsedDate : minDate),
+        safeRows[0]!.parsedDate,
+      ))
+      firstDate.setHours(0, 0, 0, 0)
+
+      const days: Record<string, { date: string; unitsSold: number; revenue: number }> = {}
+      const cursor = new Date(firstDate)
+
+      while (cursor <= now) {
+        const key = toDayKey(cursor)
+        days[key] = {
+          date: formatDayMonth(cursor),
+          unitsSold: 0,
+          revenue: 0,
+        }
+        cursor.setDate(cursor.getDate() + 1)
+      }
+
+      safeRows.forEach((row) => {
+        const key = toDayKey(row.parsedDate)
+        if (!(key in days)) return
+        days[key]!.unitsSold += row.unitsSold
+        days[key]!.revenue += row.revenue
+      })
+
+      return Object.values(days)
     }
 
     const days: Record<string, { date: string; unitsSold: number; revenue: number }> = {}
@@ -163,7 +201,7 @@ export default function AnaliticaVentasRentabilidadPage() {
         d.setDate(weekStart.getDate() + i)
         const key = toDayKey(d)
         days[key] = {
-          date: d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit' }),
+          date: formatWeekday(d),
           unitsSold: 0,
           revenue: 0,
         }
@@ -174,7 +212,7 @@ export default function AnaliticaVentasRentabilidadPage() {
         d.setDate(d.getDate() - i)
         const key = toDayKey(d)
         days[key] = {
-          date: d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+          date: formatDayMonth(d),
           unitsSold: 0,
           revenue: 0,
         }
@@ -253,8 +291,13 @@ export default function AnaliticaVentasRentabilidadPage() {
       : selectedDays === 1
         ? 'Tendencia de ventas (hoy)'
         : selectedDays === 7
-          ? 'Tendencia semanal de ventas'
+        ? 'Tendencia semanal de ventas'
           : 'Tendencia de ventas (rango)'
+  const salesXAxisInterval = useMemo(() => {
+    if (selectedDays === 1) return 1
+    if (selectedDays === 7) return 0
+    return 'equidistantPreserveStart' as const
+  }, [selectedDays])
   const total = rentabilidad.length
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1
@@ -284,7 +327,7 @@ export default function AnaliticaVentasRentabilidadPage() {
       onTimeRangeChange={setTimeRange}
     >
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-lg border bg-card p-4 xl:col-span-2">
           <h2 className="text-sm font-semibold text-foreground">{salesTrendTitle}</h2>
           <div className="mt-3 h-72">
             {loading ? (
@@ -298,7 +341,7 @@ export default function AnaliticaVentasRentabilidadPage() {
               <ChartContainer config={salesTrendChartConfig} className="h-full w-full">
                 <LineChart data={salesLineData} margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" minTickGap={18} />
+                  <XAxis dataKey="date" interval={salesXAxisInterval} />
                   <YAxis yAxisId="left" />
                   <YAxis yAxisId="right" orientation="right" />
                   <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
@@ -408,7 +451,10 @@ export default function AnaliticaVentasRentabilidadPage() {
           </div>
         </article>
 
-        <article className="rounded-lg border bg-card p-4">
+      </section>
+
+      <RevealDataSection>
+        <section className="rounded-lg border bg-card p-4">
           <h2 className="text-sm font-semibold text-foreground">Top 5 productos más rentables y menos rentables</h2>
           <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="rounded-md border border-emerald-300 bg-emerald-50 p-3 text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100">
@@ -439,61 +485,61 @@ export default function AnaliticaVentasRentabilidadPage() {
               </div>
             </div>
           </div>
-        </article>
-      </section>
+        </section>
 
-      <section className="rounded-lg border bg-card p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Producto</TableHead>
-              <TableHead>Categoría</TableHead>
-              <TableHead>Unidades</TableHead>
-              <TableHead>Ingresos</TableHead>
-              <TableHead>Coste de ventas</TableHead>
-              <TableHead>Margen</TableHead>
-              <TableHead>Margen %</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
-            ) : paginatedRentabilidad.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Sin datos de rentabilidad para este rango.</TableCell></TableRow>
-            ) : paginatedRentabilidad.map((row) => (
-              <TableRow key={row.productId}>
-                <TableCell>{row.productName} <span className="text-xs text-muted-foreground">({row.sku})</span></TableCell>
-                <TableCell>{row.categoryName}</TableCell>
-                <TableCell>{formatCompact(row.unidadesVendidas)}</TableCell>
-                <TableCell>{formatCurrency(row.revenue)}</TableCell>
-                <TableCell>{formatCurrency(row.cogs)}</TableCell>
-                <TableCell className={row.margen >= 0 ? 'text-emerald-700' : 'text-red-700'}>{formatCurrency(row.margen)}</TableCell>
-                <TableCell>{row.margenPct.toFixed(2)}%</TableCell>
+        <section className="rounded-lg border bg-card p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Producto</TableHead>
+                <TableHead>Categoría</TableHead>
+                <TableHead>Unidades</TableHead>
+                <TableHead>Ingresos</TableHead>
+                <TableHead>Coste de ventas</TableHead>
+                <TableHead>Margen</TableHead>
+                <TableHead>Margen %</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </section>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
+              ) : paginatedRentabilidad.length === 0 ? (
+                <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Sin datos de rentabilidad para este rango.</TableCell></TableRow>
+              ) : paginatedRentabilidad.map((row) => (
+                <TableRow key={row.productId}>
+                  <TableCell>{row.productName} <span className="text-xs text-muted-foreground">({row.sku})</span></TableCell>
+                  <TableCell>{row.categoryName}</TableCell>
+                  <TableCell>{formatCompact(row.unidadesVendidas)}</TableCell>
+                  <TableCell>{formatCurrency(row.revenue)}</TableCell>
+                  <TableCell>{formatCurrency(row.cogs)}</TableCell>
+                  <TableCell className={row.margen >= 0 ? 'text-emerald-700' : 'text-red-700'}>{formatCurrency(row.margen)}</TableCell>
+                  <TableCell>{row.margenPct.toFixed(2)}%</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </section>
 
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} | {total} registros</p>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setOffset((prev) => Math.max(0, prev - PAGE_SIZE))}
-            disabled={offset === 0}
-          >
-            Anterior
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setOffset((prev) => (prev + PAGE_SIZE >= total ? prev : prev + PAGE_SIZE))}
-            disabled={offset + PAGE_SIZE >= total}
-          >
-            Siguiente
-          </Button>
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} | {total} registros</p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setOffset((prev) => Math.max(0, prev - PAGE_SIZE))}
+              disabled={offset === 0}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setOffset((prev) => (prev + PAGE_SIZE >= total ? prev : prev + PAGE_SIZE))}
+              disabled={offset + PAGE_SIZE >= total}
+            >
+              Siguiente
+            </Button>
+          </div>
         </div>
-      </div>
+      </RevealDataSection>
     </AnaliticaShell>
   )
 }

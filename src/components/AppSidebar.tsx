@@ -88,14 +88,17 @@ const settingsNavItems: NavItem[] = [
 
 type AppSidebarProps = {
   isSettingsRoute?: boolean
+  collapsible?: 'offcanvas' | 'icon' | 'none'
 }
 
-export function AppSidebar({ isSettingsRoute = false }: AppSidebarProps) {
+export function AppSidebar({ isSettingsRoute = false, collapsible = 'icon' }: AppSidebarProps) {
   const { user, logout: clearSession } = useAuthStore()
   const displayName = useProfileStore((s) => s.displayName)
   const organizationName = useProfileStore((s) => s.organizationName)
-  const { theme, setTheme } = useTheme()
+  const { theme, resolvedTheme, setTheme } = useTheme()
   const navigate = useNavigate()
+  const activeTheme = theme === 'system' ? resolvedTheme : theme
+  const isDarkTheme = activeTheme === 'dark'
 
   const initials = user?.username ? user.username.slice(0, 2).toUpperCase() : 'U'
   const roleLabel = (user?.role ?? 'ROLE_VIEWER').replace('ROLE_', '')
@@ -114,7 +117,7 @@ export function AppSidebar({ isSettingsRoute = false }: AppSidebarProps) {
   }
 
   return (
-    <Sidebar collapsible="icon" variant="sidebar">
+    <Sidebar collapsible={collapsible} variant="sidebar">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 z-0 dark:hidden"
@@ -147,20 +150,14 @@ export function AppSidebar({ isSettingsRoute = false }: AppSidebarProps) {
               <NavLink to="/dashboard">
                 {({ isActive }) => (
                   <SidebarMenuButton isActive={isActive} size="lg" tooltip="Volver a la app">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                      <ArrowLeft className="h-4 w-4" />
-                    </div>
-                    <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-medium">Volver a la app</span>
-                      <span className="truncate text-xs text-muted-foreground">Regresar al dashboard</span>
-                    </div>
+                    <ArrowLeft className="h-8 w-8" />
                   </SidebarMenuButton>
                 )}
               </NavLink>
             ) : (
               <SidebarMenuButton size="lg" className="cursor-default">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sidebar-primary text-[10px] font-semibold text-sidebar-primary-foreground">
-                  NS
+                  {organizationLabel.slice(0, 2).toUpperCase()}
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{organizationLabel}</span>
@@ -250,9 +247,9 @@ export function AppSidebar({ isSettingsRoute = false }: AppSidebarProps) {
                 sideOffset={4}
                 className="w-[--radix-popper-anchor-width] min-w-52"
               >
-                <DropdownMenuItem onSelect={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
-                  {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                  {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+                <DropdownMenuItem onSelect={() => setTheme(isDarkTheme ? 'light' : 'dark')}>
+                  {isDarkTheme ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                  {isDarkTheme ? 'Modo claro' : 'Modo oscuro'}
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => navigate('/settings/general')}>
                   <Settings className="h-4 w-4" />

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { getSession } from '@/api/auth'
+import { useAuthStore } from '@/store/authStore'
 import type { SessionContext } from '@/types/auth'
 
 interface RefreshSessionOptions {
@@ -11,6 +12,20 @@ interface SessionState {
   loading: boolean
   refreshSession: (options?: RefreshSessionOptions) => Promise<SessionContext | null>
   clearSession: () => void
+}
+
+const mapSessionRoleToAuthRole = (role: string | null): string | null => {
+  if (!role) return null
+  switch (role.trim().toLowerCase()) {
+    case 'owner':
+      return 'ROLE_ADMIN'
+    case 'admin':
+      return 'ROLE_MANAGER'
+    case 'member':
+      return 'ROLE_VIEWER'
+    default:
+      return null
+  }
 }
 
 export const useSessionStore = create<SessionState>((set) => ({
@@ -26,6 +41,14 @@ export const useSessionStore = create<SessionState>((set) => ({
     try {
       const data = await getSession()
       set({ session: data })
+      const mappedRole = mapSessionRoleToAuthRole(data.role)
+      if (mappedRole) {
+        const authState = useAuthStore.getState()
+        const currentUser = authState.user
+        if (currentUser && currentUser.role !== mappedRole) {
+          authState.setUser({ ...currentUser, role: mappedRole })
+        }
+      }
       return data
     } catch {
       set({ session: null })
