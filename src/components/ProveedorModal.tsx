@@ -19,10 +19,13 @@ type ProviderFormState = {
   diasEntrega: string
 }
 
+const PROVIDER_NAME_MAX_LENGTH = 100
+const WAREHOUSE_LOCATION_MAX_LENGTH = 500
+
 const emptyProviderForm: ProviderFormState = {
   nombre: '',
   ubicacionAlmacen: '',
-  diasEntrega: '0',
+  diasEntrega: '1',
 }
 
 export default function ProveedorModal({ open, onClose, onSaved, proveedor }: ProveedorModalProps) {
@@ -46,11 +49,15 @@ export default function ProveedorModal({ open, onClose, onSaved, proveedor }: Pr
 
   const isFormValid = useMemo(() => {
     const dias = Number(form.diasEntrega)
+    const nombre = form.nombre.trim()
+    const ubicacionAlmacen = form.ubicacionAlmacen.trim()
     return (
-      Boolean(form.nombre.trim()) &&
-      Boolean(form.ubicacionAlmacen.trim()) &&
+      Boolean(nombre) &&
+      nombre.length <= PROVIDER_NAME_MAX_LENGTH &&
+      Boolean(ubicacionAlmacen) &&
+      ubicacionAlmacen.length <= WAREHOUSE_LOCATION_MAX_LENGTH &&
       Number.isFinite(dias) &&
-      dias >= 0
+      dias >= 1
     )
   }, [form])
 
@@ -67,8 +74,16 @@ export default function ProveedorModal({ open, onClose, onSaved, proveedor }: Pr
       toast.error('Nombre y ubicación de almacén son obligatorios')
       return
     }
-    if (Number.isNaN(payload.diasEntrega) || payload.diasEntrega < 0) {
-      toast.error('El plazo de entrega debe ser un número mayor o igual a 0')
+    if (payload.nombre.length > PROVIDER_NAME_MAX_LENGTH) {
+      toast.error(`El nombre no puede superar ${PROVIDER_NAME_MAX_LENGTH} caracteres`)
+      return
+    }
+    if (payload.ubicacionAlmacen.length > WAREHOUSE_LOCATION_MAX_LENGTH) {
+      toast.error(`La ubicación no puede superar ${WAREHOUSE_LOCATION_MAX_LENGTH} caracteres`)
+      return
+    }
+    if (Number.isNaN(payload.diasEntrega) || payload.diasEntrega < 1) {
+      toast.error('El plazo de entrega debe ser un número mayor o igual a 1')
       return
     }
 
@@ -104,6 +119,7 @@ export default function ProveedorModal({ open, onClose, onSaved, proveedor }: Pr
             <label className="text-sm font-medium text-foreground">Nombre <RequiredMark /></label>
             <Input
               value={form.nombre}
+              maxLength={PROVIDER_NAME_MAX_LENGTH}
               onChange={(event) => setForm((current) => ({ ...current, nombre: event.target.value }))}
             />
           </div>
@@ -111,6 +127,7 @@ export default function ProveedorModal({ open, onClose, onSaved, proveedor }: Pr
             <label className="text-sm font-medium text-foreground">Ubicación del almacén <RequiredMark /></label>
             <Input
               value={form.ubicacionAlmacen}
+              maxLength={WAREHOUSE_LOCATION_MAX_LENGTH}
               onChange={(event) => setForm((current) => ({ ...current, ubicacionAlmacen: event.target.value }))}
             />
           </div>
@@ -118,7 +135,7 @@ export default function ProveedorModal({ open, onClose, onSaved, proveedor }: Pr
             <label className="text-sm font-medium text-foreground">Días de entrega <RequiredMark /></label>
             <Input
               type="number"
-              min="0"
+              min="1"
               value={form.diasEntrega}
               onChange={(event) => setForm((current) => ({ ...current, diasEntrega: event.target.value }))}
             />

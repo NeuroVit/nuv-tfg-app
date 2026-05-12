@@ -80,10 +80,26 @@ const redirectToLogin = () => {
   }
 }
 
+const isRedirectedApiResponseToLogin = (response: { request?: unknown; config?: unknown }): boolean => {
+  const request = response.request as { responseURL?: unknown } | undefined
+  const config = response.config as { url?: unknown } | undefined
+  const responseUrl = typeof request?.responseURL === 'string' ? request.responseURL.toLowerCase() : ''
+  const requestUrl = typeof config?.url === 'string' ? config.url.toLowerCase() : ''
+
+  if (!requestUrl.startsWith('/')) return false
+  return responseUrl.endsWith('/login') || responseUrl.includes('/login?')
+}
+
 let refreshPromise: Promise<string> | null = null
 
 client.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    if (isRedirectedApiResponseToLogin(res)) {
+      redirectToLogin()
+      return Promise.reject(new axios.CanceledError('AUTH_REDIRECTED_TO_LOGIN'))
+    }
+    return res
+  },
   async (error: AxiosError) => {
     if (axios.isCancel(error) && error.message === 'AUTH_REQUIRED') {
       redirectToLogin()
