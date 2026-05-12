@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { crearProveedor, editarProveedor } from '@/api/provider'
 import type { Proveedor, ProveedorRequest } from '@/types/provider'
@@ -15,6 +15,7 @@ interface ProveedorModalProps {
 
 type ProviderFormState = {
   nombre: string
+  email: string
   ubicacionAlmacen: string
   diasEntrega: string
 }
@@ -24,6 +25,7 @@ const WAREHOUSE_LOCATION_MAX_LENGTH = 500
 
 const emptyProviderForm: ProviderFormState = {
   nombre: '',
+  email: '',
   ubicacionAlmacen: '',
   diasEntrega: '1',
 }
@@ -39,6 +41,7 @@ export default function ProveedorModal({ open, onClose, onSaved, proveedor }: Pr
     if (proveedor) {
       setForm({
         nombre: proveedor.nombre,
+        email: proveedor.email ?? '',
         ubicacionAlmacen: proveedor.ubicacionAlmacen,
         diasEntrega: String(proveedor.diasEntrega),
       })
@@ -51,11 +54,15 @@ export default function ProveedorModal({ open, onClose, onSaved, proveedor }: Pr
     const dias = Number(form.diasEntrega)
     const nombre = form.nombre.trim()
     const ubicacionAlmacen = form.ubicacionAlmacen.trim()
+    const email = form.email.trim()
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
     return (
       Boolean(nombre) &&
       nombre.length <= PROVIDER_NAME_MAX_LENGTH &&
       Boolean(ubicacionAlmacen) &&
       ubicacionAlmacen.length <= WAREHOUSE_LOCATION_MAX_LENGTH &&
+      Boolean(email) &&
+      emailOk &&
       Number.isFinite(dias) &&
       dias >= 1
     )
@@ -66,12 +73,13 @@ export default function ProveedorModal({ open, onClose, onSaved, proveedor }: Pr
     setFooterError(null)
     const payload: ProveedorRequest = {
       nombre: form.nombre.trim(),
+      email: form.email.trim(),
       ubicacionAlmacen: form.ubicacionAlmacen.trim(),
       diasEntrega: Number(form.diasEntrega),
     }
 
     if (!payload.nombre || !payload.ubicacionAlmacen) {
-      toast.error('Nombre y ubicación de almacén son obligatorios')
+      toast.error('Nombre y ubicacion de almacen son obligatorios')
       return
     }
     if (payload.nombre.length > PROVIDER_NAME_MAX_LENGTH) {
@@ -84,6 +92,14 @@ export default function ProveedorModal({ open, onClose, onSaved, proveedor }: Pr
     }
     if (Number.isNaN(payload.diasEntrega) || payload.diasEntrega < 1) {
       toast.error('El plazo de entrega debe ser un número mayor o igual a 1')
+      return
+    }
+    if (!payload.email) {
+      toast.error('El email del proveedor es obligatorio')
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
+      toast.error('El email del proveedor no es valido')
       return
     }
 
@@ -124,7 +140,7 @@ export default function ProveedorModal({ open, onClose, onSaved, proveedor }: Pr
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Ubicación del almacén <RequiredMark /></label>
+            <label className="text-sm font-medium text-foreground">Ubicacion del almacen <RequiredMark /></label>
             <Input
               value={form.ubicacionAlmacen}
               maxLength={WAREHOUSE_LOCATION_MAX_LENGTH}
@@ -132,7 +148,16 @@ export default function ProveedorModal({ open, onClose, onSaved, proveedor }: Pr
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Días de entrega <RequiredMark /></label>
+            <label className="text-sm font-medium text-foreground">Email <RequiredMark /></label>
+            <Input
+              type="email"
+              placeholder="proveedor@empresa.com"
+              value={form.email}
+              onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Dias de entrega <RequiredMark /></label>
             <Input
               type="number"
               min="1"
@@ -144,7 +169,7 @@ export default function ProveedorModal({ open, onClose, onSaved, proveedor }: Pr
 
         <ModalFooter onCancel={onClose} error={footerError}>
           <ModalSubmitButton disabled={saving || !isFormValid}>
-            {saving ? 'Guardando…' : 'Guardar proveedor'}
+            {saving ? 'Guardando...' : 'Guardar proveedor'}
           </ModalSubmitButton>
         </ModalFooter>
       </form>
