@@ -1,6 +1,7 @@
-import { type ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { AnaliticaMeta } from '@/types/analitica'
 import type { LucideIcon } from 'lucide-react'
@@ -24,7 +25,7 @@ export const statusLabels: Record<string, string> = {
   OVERSTOCK: 'Sobrestock',
 }
 
-export const formatCurrency = (value: number) => `â‚¬${value.toLocaleString('es-ES', { maximumFractionDigits: 2 })}`
+export const formatCurrency = (value: number) => `€${value.toLocaleString('es-ES', { maximumFractionDigits: 2 })}`
 export const formatCompact = (value: number) => value.toLocaleString('es-ES')
 
 export const toDayKey = (date: Date) =>
@@ -174,5 +175,31 @@ export function EmptyChartPlaceholder({ icon: Icon, message }: EmptyChartPlaceho
       <Icon className="mb-3 h-8 w-8 text-muted-foreground" />
       <p className="text-sm text-muted-foreground">{message}</p>
     </div>
+  )
+}
+
+type RevealDataSectionProps = {
+  children: ReactNode
+  className?: string
+  showLabel?: string
+  hideLabel?: string
+}
+
+export function RevealDataSection({
+  children,
+  className = 'space-y-4',
+  showLabel = 'Ver tablas y listas',
+  hideLabel = 'Ocultar tablas y listas',
+}: RevealDataSectionProps) {
+  const [isVisible, setIsVisible] = useState(false)
+  const toggleVisibility = () => setIsVisible((prev) => !prev)
+
+  return (
+    <section className="space-y-3">
+      <Button variant="outline" onClick={toggleVisibility}>
+        {isVisible ? hideLabel : showLabel}
+      </Button>
+      {isVisible ? <div className={className}>{children}</div> : null}
+    </section>
   )
 }

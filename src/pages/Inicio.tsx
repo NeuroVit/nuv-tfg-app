@@ -87,8 +87,71 @@ const toDayKey = (date: Date) =>
 
 const toHourKey = (date: Date) => `${toDayKey(date)}-${String(date.getHours()).padStart(2, '0')}`
 
-const toMonthKey = (date: Date) =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+type RangeBounds = {
+  start: Date | null
+  end: Date | null
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+const startOfDay = (date: Date) => {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+const getRangeBounds = (range: TimeRange, reference = new Date()): RangeBounds => {
+  if (range === 'all') return { start: null, end: null }
+
+  if (range === 'daily') {
+    const start = startOfDay(reference)
+    const end = new Date(start)
+    end.setDate(end.getDate() + 1)
+    return { start, end }
+  }
+
+  if (range === 'weekly') {
+    const start = startOfDay(reference)
+    const mondayOffset = (start.getDay() + 6) % 7
+    start.setDate(start.getDate() - mondayOffset)
+    const end = new Date(start)
+    end.setDate(end.getDate() + 7)
+    return { start, end }
+  }
+
+  const start = new Date(reference.getFullYear(), reference.getMonth(), 1)
+  const end = new Date(reference.getFullYear(), reference.getMonth() + 1, 1)
+  return { start, end }
+}
+
+const getPreviousRangeBounds = (range: TimeRange, currentRange: RangeBounds): RangeBounds => {
+  if (range === 'all' || !currentRange.start || !currentRange.end) return { start: null, end: null }
+
+  if (range === 'daily') {
+    const end = new Date(currentRange.start)
+    const start = new Date(end)
+    start.setDate(start.getDate() - 1)
+    return { start, end }
+  }
+
+  if (range === 'weekly') {
+    const end = new Date(currentRange.start)
+    const start = new Date(end)
+    start.setDate(start.getDate() - 7)
+    return { start, end }
+  }
+
+  const end = new Date(currentRange.start)
+  const start = new Date(end.getFullYear(), end.getMonth() - 1, 1)
+  return { start, end }
+}
+
+const isInRange = (date: Date, range: RangeBounds) => {
+  if (!range.start || !range.end) return true
+  return date >= range.start && date < range.end
+}
+
+const daysBetween = (start: Date, end: Date) => Math.max(1, Math.ceil((end.getTime() - start.getTime()) / DAY_MS))
 
 export default function Inicio() {
   const navigate = useNavigate()
@@ -99,6 +162,8 @@ export default function Inicio() {
   const [winningProducts, setWinningProducts] = useState<TopProductVelocityRow[]>([])
   const [marginCurrent, setMarginCurrent] = useState(0)
   const [marginPrevious, setMarginPrevious] = useState<number | null>(null)
+  const [salesPrevious, setSalesPrevious] = useState<number | null>(null)
+  const [unitsPrevious, setUnitsPrevious] = useState<number | null>(null)
   const [criticalStockPrevious, setCriticalStockPrevious] = useState<number | null>(null)
   const [chartInsightsLoading, setChartInsightsLoading] = useState(false)
   const [chartInsightsError, setChartInsightsError] = useState<string | null>(null)
@@ -112,16 +177,33 @@ export default function Inicio() {
     error,
   } = useInventarioDashboard()
 
-  const movimientosPreview = movimientos.slice(0, 5)
-  const stockBajoPreview = productosStockBajo.slice(0, 5)
   const selectedRange = timeRangeOptions.find((option) => option.value === timeRange) ?? timeRangeOptions[1]!
   const selectedDays = selectedRange.days
-  const dataWindowDays = useMemo(() => {
-    if (timeRange !== 'monthly') return selectedDays
+  const activeRange = useMemo(() => getRangeBounds(timeRange), [timeRange])
+  const previousRange = useMemo(() => getPreviousRangeBounds(timeRange, activeRange), [activeRange, timeRange])
+  const currentRangeDaysForApi = useMemo(() => {
+    if (!activeRange.start || !activeRange.end) return 0
     const now = new Date()
-    const daysInCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
-    return Math.max(selectedDays, daysInCurrentMonth)
-  }, [selectedDays, timeRange])
+    const effectiveEnd = now < activeRange.end ? now : activeRange.end
+    return daysBetween(activeRange.start, effectiveEnd)
+  }, [activeRange])
+  const compareWindowDays = useMemo(() => {
+    if (!activeRange.end) return 0
+    const fetchStart = previousRange.start ?? activeRange.start
+    if (!fetchStart) return 0
+    return daysBetween(fetchStart, activeRange.end)
+  }, [activeRange, previousRange])
+  const movimientosInRange = useMemo(() => {
+    return movimientos
+      .map((movimiento) => ({
+        ...movimiento,
+        parsedDate: new Date(movimiento.fecha),
+      }))
+      .filter((movimiento) => !Number.isNaN(movimiento.parsedDate.getTime()) && isInRange(movimiento.parsedDate, activeRange))
+      .sort((a, b) => b.parsedDate.getTime() - a.parsedDate.getTime())
+  }, [activeRange, movimientos])
+  const movimientosPreview = movimientosInRange.slice(0, 5)
+  const stockBajoPreview = productosStockBajo.slice(0, 5)
   const prefsKey = useMemo(
     () => `nuv-dashboard-prefs:${(displayName || 'usuario').toLowerCase()}`,
     [displayName],
@@ -169,30 +251,44 @@ export default function Inicio() {
       setChartInsightsError(null)
 
       try {
-        const compareWindowDays = dataWindowDays > 0 ? dataWindowDays * 2 : 180
-        const [revenueRows, winnerRows, finanzasCurrent] = await Promise.all([
-          getVelocidadResumenAnalitica(dataWindowDays),
-          getTopProductosVelocidadAnalitica(dataWindowDays, 8),
-          getFinanzasResumenAnalitica(dataWindowDays),
+        const [velocityRows, winnerRows, finanzasCurrent] = await Promise.all([
+          getVelocidadResumenAnalitica(compareWindowDays),
+          getTopProductosVelocidadAnalitica(currentRangeDaysForApi, 8),
+          getFinanzasResumenAnalitica(currentRangeDaysForApi),
         ])
-        const velocityRowsForComparison = await getVelocidadResumenAnalitica(compareWindowDays)
+
+        const safeRows = velocityRows
+          .map((row) => ({
+            ...row,
+            parsedDate: new Date(row.movementDate),
+          }))
+          .filter((row) => !Number.isNaN(row.parsedDate.getTime()))
+
+        const currentRows = safeRows
+          .filter((row) => isInRange(row.parsedDate, activeRange))
+          .map(({ parsedDate: _parsedDate, ...row }) => row)
+
+        const previousRows = previousRange.start && previousRange.end
+          ? safeRows
+              .filter((row) => isInRange(row.parsedDate, previousRange))
+              .map(({ parsedDate: _parsedDate, ...row }) => row)
+          : []
 
         if (cancelled) return
-        setRevenueSummary(revenueRows)
+        setRevenueSummary(currentRows)
         setWinningProducts(winnerRows)
         setMarginCurrent(finanzasCurrent.margenReal30d)
 
-        const sorted = velocityRowsForComparison
-          .slice()
-          .sort((a, b) => new Date(a.movementDate).getTime() - new Date(b.movementDate).getTime())
-        if (sorted.length >= 2) {
-          const midpoint = Math.floor(sorted.length / 2)
-          const previousMarginLike = sorted
-            .slice(0, midpoint)
-            .reduce((sum, row) => sum + row.revenue, 0)
+        if (previousRows.length > 0) {
+          const previousMarginLike = previousRows.reduce((sum, row) => sum + row.revenue, 0)
+          const previousUnits = previousRows.reduce((sum, row) => sum + row.unitsSold, 0)
           setMarginPrevious(previousMarginLike)
+          setSalesPrevious(previousMarginLike)
+          setUnitsPrevious(previousUnits)
         } else {
           setMarginPrevious(null)
+          setSalesPrevious(null)
+          setUnitsPrevious(null)
         }
       } catch {
         if (cancelled) return
@@ -201,6 +297,8 @@ export default function Inicio() {
         setChartInsightsError('No se pudieron cargar las gráficas de analítica.')
         setMarginCurrent(0)
         setMarginPrevious(null)
+        setSalesPrevious(null)
+        setUnitsPrevious(null)
       } finally {
         if (!cancelled) setChartInsightsLoading(false)
       }
@@ -211,23 +309,18 @@ export default function Inicio() {
     return () => {
       cancelled = true
     }
-  }, [dataWindowDays])
+  }, [activeRange, compareWindowDays, currentRangeDaysForApi, previousRange])
 
   const movementsChartData = useMemo(() => {
     const now = new Date()
-    const safeMovimientos = movimientos
-      .map((movimiento) => ({
-        ...movimiento,
-        parsedDate: new Date(movimiento.fecha),
-      }))
-      .filter((movimiento) => !Number.isNaN(movimiento.parsedDate.getTime()))
+    now.setHours(0, 0, 0, 0)
+    const safeMovimientos = movimientosInRange
 
     if (timeRange === 'daily') {
       const hours: Record<string, { fecha: string; Entradas: number; Salidas: number }> = {}
-      for (let i = 23; i >= 0; i--) {
+      for (let hour = 0; hour < 24; hour++) {
         const d = new Date(now)
-        d.setMinutes(0, 0, 0)
-        d.setHours(d.getHours() - i)
+        d.setHours(hour, 0, 0, 0)
         const key = toHourKey(d)
         hours[key] = {
           fecha: d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
@@ -247,17 +340,34 @@ export default function Inicio() {
     }
 
     if (timeRange === 'weekly' || timeRange === 'monthly') {
-      const daysToInclude = timeRange === 'weekly' ? 7 : 30
       const days: Record<string, { fecha: string; Entradas: number; Salidas: number }> = {}
-      for (let i = daysToInclude - 1; i >= 0; i--) {
-        const d = new Date(now)
-        d.setHours(0, 0, 0, 0)
-        d.setDate(d.getDate() - i)
-        const key = toDayKey(d)
-        days[key] = {
-          fecha: d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }),
-          Entradas: 0,
-          Salidas: 0,
+      if (timeRange === 'weekly') {
+        const weekStart = new Date(now)
+        const mondayOffset = (weekStart.getDay() + 6) % 7
+        weekStart.setDate(weekStart.getDate() - mondayOffset)
+
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(weekStart)
+          d.setDate(weekStart.getDate() + i)
+          const key = toDayKey(d)
+          days[key] = {
+            fecha: d.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', ''),
+            Entradas: 0,
+            Salidas: 0,
+          }
+        }
+      } else {
+        const monthCursor = new Date(now.getFullYear(), now.getMonth(), 1)
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+
+        while (monthCursor <= monthEnd) {
+          const key = toDayKey(monthCursor)
+          days[key] = {
+            fecha: monthCursor.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+            Entradas: 0,
+            Salidas: 0,
+          }
+          monthCursor.setDate(monthCursor.getDate() + 1)
         }
       }
 
@@ -273,38 +383,38 @@ export default function Inicio() {
 
     if (safeMovimientos.length === 0) return []
 
-    const firstMovementDate = safeMovimientos.reduce(
+    const firstMovementDate = new Date(safeMovimientos.reduce(
       (minDate, movimiento) =>
         movimiento.parsedDate < minDate ? movimiento.parsedDate : minDate,
       safeMovimientos[0]!.parsedDate
-    )
+    ))
+    firstMovementDate.setHours(0, 0, 0, 0)
 
-    const months: Record<string, { fecha: string; Entradas: number; Salidas: number }> = {}
-    const cursor = new Date(firstMovementDate.getFullYear(), firstMovementDate.getMonth(), 1)
-    const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-
-    while (cursor <= currentMonth) {
-      const key = toMonthKey(cursor)
-      months[key] = {
-        fecha: cursor.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }),
+    const days: Record<string, { fecha: string; Entradas: number; Salidas: number }> = {}
+    const cursor = new Date(firstMovementDate)
+    while (cursor <= now) {
+      const key = toDayKey(cursor)
+      days[key] = {
+        fecha: cursor.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
         Entradas: 0,
         Salidas: 0,
       }
-      cursor.setMonth(cursor.getMonth() + 1)
+      cursor.setDate(cursor.getDate() + 1)
     }
 
     safeMovimientos.forEach((movimiento) => {
-      const key = toMonthKey(movimiento.parsedDate)
-      if (!(key in months)) return
-      if (movimiento.tipo === 'ENTRADA') months[key]!.Entradas += movimiento.cantidad
-      else months[key]!.Salidas += movimiento.cantidad
+      const key = toDayKey(movimiento.parsedDate)
+      if (!(key in days)) return
+      if (movimiento.tipo === 'ENTRADA') days[key]!.Entradas += movimiento.cantidad
+      else days[key]!.Salidas += movimiento.cantidad
     })
 
-    return Object.values(months)
-  }, [movimientos, timeRange])
+    return Object.values(days)
+  }, [movimientosInRange, timeRange])
 
   const revenueChartData = useMemo(() => {
     const now = new Date()
+    now.setHours(0, 0, 0, 0)
     const safeRows = revenueSummary
       .map((row) => ({
         ...row,
@@ -314,10 +424,9 @@ export default function Inicio() {
 
     if (timeRange === 'daily') {
       const hours: Record<string, { date: string; unitsSold: number; revenue: number }> = {}
-      for (let i = 23; i >= 0; i--) {
+      for (let hour = 0; hour < 24; hour++) {
         const d = new Date(now)
-        d.setMinutes(0, 0, 0)
-        d.setHours(d.getHours() - i)
+        d.setHours(hour, 0, 0, 0)
         const key = toHourKey(d)
         hours[key] = {
           date: d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
@@ -349,7 +458,7 @@ export default function Inicio() {
           d.setDate(weekStart.getDate() + i)
           const key = toDayKey(d)
           days[key] = {
-            date: d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit' }),
+            date: d.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', ''),
             unitsSold: 0,
             revenue: 0,
           }
@@ -379,14 +488,34 @@ export default function Inicio() {
       return Object.values(days)
     }
 
-    return safeRows
-      .slice()
-      .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime())
-      .map((row) => ({
-        date: row.parsedDate.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }),
-        unitsSold: row.unitsSold,
-        revenue: row.revenue,
-      }))
+    if (safeRows.length === 0) return []
+
+    const firstDate = new Date(safeRows.reduce(
+      (minDate, row) => (row.parsedDate < minDate ? row.parsedDate : minDate),
+      safeRows[0]!.parsedDate,
+    ))
+    firstDate.setHours(0, 0, 0, 0)
+
+    const days: Record<string, { date: string; unitsSold: number; revenue: number }> = {}
+    const cursor = new Date(firstDate)
+    while (cursor <= now) {
+      const key = toDayKey(cursor)
+      days[key] = {
+        date: cursor.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+        unitsSold: 0,
+        revenue: 0,
+      }
+      cursor.setDate(cursor.getDate() + 1)
+    }
+
+    safeRows.forEach((row) => {
+      const key = toDayKey(row.parsedDate)
+      if (!(key in days)) return
+      days[key]!.unitsSold += row.unitsSold
+      days[key]!.revenue += row.revenue
+    })
+
+    return Object.values(days)
   }, [revenueSummary, timeRange])
 
 
@@ -411,29 +540,15 @@ export default function Inicio() {
     winners: 'Productos con mayor facturación en el rango seleccionado',
   }
 
-  const salesComparison = useMemo(() => {
-    if (revenueSummary.length < 2) return null
-    const sorted = revenueSummary
-      .slice()
-      .sort((a, b) => new Date(a.movementDate).getTime() - new Date(b.movementDate).getTime())
-    const midpoint = Math.floor(sorted.length / 2)
-    if (midpoint === 0 || midpoint >= sorted.length) return null
-    const previous = sorted.slice(0, midpoint).reduce((sum, row) => sum + row.revenue, 0)
-    const current = sorted.slice(midpoint).reduce((sum, row) => sum + row.revenue, 0)
-    return { previous, current }
-  }, [revenueSummary])
+  const salesCurrent = useMemo(
+    () => revenueSummary.reduce((sum, row) => sum + row.revenue, 0),
+    [revenueSummary],
+  )
 
-  const unitsComparison = useMemo(() => {
-    if (revenueSummary.length < 2) return null
-    const sorted = revenueSummary
-      .slice()
-      .sort((a, b) => new Date(a.movementDate).getTime() - new Date(b.movementDate).getTime())
-    const midpoint = Math.floor(sorted.length / 2)
-    if (midpoint === 0 || midpoint >= sorted.length) return null
-    const previous = sorted.slice(0, midpoint).reduce((sum, row) => sum + row.unitsSold, 0)
-    const current = sorted.slice(midpoint).reduce((sum, row) => sum + row.unitsSold, 0)
-    return { previous, current }
-  }, [revenueSummary])
+  const unitsCurrent = useMemo(
+    () => revenueSummary.reduce((sum, row) => sum + row.unitsSold, 0),
+    [revenueSummary],
+  )
 
   const formatDelta = (current: number, previous: number | null, isCurrency = false) => {
     if (previous === null || previous === 0) return 'Sin base comparable'
@@ -467,11 +582,29 @@ export default function Inicio() {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {getGreeting()}, {(displayName || 'Usuario').split(' ')[0]}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">Aquí tienes el resumen de tu inventario.</p>
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-4 xl:items-center">
+          <div className="space-y-1 xl:col-span-3">
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {getGreeting()}, {(displayName || 'Usuario').split(' ')[0]}
+            </h1>
+            <p className="text-sm text-muted-foreground">Aquí tienes el resumen de tu inventario.</p>
+          </div>
+          <div className="w-full xl:col-span-1 xl:self-end">
+            <div className="ml-auto w-full sm:w-[220px] xl:w-1/2">
+              <Select value={timeRange} onValueChange={(value) => setTimeRange(value as TimeRange)}>
+                <SelectTrigger aria-label="Seleccionar rango temporal" className="h-10 w-full px-3">
+                  <SelectValue placeholder="Selecciona un rango" />
+                </SelectTrigger>
+                <SelectContent>
+                  {timeRangeOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
 
         <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -507,9 +640,9 @@ export default function Inicio() {
               <CardDescription>Ingresos del rango</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-semibold text-green-600">{formatCurrency(salesComparison?.current ?? 0)}</p>
+              <p className="text-2xl font-semibold text-green-600">{formatCurrency(salesCurrent)}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {formatDelta(salesComparison?.current ?? 0, salesComparison?.previous ?? null, true)}
+                {formatDelta(salesCurrent, salesPrevious, true)}
               </p>
             </CardContent>
           </Card>
@@ -524,7 +657,7 @@ export default function Inicio() {
                 Margen: {formatDelta(marginCurrent, marginPrevious, true)}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Unidades: {formatDelta(unitsComparison?.current ?? 0, unitsComparison?.previous ?? null)}
+                Unidades: {formatDelta(unitsCurrent, unitsPrevious)}
               </p>
             </CardContent>
           </Card>
@@ -554,19 +687,6 @@ export default function Inicio() {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-            <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
-              {timeRangeOptions.map((option) => (
-                <Button
-                  key={option.value}
-                  type="button"
-                  size="sm"
-                  variant={timeRange === option.value ? 'default' : 'outline'}
-                  onClick={() => setTimeRange(option.value)}
-                >
-                  {option.label}
-                </Button>
-              ))}
             </div>
           </CardHeader>
           <CardContent>
@@ -687,7 +807,7 @@ export default function Inicio() {
               <CardTitle className="text-base">Últimos movimientos</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className={`space-y-3 ${movimientos.length > 5 ? 'max-h-[360px] overflow-y-auto pr-1' : ''}`}>
+              <div className={`space-y-3 ${movimientosInRange.length > 5 ? 'max-h-[360px] overflow-y-auto pr-1' : ''}`}>
                 {movimientosPreview.length === 0 ? (
                   <div className="space-y-2 text-sm text-muted-foreground">
                     <p>No hay movimientos recientes.</p>
@@ -804,7 +924,7 @@ export default function Inicio() {
             </CardHeader>
             <CardContent className="flex items-end justify-between gap-4">
               <div>
-                <p className="text-4xl font-semibold text-blue-500">{movimientos.length}</p>
+                <p className="text-4xl font-semibold text-blue-500">{movimientosInRange.length}</p>
                 <p className="mt-1 text-xs text-muted-foreground">ultimas entradas/salidas</p>
               </div>
               <div className="flex h-12 items-end gap-1">

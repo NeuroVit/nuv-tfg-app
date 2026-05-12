@@ -28,7 +28,6 @@ import {
   formatCompact,
   formatCurrency,
   toDayKey,
-  toMonthKey,
   useAnaliticaRange,
   type LoadState,
 } from './shared'
@@ -43,6 +42,18 @@ const salesTrendChartConfig = {
     color: '#16a34a',
   },
 } satisfies ChartConfig
+
+function formatDayMonth(date: Date) {
+  return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`
+}
+
+function formatHour(date: Date) {
+  return `${String(date.getHours()).padStart(2, '0')}:00`
+}
+
+function formatWeekday(date: Date) {
+  return date.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '')
+}
 
 export default function AnaliticaResumenPage() {
   const { timeRange, selectedDays, setTimeRange } = useAnaliticaRange()
@@ -112,36 +123,62 @@ export default function AnaliticaResumenPage() {
       }))
       .filter((row) => !Number.isNaN(row.parsedDate.getTime()))
 
-    if (selectedDays <= 0) {
-      if (safeRows.length === 0) return []
+    if (selectedDays === 1) {
+      const dayKey = toDayKey(now)
+      const hours: Record<string, { date: string; unitsSold: number; revenue: number }> = {}
 
-      const firstDate = safeRows.reduce(
-        (minDate, row) => (row.parsedDate < minDate ? row.parsedDate : minDate),
-        safeRows[0]!.parsedDate,
-      )
-
-      const months: Record<string, { date: string; unitsSold: number; revenue: number }> = {}
-      const cursor = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1)
-      const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-
-      while (cursor <= currentMonth) {
-        const key = toMonthKey(cursor)
-        months[key] = {
-          date: cursor.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }),
+      for (let hour = 0; hour < 24; hour++) {
+        const slotDate = new Date(now)
+        slotDate.setHours(hour, 0, 0, 0)
+        const key = `${dayKey}-${String(hour).padStart(2, '0')}`
+        hours[key] = {
+          date: formatHour(slotDate),
           unitsSold: 0,
           revenue: 0,
         }
-        cursor.setMonth(cursor.getMonth() + 1)
       }
 
       safeRows.forEach((row) => {
-        const key = toMonthKey(row.parsedDate)
-        if (!(key in months)) return
-        months[key]!.unitsSold += row.unitsSold
-        months[key]!.revenue += row.revenue
+        if (toDayKey(row.parsedDate) !== dayKey) return
+        const key = `${dayKey}-${String(row.parsedDate.getHours()).padStart(2, '0')}`
+        if (!(key in hours)) return
+        hours[key]!.unitsSold += row.unitsSold
+        hours[key]!.revenue += row.revenue
       })
 
-      return Object.values(months)
+      return Object.values(hours)
+    }
+
+    if (selectedDays <= 0) {
+      if (safeRows.length === 0) return []
+
+      const firstDate = new Date(safeRows.reduce(
+        (minDate, row) => (row.parsedDate < minDate ? row.parsedDate : minDate),
+        safeRows[0]!.parsedDate,
+      ))
+      firstDate.setHours(0, 0, 0, 0)
+
+      const days: Record<string, { date: string; unitsSold: number; revenue: number }> = {}
+      const cursor = new Date(firstDate)
+
+      while (cursor <= now) {
+        const key = toDayKey(cursor)
+        days[key] = {
+          date: formatDayMonth(cursor),
+          unitsSold: 0,
+          revenue: 0,
+        }
+        cursor.setDate(cursor.getDate() + 1)
+      }
+
+      safeRows.forEach((row) => {
+        const key = toDayKey(row.parsedDate)
+        if (!(key in days)) return
+        days[key]!.unitsSold += row.unitsSold
+        days[key]!.revenue += row.revenue
+      })
+
+      return Object.values(days)
     }
 
     const days: Record<string, { date: string; unitsSold: number; revenue: number }> = {}
@@ -156,7 +193,7 @@ export default function AnaliticaResumenPage() {
         d.setDate(weekStart.getDate() + i)
         const key = toDayKey(d)
         days[key] = {
-          date: d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit' }),
+          date: formatWeekday(d),
           unitsSold: 0,
           revenue: 0,
         }
@@ -167,7 +204,7 @@ export default function AnaliticaResumenPage() {
         d.setDate(d.getDate() - i)
         const key = toDayKey(d)
         days[key] = {
-          date: d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+          date: formatDayMonth(d),
           unitsSold: 0,
           revenue: 0,
         }
@@ -192,6 +229,11 @@ export default function AnaliticaResumenPage() {
         : selectedDays === 7
         ? 'Tendencia semanal de ventas'
         : 'Tendencia de ventas (rango)'
+  const salesXAxisInterval = useMemo(() => {
+    if (selectedDays === 1) return 1
+    if (selectedDays === 7) return 0
+    return 'equidistantPreserveStart' as const
+  }, [selectedDays])
 
   const revenueThresholds = useMemo(() => {
     if (salesLineData.length === 0) return null
@@ -279,7 +321,7 @@ export default function AnaliticaResumenPage() {
             <ChartContainer config={salesTrendChartConfig} className="h-full w-full">
               <LineChart data={salesLineData} margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" minTickGap={18} />
+                <XAxis dataKey="date" interval={salesXAxisInterval} />
                 <YAxis yAxisId="left" />
                 <YAxis yAxisId="right" orientation="right" />
                 <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
