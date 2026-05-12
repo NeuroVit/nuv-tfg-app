@@ -301,7 +301,7 @@ const startMobileGoogleLogin = async () => {
 
               <Button
                 type="submit"
-                className="w-full border border-border bg-white text-black hover:bg-white/90"
+                className="w-full border border-border bg-primary text-primary-foreground hover:bg-primary/90"
                 disabled={form.formState.isSubmitting}
               >
                 {form.formState.isSubmitting && (
@@ -311,9 +311,7 @@ const startMobileGoogleLogin = async () => {
               </Button>
             </form>
           </Form>
-
           
-
           {/* Google */}
           {tauriMobile ? (
             <Button

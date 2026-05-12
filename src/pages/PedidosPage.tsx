@@ -1,10 +1,9 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { toast } from 'sonner'
-import { Check, Eye, MoreHorizontal, PackagePlus, Plus, Send, X } from 'lucide-react'
+import { Check, Eye, MoreHorizontal, PackagePlus, Send, X } from 'lucide-react'
 import {
   cancelarPedidoProveedor,
-  crearPedidoProveedor,
   enviarPedidoProveedor,
   getPedidosProveedor,
   recibirPedidoProveedor,
@@ -16,7 +15,6 @@ import type { PedidoProveedor, Proveedor } from '@/types/provider'
 import { useAuthStore } from '@/store/authStore'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,29 +22,21 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Textarea } from '@/components/ui/textarea'
 import { parseApiError } from '@/lib/apiError'
+import PedidoFormModal from '@/components/PedidoFormModal'
+import PedidoDetailModal from '@/components/PedidoDetailModal'
 
-type OrderItemForm = {
-  productoId: string
-  cantidad: number
-  precioUnitario: number
-}
-
-const formatDateTime = (value: string | null) =>
-  value ? new Date(value).toLocaleString('es-ES') : 'â€”'
 const formatDate = (value: string | null) =>
-  value ? new Date(value).toLocaleDateString('es-ES') : 'â€”'
+  value ? new Date(value).toLocaleDateString('es-ES') : '—'
 const formatDateTimeNoSeconds = (value: string | null) =>
   value
     ? new Date(value).toLocaleString('es-ES', {
         dateStyle: 'short',
         timeStyle: 'short',
       })
-    : 'â€”'
+    : '—'
 
 const statusLabelMap: Record<PedidoProveedor['status'], string> = {
   DRAFT: 'Borrador',
@@ -54,8 +44,6 @@ const statusLabelMap: Record<PedidoProveedor['status'], string> = {
   RECEIVED: 'Recibido',
   CANCELLED: 'Cancelado',
 }
-
-const toDateInputValue = (date: Date) => date.toISOString().split('T')[0]
 
 export default function PedidosPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -79,10 +67,6 @@ export default function PedidosPage() {
   const [orderDialogOpen, setOrderDialogOpen] = useState(false)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
   const [detailOrder, setDetailOrder] = useState<PedidoProveedor | null>(null)
-  const [orderArrivalDate, setOrderArrivalDate] = useState<string>(toDateInputValue(new Date()))
-  const [orderNotes, setOrderNotes] = useState('')
-  const [orderItems, setOrderItems] = useState<OrderItemForm[]>([{ productoId: '', cantidad: 1, precioUnitario: 0 }])
-  const [creatingOrder, setCreatingOrder] = useState(false)
   const [restockFlowHandled, setRestockFlowHandled] = useState(false)
 
   const selectedProvider = useMemo(
@@ -94,14 +78,6 @@ export default function PedidosPage() {
     if (!selectedProvider) return []
     return products.filter((product) => product.providerId === selectedProvider.id)
   }, [products, selectedProvider])
-
-  const recommendedOrderDate = useMemo(() => {
-    if (!selectedProvider) return null
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    today.setDate(today.getDate() + selectedProvider.diasEntrega)
-    return toDateInputValue(today)
-  }, [selectedProvider])
 
   const filteredOrders = useMemo(() => {
     const term = orderSearch.trim().toLowerCase()
@@ -204,10 +180,6 @@ export default function PedidosPage() {
     }
 
     if (canEdit) {
-      const unitPrice = productToRestock.costoUnitario ?? productToRestock.precioUnitario ?? 0
-      setOrderArrivalDate(toDateInputValue(new Date()))
-      setOrderNotes('')
-      setOrderItems([{ productoId: String(productToRestock.id), cantidad: 1, precioUnitario: unitPrice }])
       setOrderDialogOpen(true)
       toast.success(`Pedido preparado para reponer ${productToRestock.nombre}`)
     }
@@ -236,14 +208,7 @@ export default function PedidosPage() {
     setSearchParams(next, { replace: true })
   }
 
-  const resetOrderForm = () => {
-    setOrderArrivalDate(toDateInputValue(new Date()))
-    setOrderNotes('')
-    setOrderItems([{ productoId: '', cantidad: 1, precioUnitario: 0 }])
-  }
-
   const openCreateOrder = () => {
-    resetOrderForm()
     setOrderDialogOpen(true)
   }
 
@@ -252,65 +217,9 @@ export default function PedidosPage() {
     setDetailDialogOpen(true)
   }
 
-  const addOrderItem = () => {
-    setOrderItems((current) => [...current, { productoId: '', cantidad: 1, precioUnitario: 0 }])
-  }
-
-  const removeOrderItem = (index: number) => {
-    setOrderItems((current) => {
-      const next = current.filter((_, idx) => idx !== index)
-      return next.length > 0 ? next : [{ productoId: '', cantidad: 1, precioUnitario: 0 }]
-    })
-  }
-
-  const updateOrderItem = (index: number, patch: Partial<OrderItemForm>) => {
-    setOrderItems((current) => current.map((item, idx) => (idx === index ? { ...item, ...patch } : item)))
-  }
-
-  const submitOrder = async () => {
-    if (!selectedProvider) return
-
-    const items = orderItems
-      .map((item) => ({
-        productoId: Number(item.productoId),
-        cantidad: Number(item.cantidad),
-        precioUnitario: Number(item.precioUnitario),
-      }))
-      .filter((item) => !Number.isNaN(item.productoId))
-
-    if (items.length === 0) {
-      toast.error('Debes seleccionar al menos un producto')
-      return
-    }
-    if (items.some((item) => item.cantidad < 1)) {
-      toast.error('La cantidad debe ser mayor o igual a 1')
-      return
-    }
-    if (items.some((item) => !Number.isFinite(item.precioUnitario) || item.precioUnitario <= 0)) {
-      toast.error('El precio unitario debe ser mayor a 0')
-      return
-    }
-
-    const ids = items.map((item) => item.productoId)
-    if (new Set(ids).size !== ids.length) {
-      toast.error('No puedes repetir productos en el mismo pedido')
-      return
-    }
-
-    setCreatingOrder(true)
-    try {
-      await crearPedidoProveedor(selectedProvider.id, {
-        fechaLlegadaDeseada: orderArrivalDate,
-        notas: orderNotes.trim() || undefined,
-        items,
-      })
-      setOrderDialogOpen(false)
-      await Promise.all([loadOrders(selectedProvider.id), loadProducts()])
-      toast.success('Pedido creado en estado DRAFT')
-    } catch (error: unknown) {
-      toast.error(parseApiError(error, 'No se pudo crear el pedido'))
-    } finally {
-      setCreatingOrder(false)
+  const onOrderCreated = () => {
+    if (selectedProvider) {
+      void Promise.all([loadOrders(selectedProvider.id), loadProducts()])
     }
   }
 
@@ -504,157 +413,19 @@ export default function PedidosPage() {
         )}
       </div>
 
-      <Dialog open={orderDialogOpen} onOpenChange={setOrderDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Crear pedido para {selectedProvider?.nombre}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Fecha de llegada deseada</Label>
-                <Input
-                  type="date"
-                  value={orderArrivalDate}
-                  onChange={(event) => setOrderArrivalDate(event.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Fecha de pedido recomendada</Label>
-                <Input value={recommendedOrderDate ?? 'â€”'} readOnly />
-              </div>
-            </div>
+      <PedidoFormModal
+        open={orderDialogOpen}
+        onClose={() => setOrderDialogOpen(false)}
+        onCreated={onOrderCreated}
+        provider={selectedProvider}
+        providerProducts={providerProducts}
+      />
 
-            <div className="space-y-2">
-              <Label>Notas (opcional)</Label>
-              <Textarea
-                rows={2}
-                value={orderNotes}
-                onChange={(event) => setOrderNotes(event.target.value)}
-              />
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label>Productos</Label>
-                <Button variant="outline" size="sm" onClick={addOrderItem}>
-                  <Plus className="mr-1 h-4 w-4" />
-                  AÃ±adir lÃ­nea
-                </Button>
-              </div>
-              {orderItems.map((item, index) => (
-                <div
-                  key={index}
-                  className="grid grid-cols-1 gap-2 rounded-md border p-3 md:grid-cols-[1fr_130px_150px_auto]"
-                >
-                  <Select
-                    value={item.productoId}
-                    onValueChange={(value) => {
-                      const selectedProduct = providerProducts.find((product) => String(product.id) === value)
-                      updateOrderItem(index, {
-                        productoId: value,
-                        precioUnitario: selectedProduct?.costoUnitario ?? selectedProduct?.precioUnitario ?? 0,
-                      })
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona producto" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {providerProducts.map((product) => (
-                        <SelectItem key={product.id} value={String(product.id)}>
-                          {product.nombre} ({product.sku})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={item.cantidad}
-                    onChange={(event) =>
-                      updateOrderItem(index, { cantidad: Number(event.target.value) })
-                    }
-                  />
-                  <Input
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    value={item.precioUnitario}
-                    onChange={(event) =>
-                      updateOrderItem(index, { precioUnitario: Number(event.target.value) })
-                    }
-                    placeholder="Coste unitario (â‚¬)"
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={() => removeOrderItem(index)}
-                    disabled={orderItems.length === 1}
-                  >
-                    Quitar
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOrderDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={() => void submitOrder()} disabled={creatingOrder}>
-              {creatingOrder ? 'Creando...' : 'Crear pedido (DRAFT)'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Detalle pedido #{detailOrder?.id}</DialogTitle>
-          </DialogHeader>
-          {!detailOrder ? (
-            <p className="text-sm text-muted-foreground">Pedido no disponible.</p>
-          ) : (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 rounded-md border p-3 text-sm">
-                <p><span className="text-muted-foreground">Proveedor:</span> {detailOrder.providerNombre}</p>
-                <p><span className="text-muted-foreground">Estado:</span> {statusLabelMap[detailOrder.status] ?? detailOrder.status}</p>
-                <p><span className="text-muted-foreground">Llegada deseada:</span> {detailOrder.fechaLlegadaDeseada}</p>
-                <p><span className="text-muted-foreground">Pedido recomendado:</span> {detailOrder.fechaPedidoRecomendada}</p>
-              </div>
-
-              <div className="rounded-lg border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Producto</TableHead>
-                      <TableHead>SKU</TableHead>
-                      <TableHead>Cantidad</TableHead>
-                      <TableHead>Precio snapshot</TableHead>
-                      <TableHead>Subtotal</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {detailOrder.items.map((item) => (
-                      <TableRow key={item.productoId}>
-                        <TableCell>{item.productoNombre}</TableCell>
-                        <TableCell className="font-mono text-xs">{item.sku}</TableCell>
-                        <TableCell>{item.cantidad}</TableCell>
-                        <TableCell>â‚¬{Number(item.precioUnitarioSnapshot).toFixed(2)}</TableCell>
-                        <TableCell>â‚¬{(Number(item.precioUnitarioSnapshot) * item.cantidad).toFixed(2)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <PedidoDetailModal
+        open={detailDialogOpen}
+        onClose={() => setDetailDialogOpen(false)}
+        pedido={detailOrder}
+      />
     </div>
   )
 }
-
-
-

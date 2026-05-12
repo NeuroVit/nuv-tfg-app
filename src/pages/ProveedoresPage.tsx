@@ -1,19 +1,16 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { Archive, Eye, MoreHorizontal, Pencil, Plus, RotateCcw, Truck } from 'lucide-react'
 import {
   archivarProveedor,
-  crearProveedor,
-  editarProveedor,
   getProveedores,
   restaurarProveedor,
 } from '@/api/provider'
-import type { Proveedor, ProveedorRequest } from '@/types/provider'
+import type { Proveedor } from '@/types/provider'
 import { useAuthStore } from '@/store/authStore'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,24 +18,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { parseApiError } from '@/lib/apiError'
+import ProveedorModal from '@/components/ProveedorModal'
 
-type ProviderFormState = {
-  nombre: string
-  email: string
-  ubicacionAlmacen: string
-  diasEntrega: string
-}
-
-const emptyProviderForm: ProviderFormState = {
-  nombre: '',
-  email: '',
-  ubicacionAlmacen: '',
-  diasEntrega: '0',
-}
 const PAGE_SIZE = 20
 
 export default function ProveedoresPage() {
@@ -57,10 +41,7 @@ export default function ProveedoresPage() {
   const [offset, setOffset] = useState(0)
 
   const [providerDialogOpen, setProviderDialogOpen] = useState(false)
-  const [providerDialogMode, setProviderDialogMode] = useState<'create' | 'edit'>('create')
-  const [providerForm, setProviderForm] = useState<ProviderFormState>(emptyProviderForm)
   const [editingProvider, setEditingProvider] = useState<Proveedor | null>(null)
-  const [savingProvider, setSavingProvider] = useState(false)
 
   const loadProviders = async () => {
     setLoadingProviders(true)
@@ -114,61 +95,13 @@ export default function ProveedoresPage() {
   }, [offset, total])
 
   const openCreateProvider = () => {
-    setProviderDialogMode('create')
     setEditingProvider(null)
-    setProviderForm(emptyProviderForm)
     setProviderDialogOpen(true)
   }
 
   const openEditProvider = (provider: Proveedor) => {
-    setProviderDialogMode('edit')
     setEditingProvider(provider)
-    setProviderForm({
-      nombre: provider.nombre,
-      email: provider.email ?? '',
-      ubicacionAlmacen: provider.ubicacionAlmacen,
-      diasEntrega: String(provider.diasEntrega),
-    })
     setProviderDialogOpen(true)
-  }
-
-  const submitProvider = async () => {
-    const payload: ProveedorRequest = {
-      nombre: providerForm.nombre.trim(),
-      email: providerForm.email.trim() || undefined,
-      ubicacionAlmacen: providerForm.ubicacionAlmacen.trim(),
-      diasEntrega: Number(providerForm.diasEntrega),
-    }
-
-    if (!payload.nombre || !payload.ubicacionAlmacen) {
-      toast.error('Nombre y ubicaciÃ³n de almacÃ©n son obligatorios')
-      return
-    }
-    if (Number.isNaN(payload.diasEntrega) || payload.diasEntrega < 0) {
-      toast.error('El plazo de entrega debe ser un nÃºmero mayor o igual a 0')
-      return
-    }
-    if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
-      toast.error('El email del proveedor no es vÃ¡lido')
-      return
-    }
-
-    setSavingProvider(true)
-    try {
-      if (providerDialogMode === 'create') {
-        await crearProveedor(payload)
-        toast.success('Proveedor creado correctamente')
-      } else if (editingProvider) {
-        await editarProveedor(editingProvider.id, payload)
-        toast.success('Proveedor actualizado correctamente')
-      }
-      setProviderDialogOpen(false)
-      await loadProviders()
-    } catch (error: unknown) {
-      toast.error(parseApiError(error, 'No se pudo guardar el proveedor'))
-    } finally {
-      setSavingProvider(false)
-    }
   }
 
   const toggleArchiveProvider = async (provider: Proveedor) => {
@@ -201,7 +134,7 @@ export default function ProveedoresPage() {
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
             <Input
-              placeholder="Buscar proveedor o almacÃ©n..."
+              placeholder="Buscar proveedor o almac�n..."
               value={providerSearch}
               onChange={(event) => setProviderSearch(event.target.value)}
               className="w-full md:w-80"
@@ -233,8 +166,8 @@ export default function ProveedoresPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nombre</TableHead>
-                <TableHead>AlmacÃ©n</TableHead>
-                <TableHead className="text-center">Entrega (dÃ­as)</TableHead>
+                <TableHead>Almac�n</TableHead>
+                <TableHead className="text-center">Entrega (d�as)</TableHead>
                 <TableHead className="text-center">Productos</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="w-16 text-right">Acciones</TableHead>
@@ -323,7 +256,7 @@ export default function ProveedoresPage() {
         </div>
 
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} Â· {total} registros</p>
+          <p className="text-sm text-muted-foreground">P�gina {currentPage} de {totalPages} � {total} registros</p>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -343,67 +276,12 @@ export default function ProveedoresPage() {
         </div>
       </div>
 
-      <Dialog open={providerDialogOpen} onOpenChange={setProviderDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {providerDialogMode === 'create' ? 'Crear proveedor' : 'Editar proveedor'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-2">
-            <div className="space-y-2">
-              <Label>Nombre</Label>
-              <Input
-                value={providerForm.nombre}
-                onChange={(event) =>
-                  setProviderForm((current) => ({ ...current, nombre: event.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>UbicaciÃ³n del almacÃ©n</Label>
-              <Input
-                value={providerForm.ubicacionAlmacen}
-                onChange={(event) =>
-                  setProviderForm((current) => ({ ...current, ubicacionAlmacen: event.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Email (opcional)</Label>
-              <Input
-                type="email"
-                placeholder="proveedor@empresa.com"
-                value={providerForm.email}
-                onChange={(event) =>
-                  setProviderForm((current) => ({ ...current, email: event.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>DÃ­as de entrega</Label>
-              <Input
-                type="number"
-                min="0"
-                value={providerForm.diasEntrega}
-                onChange={(event) =>
-                  setProviderForm((current) => ({ ...current, diasEntrega: event.target.value }))
-                }
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setProviderDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={() => void submitProvider()} disabled={savingProvider}>
-              {savingProvider ? 'Guardando...' : 'Guardar'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ProveedorModal
+        open={providerDialogOpen}
+        onClose={() => setProviderDialogOpen(false)}
+        onSaved={() => void loadProviders()}
+        proveedor={editingProvider}
+      />
     </div>
   )
 }
-
-

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router'
 import { AlertCircle, ArrowDown, ArrowUp, PackageSearch } from 'lucide-react'
 import { getFinanzasResumenAnalitica, getTopProductosVelocidadAnalitica, getVelocidadResumenAnalitica } from '@/api/analitica'
 import { useInventarioDashboard } from '@/hooks/useInventarioDashboard'
-import { useProfileStore } from '@/store/profileStore'
+import { useDisplayName } from '@/store/profileStore'
 import type { TopProductVelocityRow, VelocitySummaryRow } from '@/types/analitica'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -155,7 +155,7 @@ const daysBetween = (start: Date, end: Date) => Math.max(1, Math.ceil((end.getTi
 
 export default function Inicio() {
   const navigate = useNavigate()
-  const displayName = useProfileStore((s) => s.displayName)
+  const displayName = useDisplayName()
   const [timeRange, setTimeRange] = useState<TimeRange>('weekly')
   const [selectedChart, setSelectedChart] = useState<DashboardChart>('movements')
   const [revenueSummary, setRevenueSummary] = useState<VelocitySummaryRow[]>([])
@@ -665,28 +665,26 @@ export default function Inicio() {
 
         <Card>
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="space-y-2">
-                <div>
-                  <CardTitle className="text-base">{chartTitleByType[selectedChart]}</CardTitle>
-                  <CardDescription>{chartDescriptionByType[selectedChart]}</CardDescription>
-                </div>
-              <div className="w-full sm:w-[220px]">
-                <Select
-                  value={selectedChart}
-                  onValueChange={(value) => setSelectedChart(value as DashboardChart)}
-                >
-                  <SelectTrigger aria-label="Seleccionar gráfica principal">
-                    <SelectValue placeholder="Selecciona una gráfica" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {chartOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div>
+              <CardTitle className="text-base">{chartTitleByType[selectedChart]}</CardTitle>
+              <CardDescription>{chartDescriptionByType[selectedChart]}</CardDescription>
+            </div>
+            <div className="w-full sm:ml-auto sm:w-[220px]">
+              <Select
+                value={selectedChart}
+                onValueChange={(value) => setSelectedChart(value as DashboardChart)}
+              >
+                <SelectTrigger aria-label="Seleccionar gráfica principal">
+                  <SelectValue placeholder="Selecciona una gráfica" />
+                </SelectTrigger>
+                <SelectContent>
+                  {chartOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </CardHeader>
           <CardContent>
@@ -943,4 +941,3 @@ export default function Inicio() {
     </div>
   )
 }
-
