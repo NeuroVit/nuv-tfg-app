@@ -1,20 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import {
-  actualizarBundle,
-  crearBundle,
-  eliminarBundle,
-  getBundleItems,
-  getBundles,
-} from '@/api/bundle'
+import { eliminarBundle, getBundles } from '@/api/bundle'
 import { getProductos } from '@/api/producto'
-import type { BundleItem, BundleSummary, BundleUpsertRequest } from '@/types/bundle'
+import type { BundleSummary } from '@/types/bundle'
 import type { Producto } from '@/types/producto'
 import { useAuthStore } from '@/store/authStore'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,33 +24,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
 import { parseApiError } from '@/lib/apiError'
-
-type BundleFormItem = {
-  productoId: string
-  cantidad: number
-}
-
-type BundleFormState = {
-  nombre: string
-  descripcion: string
-  descuentoPct: string
-  activo: boolean
-  items: BundleFormItem[]
-}
-
-const emptyBundleForm: BundleFormState = {
-  nombre: '',
-  descripcion: '',
-  descuentoPct: '0',
-  activo: true,
-  items: [{ productoId: '', cantidad: 1 }],
-}
+import BundleDetailModal from '@/components/BundleDetailModal'
+import BundleFormModal from '@/components/BundleFormModal'
 
 export default function BundlesPage() {
   const { hasRole } = useAuthStore()
@@ -71,14 +43,9 @@ export default function BundlesPage() {
 
   const [detailOpen, setDetailOpen] = useState(false)
   const [selectedBundle, setSelectedBundle] = useState<BundleSummary | null>(null)
-  const [bundleItems, setBundleItems] = useState<BundleItem[]>([])
-  const [loadingItems, setLoadingItems] = useState(false)
 
   const [upsertOpen, setUpsertOpen] = useState(false)
-  const [upsertMode, setUpsertMode] = useState<'create' | 'edit'>('create')
   const [editingBundle, setEditingBundle] = useState<BundleSummary | null>(null)
-  const [bundleForm, setBundleForm] = useState<BundleFormState>(emptyBundleForm)
-  const [savingBundle, setSavingBundle] = useState(false)
 
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deletingBundle, setDeletingBundle] = useState<BundleSummary | null>(null)
@@ -116,146 +83,19 @@ export default function BundlesPage() {
     })
   }, [bundleSearch, bundleStatus, bundles])
 
-  const openBundleDetail = async (bundle: BundleSummary) => {
+  const openBundleDetail = (bundle: BundleSummary) => {
     setSelectedBundle(bundle)
     setDetailOpen(true)
-    setLoadingItems(true)
-    try {
-      const items = await getBundleItems(bundle.id)
-      setBundleItems(items)
-    } catch (error: unknown) {
-      setBundleItems([])
-      toast.error(parseApiError(error, 'No se pudieron cargar los productos del bundle'))
-    } finally {
-      setLoadingItems(false)
-    }
   }
 
   const openCreateDialog = () => {
-    setUpsertMode('create')
     setEditingBundle(null)
-    setBundleForm(emptyBundleForm)
     setUpsertOpen(true)
   }
 
-  const openEditDialog = async (bundle: BundleSummary) => {
-    setUpsertMode('edit')
+  const openEditDialog = (bundle: BundleSummary) => {
     setEditingBundle(bundle)
-    setSavingBundle(false)
-
-    try {
-      const items = await getBundleItems(bundle.id)
-      setBundleForm({
-        nombre: bundle.nombre,
-        descripcion: bundle.descripcion ?? '',
-        descuentoPct: String(bundle.descuentoPct),
-        activo: bundle.activo,
-        items: items.length
-          ? items.map((item) => ({ productoId: String(item.productoId), cantidad: item.cantidad }))
-          : [{ productoId: '', cantidad: 1 }],
-      })
-      setUpsertOpen(true)
-    } catch (error: unknown) {
-      toast.error(parseApiError(error, 'No se pudo abrir el bundle para edición'))
-    }
-  }
-
-  const addItemRow = () => {
-    setBundleForm((current) => ({
-      ...current,
-      items: [...current.items, { productoId: '', cantidad: 1 }],
-    }))
-  }
-
-  const removeItemRow = (index: number) => {
-    setBundleForm((current) => {
-      const updated = current.items.filter((_, idx) => idx !== index)
-      return {
-        ...current,
-        items: updated.length ? updated : [{ productoId: '', cantidad: 1 }],
-      }
-    })
-  }
-
-  const updateItemProducto = (index: number, value: string) => {
-    setBundleForm((current) => ({
-      ...current,
-      items: current.items.map((item, idx) => (idx === index ? { ...item, productoId: value } : item)),
-    }))
-  }
-
-  const updateItemCantidad = (index: number, value: number) => {
-    setBundleForm((current) => ({
-      ...current,
-      items: current.items.map((item, idx) => (idx === index ? { ...item, cantidad: value } : item)),
-    }))
-  }
-
-  const buildPayload = (): BundleUpsertRequest | null => {
-    const nombre = bundleForm.nombre.trim()
-    if (!nombre) {
-      toast.error('El nombre del bundle es obligatorio')
-      return null
-    }
-
-    const descuento = Number(bundleForm.descuentoPct)
-    if (Number.isNaN(descuento) || descuento < 0 || descuento > 100) {
-      toast.error('El descuento debe estar entre 0 y 100')
-      return null
-    }
-
-    const selectedItems = bundleForm.items
-      .map((item) => ({ productoId: Number(item.productoId), cantidad: Number(item.cantidad) }))
-      .filter((item) => !Number.isNaN(item.productoId))
-
-    if (selectedItems.length === 0) {
-      toast.error('Debes agregar al menos un producto al bundle')
-      return null
-    }
-
-    if (selectedItems.some((item) => item.cantidad < 1)) {
-      toast.error('La cantidad por producto debe ser mayor o igual a 1')
-      return null
-    }
-
-    const ids = selectedItems.map((item) => item.productoId)
-    if (new Set(ids).size !== ids.length) {
-      toast.error('No puedes repetir el mismo producto dentro del bundle')
-      return null
-    }
-
-    return {
-      nombre,
-      descripcion: bundleForm.descripcion.trim() || undefined,
-      descuentoPct: descuento,
-      activo: bundleForm.activo,
-      items: selectedItems,
-    }
-  }
-
-  const submitBundle = async () => {
-    const payload = buildPayload()
-    if (!payload) return
-
-    setSavingBundle(true)
-    try {
-      if (upsertMode === 'create') {
-        await crearBundle(payload)
-        toast.success(`Bundle "${payload.nombre}" creado correctamente.`)
-      } else if (editingBundle) {
-        await actualizarBundle(editingBundle.id, payload)
-        toast.success(`Bundle "${payload.nombre}" actualizado correctamente.`)
-      }
-
-      await cargarDatos()
-      setUpsertOpen(false)
-      setEditingBundle(null)
-      setBundleForm(emptyBundleForm)
-    } catch (error: unknown) {
-      toast.error(parseApiError(error, 'No se pudo guardar el bundle'))
-    } finally {
-      setSavingBundle(false)
-    }
+    setUpsertOpen(true)
   }
 
   const requestDelete = (bundle: BundleSummary) => {
@@ -346,9 +186,7 @@ export default function BundlesPage() {
                   <TableRow
                     key={bundle.id}
                     className="cursor-pointer hover:bg-accent"
-                    onClick={() => {
-                      void openBundleDetail(bundle)
-                    }}
+                    onClick={() => openBundleDetail(bundle)}
                   >
                     <TableCell className="font-medium">{bundle.nombre}</TableCell>
                     <TableCell className="max-w-[320px] whitespace-normal text-muted-foreground">
@@ -377,11 +215,7 @@ export default function BundlesPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="min-w-40">
-                              <DropdownMenuItem
-                                onSelect={() => {
-                                  void openEditDialog(bundle)
-                                }}
-                              >
+                              <DropdownMenuItem onSelect={() => openEditDialog(bundle)}>
                                 <Pencil className="h-4 w-4" />
                                 Editar
                               </DropdownMenuItem>
@@ -405,189 +239,25 @@ export default function BundlesPage() {
         </div>
       </div>
 
-      <Dialog
+      <BundleDetailModal
         open={detailOpen}
-        onOpenChange={(open) => {
-          setDetailOpen(open)
-          if (!open) {
-            setSelectedBundle(null)
-            setBundleItems([])
-          }
+        onClose={() => {
+          setDetailOpen(false)
+          setSelectedBundle(null)
         }}
-      >
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Productos del bundle: {selectedBundle?.nombre}</DialogTitle>
-          </DialogHeader>
+        bundle={selectedBundle}
+      />
 
-          <div className="rounded-lg border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Producto</TableHead>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>Cantidad</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loadingItems ? (
-                  <TableRow>
-                    <TableCell colSpan={3} className="py-10 text-center text-muted-foreground">
-                      Cargando productos del bundle...
-                    </TableCell>
-                  </TableRow>
-                ) : bundleItems.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={3} className="py-10 text-center text-muted-foreground">
-                      Este bundle no tiene productos asociados.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  bundleItems.map((item) => (
-                    <TableRow key={item.productoId}>
-                      <TableCell className="font-medium">{item.productoNombre}</TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">{item.sku}</TableCell>
-                      <TableCell>{item.cantidad}</TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
+      <BundleFormModal
         open={upsertOpen}
-        onOpenChange={(open) => {
-          setUpsertOpen(open)
-          if (!open) {
-            setEditingBundle(null)
-            setBundleForm(emptyBundleForm)
-          }
+        onClose={() => {
+          setUpsertOpen(false)
+          setEditingBundle(null)
         }}
-      >
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>{upsertMode === 'create' ? 'Nuevo bundle' : 'Editar bundle'}</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="space-y-1">
-                <Label>Nombre</Label>
-                <Input
-                  value={bundleForm.nombre}
-                  onChange={(event) => setBundleForm((current) => ({ ...current, nombre: event.target.value }))}
-                  placeholder="Ej. Pack Home Office"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label>Descuento (%)</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  value={bundleForm.descuentoPct}
-                  onChange={(event) =>
-                    setBundleForm((current) => ({ ...current, descuentoPct: event.target.value }))
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label>Descripción (opcional)</Label>
-              <Textarea
-                rows={3}
-                value={bundleForm.descripcion}
-                onChange={(event) => setBundleForm((current) => ({ ...current, descripcion: event.target.value }))}
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label>Estado</Label>
-              <Select
-                value={bundleForm.activo ? 'true' : 'false'}
-                onValueChange={(value) => setBundleForm((current) => ({ ...current, activo: value === 'true' }))}
-              >
-                <SelectTrigger className="w-full md:w-60">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="true">Activo</SelectItem>
-                  <SelectItem value="false">Inactivo</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label>Productos del bundle</Label>
-                <Button type="button" variant="outline" size="sm" onClick={addItemRow}>
-                  Añadir producto
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                {bundleForm.items.map((item, index) => (
-                  (() => {
-                    const selectedProduct = productos.find((producto) => String(producto.id) === item.productoId) ?? null
-                    const basePrice = selectedProduct?.precioUnitario ?? 0
-                    const discount = Number(bundleForm.descuentoPct)
-                    const safeDiscount = Number.isFinite(discount) ? Math.min(100, Math.max(0, discount)) : 0
-                    const subtotal = basePrice * item.cantidad * (1 - safeDiscount / 100)
-
-                    return (
-                      <div key={index} className="space-y-2 rounded-md border p-3">
-                        <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_120px_auto]">
-                          <Select value={item.productoId} onValueChange={(value) => updateItemProducto(index, value)}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecciona un producto" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {productos.map((producto) => (
-                                <SelectItem key={producto.id} value={String(producto.id)}>
-                                  {producto.nombre} ({producto.sku})
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-
-                          <Input
-                            type="number"
-                            min="1"
-                            value={item.cantidad}
-                            onChange={(event) => updateItemCantidad(index, Number(event.target.value))}
-                          />
-
-                          <Button type="button" variant="ghost" onClick={() => removeItemRow(index)}>
-                            Quitar
-                          </Button>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          Precio base: €{basePrice.toFixed(2)} · Subtotal estimado línea: €{subtotal.toFixed(2)}
-                        </p>
-                      </div>
-                    )
-                  })()
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setUpsertOpen(false)}>
-              Cancelar
-            </Button>
-            <Button type="button" onClick={() => void submitBundle()} disabled={savingBundle}>
-              {savingBundle ? 'Guardando...' : 'Guardar'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onSaved={() => void cargarDatos()}
+        bundle={editingBundle}
+        productos={productos}
+      />
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>

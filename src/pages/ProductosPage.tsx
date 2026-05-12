@@ -760,8 +760,8 @@ export default function ProductosPage() {
                 )}
               />
 
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setCreateDialog(false)}>
+              <DialogFooter className="flex-row justify-end">
+                <Button type="button" variant="ghost" onClick={() => setCreateDialog(false)}>
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={submittingCreate}>
@@ -1057,7 +1057,6 @@ export default function ProductosPage() {
     </div>
   )
 }
-
 
 
 

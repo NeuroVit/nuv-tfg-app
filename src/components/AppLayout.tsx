@@ -7,7 +7,6 @@ import { getAlertas } from '@/api/alerta'
 import { getMe } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
 import { useProfileStore } from '@/store/profileStore'
-import type { UserProfile } from '@/types/auth'
 import type { AnaliticaMeta } from '@/types/analitica'
 import type { AlertaStock } from '@/types/alerta'
 import { AppSidebar } from '@/components/AppSidebar'
@@ -16,9 +15,6 @@ import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-
-const toTitleCase = (str: string) =>
-  str.toLowerCase().replace(/\b\p{L}/gu, (c) => c.toUpperCase())
 
 type TopTab = { to: string; label: string }
 
@@ -45,13 +41,11 @@ const inRouteGroup = (pathname: string, routes: string[]) =>
 
 export default function AppLayout() {
   const { user } = useAuthStore()
-  const setDisplayName = useProfileStore((s) => s.setDisplayName)
+  const setProfile = useProfileStore((s) => s.setProfile)
   const navigate = useNavigate()
   const location = useLocation()
 
   const isSettingsRoute = location.pathname.startsWith('/settings')
-  const isAnalyticsRoute = location.pathname.startsWith('/analitica')
-  const [profile, setProfile] = useState<UserProfile | null>(null)
   const [analyticsMeta, setAnalyticsMeta] = useState<AnaliticaMeta | null>(null)
   const [openAlertsCount, setOpenAlertsCount] = useState(0)
   const [recentOpenAlerts, setRecentOpenAlerts] = useState<AlertaStock[]>([])
@@ -65,15 +59,6 @@ export default function AppLayout() {
     if (inRouteGroup(location.pathname, ['/analitica'])) return analiticaTabs
     return []
   }, [isSettingsRoute, location.pathname])
-
-  const accountLabel = useMemo(() => {
-    const fullName = [profile?.nombre?.trim(), profile?.apellidos?.trim()].filter(Boolean).join(' ').trim()
-    return toTitleCase(fullName || user?.username || 'Usuario')
-  }, [profile?.apellidos, profile?.nombre, user?.username])
-
-  useEffect(() => {
-    setDisplayName(accountLabel)
-  }, [accountLabel, setDisplayName])
 
   const sectionLabel = useMemo(() => {
     const path = location.pathname
@@ -109,7 +94,7 @@ export default function AppLayout() {
     return () => {
       isMounted = false
     }
-  }, [user?.token])
+  }, [user?.token, setProfile])
 
   useEffect(() => {
     let isMounted = true
@@ -173,10 +158,6 @@ export default function AppLayout() {
       analyticsMeta.source === 'API_REAL_SEED_PENDING'
     return isMockMode ? 'Modo de datos de prueba' : 'API real'
   }, [analyticsMeta])
-
-  useEffect(() => {
-    setSidebarOpen(!isAnalyticsRoute)
-  }, [isAnalyticsRoute])
 
   return (
     <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>

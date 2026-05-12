@@ -4,16 +4,13 @@ import { toast } from 'sonner'
 import { Archive, MoreHorizontal, Plus, RotateCcw, Truck } from 'lucide-react'
 import {
   archivarProveedor,
-  crearProveedor,
-  editarProveedor,
   getProveedores,
   restaurarProveedor,
 } from '@/api/provider'
-import type { Proveedor, ProveedorRequest } from '@/types/provider'
+import type { Proveedor } from '@/types/provider'
 import { useAuthStore } from '@/store/authStore'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,22 +18,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { parseApiError } from '@/lib/apiError'
+import ProveedorModal from '@/components/ProveedorModal'
 
-type ProviderFormState = {
-  nombre: string
-  ubicacionAlmacen: string
-  diasEntrega: string
-}
-
-const emptyProviderForm: ProviderFormState = {
-  nombre: '',
-  ubicacionAlmacen: '',
-  diasEntrega: '0',
-}
 const PAGE_SIZE = 20
 
 export default function ProveedoresPage() {
@@ -55,10 +41,7 @@ export default function ProveedoresPage() {
   const [offset, setOffset] = useState(0)
 
   const [providerDialogOpen, setProviderDialogOpen] = useState(false)
-  const [providerDialogMode, setProviderDialogMode] = useState<'create' | 'edit'>('create')
-  const [providerForm, setProviderForm] = useState<ProviderFormState>(emptyProviderForm)
   const [editingProvider, setEditingProvider] = useState<Proveedor | null>(null)
-  const [savingProvider, setSavingProvider] = useState(false)
 
   const loadProviders = async () => {
     setLoadingProviders(true)
@@ -112,55 +95,13 @@ export default function ProveedoresPage() {
   }, [offset, total])
 
   const openCreateProvider = () => {
-    setProviderDialogMode('create')
     setEditingProvider(null)
-    setProviderForm(emptyProviderForm)
     setProviderDialogOpen(true)
   }
 
   const openEditProvider = (provider: Proveedor) => {
-    setProviderDialogMode('edit')
     setEditingProvider(provider)
-    setProviderForm({
-      nombre: provider.nombre,
-      ubicacionAlmacen: provider.ubicacionAlmacen,
-      diasEntrega: String(provider.diasEntrega),
-    })
     setProviderDialogOpen(true)
-  }
-
-  const submitProvider = async () => {
-    const payload: ProveedorRequest = {
-      nombre: providerForm.nombre.trim(),
-      ubicacionAlmacen: providerForm.ubicacionAlmacen.trim(),
-      diasEntrega: Number(providerForm.diasEntrega),
-    }
-
-    if (!payload.nombre || !payload.ubicacionAlmacen) {
-      toast.error('Nombre y ubicaciÃ³n de almacÃ©n son obligatorios')
-      return
-    }
-    if (Number.isNaN(payload.diasEntrega) || payload.diasEntrega < 0) {
-      toast.error('El plazo de entrega debe ser un nÃºmero mayor o igual a 0')
-      return
-    }
-
-    setSavingProvider(true)
-    try {
-      if (providerDialogMode === 'create') {
-        await crearProveedor(payload)
-        toast.success('Proveedor creado correctamente')
-      } else if (editingProvider) {
-        await editarProveedor(editingProvider.id, payload)
-        toast.success('Proveedor actualizado correctamente')
-      }
-      setProviderDialogOpen(false)
-      await loadProviders()
-    } catch (error: unknown) {
-      toast.error(parseApiError(error, 'No se pudo guardar el proveedor'))
-    } finally {
-      setSavingProvider(false)
-    }
   }
 
   const toggleArchiveProvider = async (provider: Proveedor) => {
@@ -333,54 +274,12 @@ export default function ProveedoresPage() {
         </div>
       </div>
 
-      <Dialog open={providerDialogOpen} onOpenChange={setProviderDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {providerDialogMode === 'create' ? 'Crear proveedor' : 'Editar proveedor'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-2">
-            <div className="space-y-2">
-              <Label>Nombre</Label>
-              <Input
-                value={providerForm.nombre}
-                onChange={(event) =>
-                  setProviderForm((current) => ({ ...current, nombre: event.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>UbicaciÃ³n del almacÃ©n</Label>
-              <Input
-                value={providerForm.ubicacionAlmacen}
-                onChange={(event) =>
-                  setProviderForm((current) => ({ ...current, ubicacionAlmacen: event.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>DÃ­as de entrega</Label>
-              <Input
-                type="number"
-                min="0"
-                value={providerForm.diasEntrega}
-                onChange={(event) =>
-                  setProviderForm((current) => ({ ...current, diasEntrega: event.target.value }))
-                }
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setProviderDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={() => void submitProvider()} disabled={savingProvider}>
-              {savingProvider ? 'Guardando...' : 'Guardar'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ProveedorModal
+        open={providerDialogOpen}
+        onClose={() => setProviderDialogOpen(false)}
+        onSaved={() => void loadProviders()}
+        proveedor={editingProvider}
+      />
     </div>
   )
 }

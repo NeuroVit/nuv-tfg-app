@@ -13,6 +13,7 @@ const FIVE_MINUTES_MS = 5 * 60 * 1000
 export default function ProtectedRoute({ allowedRoles }: Props) {
   const { user, isAuthenticated, hasRole } = useAuthStore()
   const setOrganizationName = useProfileStore((s) => s.setOrganizationName)
+  const setProfile = useProfileStore((s) => s.setProfile)
   const session = useSessionStore((s) => s.session)
   const sessionLoading = useSessionStore((s) => s.loading)
   const refreshSession = useSessionStore((s) => s.refreshSession)
@@ -24,6 +25,7 @@ export default function ProtectedRoute({ allowedRoles }: Props) {
     if (!isAuthenticated()) {
       clearSession()
       setOrganizationName('')
+      setProfile(null)
       return
     }
 
@@ -62,7 +64,7 @@ export default function ProtectedRoute({ allowedRoles }: Props) {
         window.removeEventListener(eventName, updateActivity)
       })
     }
-  }, [clearSession, isAuthenticated, refreshSession, setOrganizationName])
+  }, [clearSession, isAuthenticated, refreshSession, setOrganizationName, setProfile])
 
   useEffect(() => {
     setOrganizationName(session?.organization?.name ?? '')

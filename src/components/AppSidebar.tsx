@@ -2,7 +2,7 @@ import { useNavigate, NavLink } from 'react-router'
 import { toast } from 'sonner'
 import { logout as logoutRequest } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
-import { useProfileStore } from '@/store/profileStore'
+import { useDisplayName, useProfileStore } from '@/store/profileStore'
 import { useTheme } from 'next-themes'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -93,7 +93,7 @@ type AppSidebarProps = {
 
 export function AppSidebar({ isSettingsRoute = false, collapsible = 'icon' }: AppSidebarProps) {
   const { user, logout: clearSession } = useAuthStore()
-  const displayName = useProfileStore((s) => s.displayName)
+  const displayName = useDisplayName()
   const organizationName = useProfileStore((s) => s.organizationName)
   const { theme, resolvedTheme, setTheme } = useTheme()
   const navigate = useNavigate()

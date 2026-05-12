@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router'
 import { AlertCircle, ArrowDown, ArrowUp, PackageSearch } from 'lucide-react'
 import { getFinanzasResumenAnalitica, getTopProductosVelocidadAnalitica, getVelocidadResumenAnalitica } from '@/api/analitica'
 import { useInventarioDashboard } from '@/hooks/useInventarioDashboard'
-import { useProfileStore } from '@/store/profileStore'
+import { useDisplayName } from '@/store/profileStore'
 import type { TopProductVelocityRow, VelocitySummaryRow } from '@/types/analitica'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -155,7 +155,7 @@ const daysBetween = (start: Date, end: Date) => Math.max(1, Math.ceil((end.getTi
 
 export default function Inicio() {
   const navigate = useNavigate()
-  const displayName = useProfileStore((s) => s.displayName)
+  const displayName = useDisplayName()
   const [timeRange, setTimeRange] = useState<TimeRange>('weekly')
   const [selectedChart, setSelectedChart] = useState<DashboardChart>('movements')
   const [revenueSummary, setRevenueSummary] = useState<VelocitySummaryRow[]>([])

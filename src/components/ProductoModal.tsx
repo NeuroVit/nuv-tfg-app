@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { isAxiosError } from 'axios'
-import { AlertTriangle, RefreshCw, X } from 'lucide-react'
+import { RefreshCw, X } from 'lucide-react'
 import client from '@/api/client'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { RequiredMark } from '@/components/ModalShell'
 import type { ApiError, Categoria } from '@/types/api'
 import type { Producto } from '@/types/producto'
 import type { Proveedor } from '@/types/provider'
@@ -208,12 +209,12 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       onClick={onClose}
       role="presentation"
     >
       <div
-        className="w-full max-w-[560px] rounded-2xl border bg-sidebar-active text-sidebar-active-foreground shadow-2xl"
+        className="w-full max-w-[560px] rounded-2xl border bg-background text-foreground shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between border-b px-6 py-4">
@@ -236,7 +237,7 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
             <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Información básica</h3>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Nombre</label>
+              <label className="text-sm font-medium text-foreground">Nombre <RequiredMark /></label>
               <input
                 value={form.nombre}
                 onChange={(event) => updateField('nombre', event.target.value)}
@@ -248,64 +249,66 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
               {touched.nombre && mergedErrors.nombre && <p className="text-xs text-red-600">{mergedErrors.nombre}</p>}
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Categoría</label>
-              <Select
-                value={form.categoriaId}
-                onValueChange={(value) => {
-                  updateField('categoriaId', value)
-                  markTouched('categoriaId')
-                }}
-              >
-                <SelectTrigger
-                  aria-invalid={touched.categoriaId && mergedErrors.categoriaId ? true : undefined}
-                  className={`w-full rounded-xl bg-sidebar-active ${
-                    touched.categoriaId && mergedErrors.categoriaId ? 'border-red-500 ring-2 ring-red-100' : 'border-input focus:border-ring'
-                  }`}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">Categoría <RequiredMark /></label>
+                <Select
+                  value={form.categoriaId}
+                  onValueChange={(value) => {
+                    updateField('categoriaId', value)
+                    markTouched('categoriaId')
+                  }}
                 >
-                  <SelectValue placeholder="Selecciona una categoría" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categorias.map((categoria) => (
-                    <SelectItem key={categoria.id} value={String(categoria.id)}>
-                      {categoria.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {touched.categoriaId && mergedErrors.categoriaId && <p className="text-xs text-red-600">{mergedErrors.categoriaId}</p>}
+                  <SelectTrigger
+                    aria-invalid={touched.categoriaId && mergedErrors.categoriaId ? true : undefined}
+                    className={`w-full rounded-xl bg-background ${
+                      touched.categoriaId && mergedErrors.categoriaId ? 'border-red-500 ring-2 ring-red-100' : 'border-input focus:border-ring'
+                    }`}
+                  >
+                    <SelectValue placeholder="Selecciona una categoría" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categorias.map((categoria) => (
+                      <SelectItem key={categoria.id} value={String(categoria.id)}>
+                        {categoria.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {touched.categoriaId && mergedErrors.categoriaId && <p className="text-xs text-red-600">{mergedErrors.categoriaId}</p>}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">Proveedor <RequiredMark /></label>
+                <Select
+                  value={form.providerId}
+                  onValueChange={(value) => {
+                    updateField('providerId', value)
+                    markTouched('providerId')
+                  }}
+                >
+                  <SelectTrigger
+                    aria-invalid={touched.providerId && mergedErrors.providerId ? true : undefined}
+                    className={`w-full rounded-xl bg-background ${
+                      touched.providerId && mergedErrors.providerId ? 'border-red-500 ring-2 ring-red-100' : 'border-input focus:border-ring'
+                    }`}
+                  >
+                    <SelectValue placeholder="Selecciona un proveedor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {proveedores.map((proveedor) => (
+                      <SelectItem key={proveedor.id} value={String(proveedor.id)}>
+                        {proveedor.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {touched.providerId && mergedErrors.providerId && <p className="text-xs text-red-600">{mergedErrors.providerId}</p>}
+              </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Proveedor</label>
-              <Select
-                value={form.providerId}
-                onValueChange={(value) => {
-                  updateField('providerId', value)
-                  markTouched('providerId')
-                }}
-              >
-                <SelectTrigger
-                  aria-invalid={touched.providerId && mergedErrors.providerId ? true : undefined}
-                  className={`w-full rounded-xl bg-sidebar-active ${
-                    touched.providerId && mergedErrors.providerId ? 'border-red-500 ring-2 ring-red-100' : 'border-input focus:border-ring'
-                  }`}
-                >
-                  <SelectValue placeholder="Selecciona un proveedor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {proveedores.map((proveedor) => (
-                    <SelectItem key={proveedor.id} value={String(proveedor.id)}>
-                      {proveedor.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {touched.providerId && mergedErrors.providerId && <p className="text-xs text-red-600">{mergedErrors.providerId}</p>}
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">SKU</label>
+              <label className="text-sm font-medium text-foreground">SKU <RequiredMark /></label>
               <div className="flex gap-2">
                 <input
                   value={form.sku}
@@ -331,17 +334,14 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
             <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Stock y precio</h3>
 
             {showStockWarning && (
-              <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <p>El stock actual ({form.stockActual}) está por debajo del mínimo ({form.stockMinimo}). Se creará una alerta automáticamente al guardar.</p>
-                </div>
-              </div>
+              <p className="text-sm text-amber-800">
+                * El stock actual ({form.stockActual}) está por debajo del mínimo ({form.stockMinimo}). Se creará una alerta automáticamente al guardar.
+              </p>
             )}
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Stock actual</label>
+                <label className="text-xs font-medium text-foreground">Stock actual <RequiredMark /></label>
                 <input
                   type="number"
                   min={0}
@@ -356,7 +356,7 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Stock mínimo</label>
+                <label className="text-xs font-medium text-foreground">Stock mínimo <RequiredMark /></label>
                 <input
                   type="number"
                   min={1}
@@ -371,7 +371,7 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Precio (€)</label>
+                <label className="text-xs font-medium text-foreground">Precio (€) <RequiredMark /></label>
                 <input
                   type="number"
                   min={0.01}
@@ -387,7 +387,7 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Coste unitario (€)</label>
+                <label className="text-xs font-medium text-foreground">Coste unitario (€) <RequiredMark /></label>
                 <input
                   type="number"
                   min={0.01}
@@ -404,20 +404,20 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
             </div>
           </section>
 
-          <div className="flex items-center justify-between border-t pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground transition hover:bg-accent"
-            >
-              Cancelar
-            </button>
-            <div className="text-right">
-              {footerError && <p className="mb-1 text-xs text-red-600">{footerError}</p>}
+          <div className="border-t pt-4">
+            {footerError && <p className="mb-1 text-right text-xs text-red-600">{footerError}</p>}
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-foreground transition hover:bg-accent"
+              >
+                Cancelar
+              </button>
               <button
                 type="submit"
                 disabled={saving || hasValidationErrors}
-                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {saving ? 'Guardando…' : 'Guardar producto'}
               </button>

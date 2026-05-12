@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import {
   archivarCliente,
-  crearCliente,
-  editarCliente,
   getClientes,
   restaurarCliente,
 } from '@/api/cliente'
@@ -12,7 +10,6 @@ import type { Cliente } from '@/types/cliente'
 import { useAuthStore } from '@/store/authStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   DropdownMenu,
@@ -22,16 +19,9 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Archive, MoreHorizontal, Pencil, ReceiptText, RotateCcw } from 'lucide-react'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog'
+import ClienteModal from '@/components/ClienteModal'
 
 const PAGE_SIZE = 20
-const emptyForm = { nombre: '', email: '', telefono: '', notas: '' }
 
 export default function ClientesPage() {
   const navigate = useNavigate()
@@ -46,8 +36,6 @@ export default function ClientesPage() {
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Cliente | null>(null)
-  const [form, setForm] = useState(emptyForm)
-  const [saving, setSaving] = useState(false)
 
   const loadClients = async () => {
     setLoading(true)
@@ -112,66 +100,17 @@ export default function ClientesPage() {
 
   const openCreate = () => {
     setEditing(null)
-    setForm(emptyForm)
     setModalOpen(true)
   }
 
   const openEdit = (client: Cliente) => {
     setEditing(client)
-    setForm({
-      nombre: client.nombre,
-      email: client.email ?? '',
-      telefono: client.telefono ?? '',
-      notas: client.notas ?? '',
-    })
     setModalOpen(true)
   }
 
   const closeModal = () => {
     setModalOpen(false)
     setEditing(null)
-    setForm(emptyForm)
-  }
-
-  const submit = async () => {
-    if (!canEdit) return
-    if (!form.nombre.trim()) {
-      toast.error('El nombre es obligatorio')
-      return
-    }
-    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
-      toast.error('El formato del email no es vÃ¡lido')
-      return
-    }
-    if (form.telefono.trim() && !/^[+\d\s()-]{7,25}$/.test(form.telefono.trim())) {
-      toast.error('El formato del telÃ©fono no es vÃ¡lido')
-      return
-    }
-
-    setSaving(true)
-    try {
-      const payload = {
-        nombre: form.nombre.trim(),
-        email: form.email.trim() || undefined,
-        telefono: form.telefono.trim() || undefined,
-        notas: form.notas.trim() || undefined,
-      }
-
-      if (editing) {
-        await editarCliente(editing.id, payload)
-        toast.success('Cliente actualizado')
-      } else {
-        await crearCliente(payload)
-        toast.success('Cliente creado')
-      }
-
-      closeModal()
-      await loadClients()
-    } catch {
-      toast.error('No se pudo guardar el cliente')
-    } finally {
-      setSaving(false)
-    }
   }
 
   const toggleArchive = async (client: Cliente) => {
@@ -301,45 +240,13 @@ export default function ClientesPage() {
         </div>
       </div>
 
-      <Dialog open={modalOpen} onOpenChange={(open) => { if (!open) closeModal() }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{editing ? 'Editar cliente' : 'Nuevo cliente'}</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-3 py-2">
-            <Input
-              placeholder="Nombre *"
-              value={form.nombre}
-              onChange={(e) => setForm((prev) => ({ ...prev, nombre: e.target.value }))}
-            />
-            <Input
-              placeholder="Email"
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-            />
-            <Input
-              placeholder="Teléfono"
-              value={form.telefono}
-              onChange={(e) => setForm((prev) => ({ ...prev, telefono: e.target.value }))}
-            />
-            <Textarea
-              placeholder="Notas"
-              rows={3}
-              value={form.notas}
-              onChange={(e) => setForm((prev) => ({ ...prev, notas: e.target.value }))}
-            />
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={closeModal}>Cancelar</Button>
-            <Button onClick={() => void submit()} disabled={saving || !canEdit}>
-              {saving ? 'Guardando...' : 'Guardar'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ClienteModal
+        open={modalOpen}
+        onClose={closeModal}
+        onSaved={() => void loadClients()}
+        cliente={editing}
+        canEdit={canEdit}
+      />
     </div>
   )
 }
