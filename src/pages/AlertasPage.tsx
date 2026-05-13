@@ -10,10 +10,12 @@ import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useFormatters } from '@/lib/useFormatters'
 
 const PAGE_SIZE = 20
 const isStockShortageAlert = (alert: AlertaStock) => alert.tipo === 'LOW_STOCK' || alert.tipo === 'OUT_OF_STOCK'
-const canResolveManually = (alert: AlertaStock) => !isStockShortageAlert(alert)
+const isPriceAnomalyAlert = (alert: AlertaStock) => alert.tipo === 'PRICE_ANOMALY'
+const canResolveManually = (alert: AlertaStock) => !isStockShortageAlert(alert) && !isPriceAnomalyAlert(alert)
 
 const typeMeta: Record<string, { label: string; chipClass: string; dotClass: string; rowAccent: string }> = {
   OUT_OF_STOCK: {
@@ -36,35 +38,58 @@ const typeMeta: Record<string, { label: string; chipClass: string; dotClass: str
   },
 }
 
-const formatDate = (value: string | null) =>
-  value
-    ? new Date(value).toLocaleString('es-ES', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : '—'
-
 export default function AlertasPage() {
+  const { formatDateTime } = useFormatters()
   const navigate = useNavigate()
-  const { hasRole } = useAuthStore()
+  const { hasRole, user } = useAuthStore()
   const canResolve = hasRole('ROLE_ADMIN') || hasRole('ROLE_MANAGER')
 
   const [filter, setFilter] = useState<'all' | 'open' | 'resolved'>('open')
   const [alerts, setAlerts] = useState<AlertaStock[]>([])
+  const [kpiAlerts, setKpiAlerts] = useState<AlertaStock[]>([])
   const [loading, setLoading] = useState(true)
   const [resolving, setResolving] = useState(false)
   const [offset, setOffset] = useState(0)
   const [selectedAlertIds, setSelectedAlertIds] = useState<number[]>([])
   const [search, setSearch] = useState('')
+  const [seenAlertIds, setSeenAlertIds] = useState<number[]>([])
+  const seenStorageKey = useMemo(
+    () => `nuv-alertas-seen:${user?.username ?? 'anon'}`,
+    [user?.username]
+  )
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(seenStorageKey)
+      if (!raw) {
+        setSeenAlertIds([])
+        return
+      }
+      const parsed = JSON.parse(raw)
+      const ids = Array.isArray(parsed) ? parsed.filter((value) => typeof value === 'number') : []
+      setSeenAlertIds(ids)
+    } catch {
+      setSeenAlertIds([])
+    }
+  }, [seenStorageKey])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(seenStorageKey, JSON.stringify(seenAlertIds))
+    } catch {
+      // noop
+    }
+  }, [seenAlertIds, seenStorageKey])
 
   const loadAlerts = async () => {
     setLoading(true)
     try {
-      const data = await getAlertas(filter === 'all' ? undefined : filter === 'resolved')
-      setAlerts(data)
+      const [tableData, allData] = await Promise.all([
+        getAlertas(filter === 'all' ? undefined : filter === 'resolved'),
+        filter === 'all' ? Promise.resolve<AlertaStock[]>([]) : getAlertas(undefined),
+      ])
+      setAlerts(tableData)
+      setKpiAlerts(filter === 'all' ? tableData : allData)
       setSelectedAlertIds([])
     } catch {
       toast.error('No se pudieron cargar las alertas')
@@ -75,6 +100,22 @@ export default function AlertasPage() {
 
   useEffect(() => {
     void loadAlerts()
+    const timer = window.setInterval(() => {
+      void loadAlerts()
+    }, 15000)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void loadAlerts()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onVisible)
+
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onVisible)
+    }
   }, [filter])
 
   const resolve = async (id: number) => {
@@ -97,7 +138,7 @@ export default function AlertasPage() {
       return alert ? canResolveManually(alert) : false
     })
     if (eligibleAlertIds.length === 0) {
-      toast.info('Las alertas de stock bajo o sin stock se resuelven al reponer inventario')
+      toast.info('Las alertas de stock se resuelven al reponer y las de precio se corrigen en producto')
       return
     }
     setResolving(true)
@@ -117,20 +158,45 @@ export default function AlertasPage() {
     navigate(`/pedidos?restockProductId=${alert.productoId}&autoCreate=1`)
   }
 
+  const goToProductoForPriceFix = (alert: AlertaStock) => {
+    toast.info(`Abriendo producto para corregir precio: ${alert.productoNombre}`)
+    navigate(`/productos?editProductId=${alert.productoId}&focus=pricing`)
+  }
+
+  const isSeen = (alertId: number) => seenAlertIds.includes(alertId)
+  const formatDate = (value: string | null) =>
+    value
+      ? formatDateTime(value, {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : '—'
+
+  const markSeen = (alertId: number) => {
+    setSeenAlertIds((current) => (current.includes(alertId) ? current : [...current, alertId]))
+  }
+
+  const markUnseen = (alertId: number) => {
+    setSeenAlertIds((current) => current.filter((id) => id !== alertId))
+  }
+
   const counters = useMemo(() => {
-    const open = alerts.filter((alert) => !alert.resuelta).length
-    const resolved = alerts.filter((alert) => alert.resuelta).length
-    const critical = alerts.filter((alert) => !alert.resuelta && alert.tipo === 'OUT_OF_STOCK').length
-    const low = alerts.filter((alert) => !alert.resuelta && alert.tipo === 'LOW_STOCK').length
-    const anomalies = alerts.filter((alert) => !alert.resuelta && alert.tipo === 'PRICE_ANOMALY').length
-    const resolvedLast7d = alerts.filter((alert) => {
+    const open = kpiAlerts.filter((alert) => !alert.resuelta).length
+    const resolved = kpiAlerts.filter((alert) => alert.resuelta).length
+    const critical = kpiAlerts.filter((alert) => !alert.resuelta && alert.tipo === 'OUT_OF_STOCK').length
+    const low = kpiAlerts.filter((alert) => !alert.resuelta && alert.tipo === 'LOW_STOCK').length
+    const anomalies = kpiAlerts.filter((alert) => !alert.resuelta && alert.tipo === 'PRICE_ANOMALY').length
+    const resolvedLast7d = kpiAlerts.filter((alert) => {
       if (!alert.resuelta || !alert.resueltaEn) return false
       const resolvedAt = new Date(alert.resueltaEn).getTime()
       if (!Number.isFinite(resolvedAt)) return false
       return Date.now() - resolvedAt <= 7 * 24 * 60 * 60 * 1000
     }).length
     return { open, resolved, critical, low, anomalies, resolvedLast7d }
-  }, [alerts])
+  }, [kpiAlerts])
 
   const filteredAlerts = useMemo(() => {
     const term = search.trim().toLowerCase()
@@ -278,9 +344,13 @@ export default function AlertasPage() {
                   dotClass: 'text-slate-300',
                   rowAccent: 'before:bg-slate-500',
                 }
+                const seen = isSeen(alert.id)
+                const chipClass = seen ? 'bg-muted text-muted-foreground' : meta.chipClass
+                const dotClass = seen ? 'text-muted-foreground' : meta.dotClass
+                const rowAccent = seen ? 'before:bg-transparent' : meta.rowAccent
 
                 return (
-                  <article key={alert.id} className={`relative grid grid-cols-[40px_1fr_140px_80px] items-center gap-3 rounded-lg border bg-card p-3 before:absolute before:bottom-3 before:left-0 before:top-3 before:w-1 before:rounded-r-md ${meta.rowAccent}`}>
+                  <article key={alert.id} className={`relative grid grid-cols-[40px_1fr_140px_80px] items-center gap-3 rounded-lg border bg-card p-3 before:absolute before:bottom-3 before:left-0 before:top-3 before:w-1 before:rounded-r-md ${rowAccent}`}>
                     <div className="text-center">
                       {!alert.resuelta && canResolveManually(alert) && showSelection ? (
                         <input
@@ -301,13 +371,13 @@ export default function AlertasPage() {
 
                     <div className="min-w-0">
                       <div className="mb-1 flex items-center gap-2">
-                        <Badge className={meta.chipClass}>{meta.label}</Badge>
+                        <Badge className={chipClass}>{meta.label}</Badge>
                       </div>
                       <p className="truncate font-semibold text-foreground">{alert.productoNombre}</p>
                       <p className="truncate text-sm text-muted-foreground">{alert.mensaje}</p>
                       <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
                         <span className="inline-flex items-center gap-1"><Boxes className="h-3.5 w-3.5" /> Inventario</span>
-                        <span className={`inline-flex items-center gap-1 ${meta.dotClass}`}>
+                        <span className={`inline-flex items-center gap-1 ${dotClass}`}>
                           <span className="h-1.5 w-1.5 rounded-full bg-current" />
                           {alert.resuelta ? 'Resuelta' : 'Abierta'}
                         </span>
@@ -317,28 +387,41 @@ export default function AlertasPage() {
                     <div className="text-sm text-foreground">{formatDate(alert.creadaEn)}</div>
 
                     <div className="text-center">
-                      {!alert.resuelta && canResolve ? (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button size="icon" variant="outline" disabled={resolving} aria-label="Acciones de alerta">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            {canResolveManually(alert) ? (
-                              <DropdownMenuItem onSelect={() => void resolve(alert.id)}>
-                                Resolver
-                              </DropdownMenuItem>
-                            ) : (
-                              <DropdownMenuItem onSelect={() => goToPedidosForRestock(alert)}>
-                                Ir a pedidos para reponer
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="icon" variant="outline" disabled={resolving} aria-label="Acciones de alerta">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {seen ? (
+                            <DropdownMenuItem onSelect={() => markUnseen(alert.id)}>
+                              Marcar como no visto
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem onSelect={() => markSeen(alert.id)}>
+                              Marcar como visto
+                            </DropdownMenuItem>
+                          )}
+                          {!alert.resuelta && canResolve ? (
+                            <>
+                              {canResolveManually(alert) ? (
+                                <DropdownMenuItem onSelect={() => void resolve(alert.id)}>
+                                  Resolver
+                                </DropdownMenuItem>
+                              ) : isPriceAnomalyAlert(alert) ? (
+                                <DropdownMenuItem onSelect={() => goToProductoForPriceFix(alert)}>
+                                  Corregir precio
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem onSelect={() => goToPedidosForRestock(alert)}>
+                                  Ir a pedidos para reponer
+                                </DropdownMenuItem>
+                              )}
+                            </>
+                          ) : null}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </article>
                 )

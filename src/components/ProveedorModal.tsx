@@ -20,11 +20,14 @@ type ProviderFormState = {
   diasEntrega: string
 }
 
+const PROVIDER_NAME_MAX_LENGTH = 100
+const WAREHOUSE_LOCATION_MAX_LENGTH = 500
+
 const emptyProviderForm: ProviderFormState = {
   nombre: '',
   email: '',
   ubicacionAlmacen: '',
-  diasEntrega: '0',
+  diasEntrega: '1',
 }
 
 export default function ProveedorModal({ open, onClose, onSaved, proveedor }: ProveedorModalProps) {
@@ -49,15 +52,21 @@ export default function ProveedorModal({ open, onClose, onSaved, proveedor }: Pr
 
   const isFormValid = useMemo(() => {
     const dias = Number(form.diasEntrega)
-    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())
-    const nombreOk = Boolean(form.nombre.trim()) && !/\d/.test(form.nombre.trim())
+    const nombre = form.nombre.trim()
+    const ubicacionAlmacen = form.ubicacionAlmacen.trim()
+    const email = form.email.trim()
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    const nombreOk = !/\d/.test(nombre)
     return (
+      Boolean(nombre) &&
       nombreOk &&
-      Boolean(form.ubicacionAlmacen.trim()) &&
-      Boolean(form.email.trim()) &&
+      nombre.length <= PROVIDER_NAME_MAX_LENGTH &&
+      Boolean(ubicacionAlmacen) &&
+      ubicacionAlmacen.length <= WAREHOUSE_LOCATION_MAX_LENGTH &&
+      Boolean(email) &&
+      emailOk &&
       Number.isFinite(dias) &&
-      dias >= 0 &&
-      emailOk
+      dias >= 1
     )
   }, [form])
 
@@ -79,8 +88,16 @@ export default function ProveedorModal({ open, onClose, onSaved, proveedor }: Pr
       toast.error('El nombre del proveedor no puede contener numeros')
       return
     }
-    if (Number.isNaN(payload.diasEntrega) || payload.diasEntrega < 0) {
-      toast.error('El plazo de entrega debe ser un numero mayor o igual a 0')
+    if (payload.nombre.length > PROVIDER_NAME_MAX_LENGTH) {
+      toast.error(`El nombre no puede superar ${PROVIDER_NAME_MAX_LENGTH} caracteres`)
+      return
+    }
+    if (payload.ubicacionAlmacen.length > WAREHOUSE_LOCATION_MAX_LENGTH) {
+      toast.error(`La ubicación no puede superar ${WAREHOUSE_LOCATION_MAX_LENGTH} caracteres`)
+      return
+    }
+    if (Number.isNaN(payload.diasEntrega) || payload.diasEntrega < 1) {
+      toast.error('El plazo de entrega debe ser un número mayor o igual a 1')
       return
     }
     if (!payload.email) {
@@ -130,12 +147,14 @@ export default function ProveedorModal({ open, onClose, onSaved, proveedor }: Pr
                   nombre: event.target.value.replace(/\d/g, ''),
                 }))
               }
+              maxLength={PROVIDER_NAME_MAX_LENGTH}
             />
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Ubicacion del almacen <RequiredMark /></label>
             <Input
               value={form.ubicacionAlmacen}
+              maxLength={WAREHOUSE_LOCATION_MAX_LENGTH}
               onChange={(event) => setForm((current) => ({ ...current, ubicacionAlmacen: event.target.value }))}
             />
           </div>
@@ -152,7 +171,7 @@ export default function ProveedorModal({ open, onClose, onSaved, proveedor }: Pr
             <label className="text-sm font-medium text-foreground">Dias de entrega <RequiredMark /></label>
             <Input
               type="number"
-              min="0"
+              min="1"
               value={form.diasEntrega}
               onChange={(event) => setForm((current) => ({ ...current, diasEntrega: event.target.value }))}
             />

@@ -8,35 +8,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { useFormatters } from '@/lib/useFormatters'
 
 const PAGE_SIZE = 20
 const MIN_DATE = '2000-01-01'
 const MAX_DATE = '2100-12-31'
 
-const formatDate = (value: string) => {
-  const date = new Date(value)
-  const now = new Date()
-
-  const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-  const todayOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const yesterdayOnly = new Date(todayOnly)
-  yesterdayOnly.setDate(todayOnly.getDate() - 1)
-
-  const time = date.toLocaleTimeString('es-ES', {
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-
-  if (dateOnly.getTime() === todayOnly.getTime()) {
-    return `Hoy, ${time}`
-  }
-  if (dateOnly.getTime() === yesterdayOnly.getTime()) {
-    return `Ayer, ${time}`
-  }
-
-  const calendarDate = date.toLocaleDateString('es-ES')
-  return `${calendarDate}, ${time}`
-}
 const formatReason = (reason: string) => {
   const reasonLabels: Record<string, string> = {
     SALE: 'Venta',
@@ -50,6 +27,7 @@ const formatReason = (reason: string) => {
 }
 
 export default function MovimientosPage() {
+  const { timeZone, formatDate, toUserDayKey } = useFormatters()
   const [productos, setProductos] = useState<Producto[]>([])
   const [movimientos, setMovimientos] = useState<MovimientoStock[]>([])
   const [total, setTotal] = useState(0)
@@ -156,6 +134,24 @@ export default function MovimientosPage() {
     setDesde('')
     setHasta('')
     setOffset(0)
+  }
+
+  const formatMovementDate = (value: string) => {
+    const date = new Date(value)
+    const now = new Date()
+    const dayKey = toUserDayKey(date)
+    const todayKey = toUserDayKey(now)
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+    const yesterdayKey = toUserDayKey(yesterday)
+    const time = new Intl.DateTimeFormat('es-ES', {
+      timeZone,
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date)
+
+    if (dayKey === todayKey) return `Hoy, ${time}`
+    if (dayKey === yesterdayKey) return `Ayer, ${time}`
+    return `${formatDate(date)}, ${time}`
   }
 
   return (
@@ -275,7 +271,7 @@ export default function MovimientosPage() {
               ) : (
                 movimientos.map((movimiento) => (
                   <TableRow key={movimiento.id}>
-                    <TableCell>{formatDate(movimiento.fecha)}</TableCell>
+                    <TableCell>{formatMovementDate(movimiento.fecha)}</TableCell>
                     <TableCell>{movimiento.productoNombre}</TableCell>
                     <TableCell className="font-mono text-xs">{movimiento.productoSku}</TableCell>
                     <TableCell>

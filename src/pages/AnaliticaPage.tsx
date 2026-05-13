@@ -57,6 +57,7 @@ import {
   TrendingUp,
   Warehouse,
 } from 'lucide-react'
+import { useFormatters } from '@/lib/useFormatters'
 const formatCurrency = (value: number) => `€${value.toLocaleString('es-ES', { maximumFractionDigits: 2 })}`
 const formatCompact = (value: number) => value.toLocaleString('es-ES')
 
@@ -184,6 +185,7 @@ function EmptyChartPlaceholder({ icon: Icon, message }: EmptyChartPlaceholderPro
 }
 
 export default function AnaliticaPage() {
+  const { timeZone, formatDate, formatDateTime, formatShortDate } = useFormatters()
   const [loading, setLoading] = useState(true)
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
@@ -215,8 +217,8 @@ export default function AnaliticaPage() {
         const [inv, vel, pri, bun, velRes, topVel, dist, byCat, fin, rent, meta] = await Promise.all([
           getInventarioAnalitica(),
           getVelocidadAnalitica(120, selectedDays),
-          getPreciosAnalitica(),
-          getBundleCandidatosAnalitica(),
+          getPreciosAnalitica(120, selectedDays),
+          getBundleCandidatosAnalitica(120, selectedDays),
           getVelocidadResumenAnalitica(selectedDays),
           getTopProductosVelocidadAnalitica(selectedDays, 10),
           getDistribucionStockAnalitica(),
@@ -301,7 +303,7 @@ export default function AnaliticaPage() {
       while (cursor <= currentMonth) {
         const key = toMonthKey(cursor)
         months[key] = {
-          date: cursor.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }),
+          date: new Intl.DateTimeFormat('es-ES', { timeZone, month: 'short', year: '2-digit' }).format(cursor),
           unitsSold: 0,
           revenue: 0,
         }
@@ -330,7 +332,7 @@ export default function AnaliticaPage() {
         d.setDate(weekStart.getDate() + i)
         const key = toDayKey(d)
         days[key] = {
-          date: d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit' }),
+          date: new Intl.DateTimeFormat('es-ES', { timeZone, weekday: 'short', day: '2-digit' }).format(d),
           unitsSold: 0,
           revenue: 0,
         }
@@ -341,7 +343,7 @@ export default function AnaliticaPage() {
         d.setDate(d.getDate() - i)
         const key = toDayKey(d)
         days[key] = {
-          date: d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+          date: formatShortDate(d),
           unitsSold: 0,
           revenue: 0,
         }
@@ -356,7 +358,7 @@ export default function AnaliticaPage() {
     })
 
     return Object.values(days)
-  }, [velocidadResumen, selectedDays])
+  }, [formatShortDate, selectedDays, timeZone, velocidadResumen])
 
   const revenueThresholds = useMemo(() => {
     if (salesLineData.length === 0) return null
@@ -472,8 +474,8 @@ export default function AnaliticaPage() {
               </div>
               <p className="text-xs text-muted-foreground">
                 Seed local: {metadata?.seedEnabled ? 'Activo' : 'Inactivo'} · Última carga UI:{' '}
-                {lastUpdatedAt ? lastUpdatedAt.toLocaleString('es-ES') : 'Sin datos'} · Último movimiento backend:{' '}
-                {metadata?.generatedAt ? new Date(metadata.generatedAt).toLocaleString('es-ES') : 'Sin datos'}
+                {lastUpdatedAt ? formatDateTime(lastUpdatedAt) : 'Sin datos'} · Último movimiento backend:{' '}
+                {metadata?.generatedAt ? formatDateTime(metadata.generatedAt) : 'Sin datos'}
               </p>
             </div>
           </div>
@@ -834,7 +836,7 @@ export default function AnaliticaPage() {
                   <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
                 ) : velocidad.map((row, index) => (
                   <TableRow key={`${row.productId}-${row.movementDate}-${index}`}>
-                    <TableCell>{new Date(row.movementDate).toLocaleDateString('es-ES')}</TableCell>
+                    <TableCell>{formatDate(row.movementDate)}</TableCell>
                     <TableCell>{row.productName} <span className="text-xs text-muted-foreground">({row.sku})</span></TableCell>
                     <TableCell>{row.categoryName}</TableCell>
                     <TableCell>{row.unitsSold}</TableCell>
@@ -862,7 +864,7 @@ export default function AnaliticaPage() {
                   <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
                 ) : precios.map((row) => (
                   <TableRow key={row.historyId}>
-                    <TableCell>{new Date(row.changedAt).toLocaleString('es-ES')}</TableCell>
+                    <TableCell>{formatDateTime(row.changedAt)}</TableCell>
                     <TableCell>{row.productName} <span className="text-xs text-muted-foreground">({row.sku})</span></TableCell>
                     <TableCell>{formatCurrency(row.oldPrice)}</TableCell>
                     <TableCell>{formatCurrency(row.newPrice)}</TableCell>

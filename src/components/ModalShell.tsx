@@ -32,7 +32,7 @@ export default function ModalShell({
       role="presentation"
     >
       <div
-        className={`flex max-h-[90vh] w-full ${widthClassName} flex-col overflow-hidden rounded-2xl border bg-background text-foreground shadow-2xl`}
+        className={`flex max-h-[90vh] w-full ${widthClassName} flex-col overflow-hidden rounded-2xl border bg-background text-foreground shadow-2xl [&_[data-slot=input]]:bg-transparent [&_[data-slot=textarea]]:bg-transparent [&_[data-slot=select-trigger]]:bg-transparent [&_[data-slot=input-group]]:bg-transparent`}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex shrink-0 items-start justify-between border-b px-6 py-4">

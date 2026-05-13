@@ -75,7 +75,7 @@ const productoSchema = z.object({
 })
 
 type ProductoFormValues = z.infer<typeof productoSchema>
-type EstadoFiltro = 'all' | 'low' | 'normal'
+type EstadoFiltro = 'all' | 'low' | 'normal' | 'anomaly'
 const PAGE_SIZE = 17
 
 const defaultProductoValues: ProductoFormValues = {
@@ -126,6 +126,9 @@ export default function ProductosPage() {
   const [submittingEdit, setSubmittingEdit] = useState(false)
   const [submittingDelete, setSubmittingDelete] = useState(false)
 
+  const hasPriceAnomaly = (producto: Producto) =>
+    producto.costoUnitario != null && Number(producto.precioUnitario) < Number(producto.costoUnitario)
+
   const createForm = useForm<ProductoFormValues>({
     resolver: zodResolver(productoSchema),
     defaultValues: defaultProductoValues,
@@ -165,12 +168,37 @@ export default function ProductosPage() {
     if (search) setGlobalFilter(search)
     if (categoria) setFiltroCategoria(categoria)
     if (proveedor) setFiltroProveedor(proveedor)
-    if (estado === 'all' || estado === 'low' || estado === 'normal') {
+    if (estado === 'all' || estado === 'low' || estado === 'normal' || estado === 'anomaly') {
       setFiltroEstado(estado)
     }
     // Se carga una sola vez para hidratar estado inicial desde URL.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    const editProductIdRaw = searchParams.get('editProductId')
+    if (!editProductIdRaw) return
+
+    const editProductId = Number(editProductIdRaw)
+    if (!Number.isFinite(editProductId)) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('editProductId')
+      next.delete('focus')
+      setSearchParams(next, { replace: true })
+      return
+    }
+
+    const productToEdit = productos.find((product) => product.id === editProductId)
+    if (!productToEdit) return
+
+    setProductoEditar(productToEdit)
+    setModalOpen(true)
+
+    const next = new URLSearchParams(searchParams)
+    next.delete('editProductId')
+    next.delete('focus')
+    setSearchParams(next, { replace: true })
+  }, [productos, searchParams, setSearchParams])
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams)
@@ -336,10 +364,12 @@ export default function ProductosPage() {
         filtroProveedor === 'all' || String(producto.providerId) === filtroProveedor
 
       const esStockBajo = producto.cantidadActual <= producto.nivelMinimoStock
+      const esAnomaliaPrecio = hasPriceAnomaly(producto)
       const estadoOk =
         filtroEstado === 'all' ||
         (filtroEstado === 'low' && esStockBajo) ||
-        (filtroEstado === 'normal' && !esStockBajo)
+        (filtroEstado === 'anomaly' && esAnomaliaPrecio) ||
+        (filtroEstado === 'normal' && !esStockBajo && !esAnomaliaPrecio)
 
       return categoriaOk && providerOk && estadoOk
     })
@@ -405,6 +435,8 @@ export default function ProductosPage() {
       header: 'Estado',
       cell: ({ row }) => {
         const low = row.original.cantidadActual <= row.original.nivelMinimoStock
+        const priceAnomaly = hasPriceAnomaly(row.original)
+        if (priceAnomaly) return <Badge variant="secondary">Anomalía en precio</Badge>
         return <Badge variant={low ? 'destructive' : 'default'}>{low ? 'Stock bajo' : 'Normal'}</Badge>
       },
     },
@@ -518,6 +550,7 @@ export default function ProductosPage() {
             <SelectContent>
               <SelectItem value="all">Todos</SelectItem>
               <SelectItem value="low">Stock bajo</SelectItem>
+              <SelectItem value="anomaly">Anomalía en precio</SelectItem>
               <SelectItem value="normal">Normal</SelectItem>
             </SelectContent>
           </Select>

@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { parseApiError } from '@/lib/apiError'
+import { useFormatters } from '@/lib/useFormatters'
 
 const roles = ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_VIEWER']
 const roleLabelMap: Record<string, string> = {
@@ -26,6 +27,7 @@ const roleLabelMap: Record<string, string> = {
 }
 
 export default function UsuariosPage() {
+  const { formatDateTime, toUserDayKey } = useFormatters()
   const user = useAuthStore((state) => state.user)
   const [usuarios, setUsuarios] = useState<UsuarioAdmin[]>([])
   const [auditoria, setAuditoria] = useState<UsuarioRoleAudit[]>([])
@@ -123,7 +125,7 @@ export default function UsuariosPage() {
     const term = auditSearch.trim().toLowerCase()
     return auditoria.filter((row) => {
       const rowDate = new Date(row.changedAt)
-      const rowDateOnly = rowDate.toISOString().slice(0, 10)
+      const rowDateOnly = toUserDayKey(rowDate)
       const textOk =
         !term ||
         row.username.toLowerCase().includes(term) ||
@@ -270,7 +272,7 @@ export default function UsuariosPage() {
                   <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No hay eventos de auditoría para los filtros seleccionados.</TableCell></TableRow>
                 ) : auditoriaFiltrada.map((row) => (
                   <TableRow key={row.id}>
-                    <TableCell>{new Date(row.changedAt).toLocaleString('es-ES')}</TableCell>
+                    <TableCell>{formatDateTime(row.changedAt)}</TableCell>
                     <TableCell>{row.username}</TableCell>
                     <TableCell>{row.oldRole} → {row.newRole}</TableCell>
                     <TableCell>{row.changedByUsername ?? 'Sistema'}</TableCell>

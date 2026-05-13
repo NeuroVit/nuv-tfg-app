@@ -41,12 +41,12 @@ export const parseApiError = (error: unknown, fallback: string): string => {
 
   const status = error.response?.status
   if (status === 400) return `${fallback}. Revisa los datos enviados.`
-  if (status === 401) return `${fallback}. Tu sesión no es válida.`
-  if (status === 403) return `${fallback}. No tienes permisos para esta acción.`
+  if (status === 401) return `${fallback}. Tu sesiÃ³n no es vÃ¡lida.`
+  if (status === 403) return `${fallback}. No tienes permisos para esta acciÃ³n.`
   if (status === 404) return `${fallback}. El recurso no existe o ya fue eliminado.`
   if (status === 409) return `${fallback}. Hay un conflicto con datos relacionados.`
-  if (status === 422) return `${fallback}. La validación de datos falló.`
-  if (status && status >= 500) return `${fallback}. Ocurrió un error interno del servidor.`
+  if (status === 422) return `${fallback}. La validaciÃ³n de datos fallÃ³.`
+  if (status && status >= 500) return `${fallback}. OcurriÃ³ un error interno del servidor.`
 
   return fallback
 }

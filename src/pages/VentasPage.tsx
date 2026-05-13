@@ -8,6 +8,7 @@ import type { Cliente } from '@/types/cliente'
 import type { Producto } from '@/types/producto'
 import type { Venta } from '@/types/venta'
 import { useAuthStore } from '@/store/authStore'
+import { useFormatters } from '@/lib/useFormatters'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -19,6 +20,7 @@ const PAGE_SIZE = 20
 const euro = (value: number) => `€${value.toLocaleString('es-ES', { maximumFractionDigits: 2 })}`
 
 export default function VentasPage() {
+  const { formatDateTime } = useFormatters()
   const [searchParams, setSearchParams] = useSearchParams()
   const { hasRole } = useAuthStore()
   const canCreate = hasRole('ROLE_ADMIN') || hasRole('ROLE_MANAGER')
@@ -186,7 +188,7 @@ export default function VentasPage() {
                   <TableRow key={sale.id} className="cursor-pointer hover:bg-accent" onClick={() => openDetail(sale)}>
                     <TableCell className="text-center align-middle">#{sale.id}</TableCell>
                     <TableCell className="text-center align-middle">{sale.clientName}</TableCell>
-                    <TableCell className="text-center align-middle">{new Date(sale.soldAt).toLocaleString('es-ES')}</TableCell>
+                    <TableCell className="text-center align-middle">{formatDateTime(sale.soldAt)}</TableCell>
                     <TableCell className="text-center align-middle">{sale.items.length}</TableCell>
                     <TableCell className="text-center align-middle">
                       {sale.items.reduce((totalQuantity, item) => totalQuantity + item.quantity, 0)}

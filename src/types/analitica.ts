@@ -117,3 +117,27 @@ export interface AnaliticaMeta {
   generatedAt: string
   windowDays: number
 }
+
+export interface RevenueComparativaBucket {
+  label: string
+  currentRevenue: number
+  previousRevenue: number
+}
+
+export interface RevenueComparativa {
+  currentLabel: string
+  previousLabel: string
+  granularity: 'HOUR' | 'DAY' | 'WEEK' | 'MONTH' | 'YEAR' | string
+  buckets: RevenueComparativaBucket[]
+}
+
+export interface ProductCreationRow {
+  creationDate: string
+  productsCreated: number
+}
+
+export interface StockReceiptRow {
+  receiptDate: string
+  unitsReceived: number
+  valueReceived: number
+}

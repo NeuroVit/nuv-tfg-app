@@ -1,5 +1,6 @@
 import type { Venta } from '@/types/venta'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { useFormatters } from '@/lib/useFormatters'
 import ModalShell, { ModalSection } from '@/components/ModalShell'
 
 const euro = (value: number) => `€${value.toLocaleString('es-ES', { maximumFractionDigits: 2 })}`
@@ -11,6 +12,8 @@ interface VentaDetailModalProps {
 }
 
 export default function VentaDetailModal({ open, onClose, venta }: VentaDetailModalProps) {
+  const { formatDateTime } = useFormatters()
+
   return (
     <ModalShell
       open={open}
@@ -25,9 +28,9 @@ export default function VentaDetailModal({ open, onClose, venta }: VentaDetailMo
         ) : (
           <>
             <ModalSection title="Resumen">
-              <div className="grid grid-cols-2 gap-3 rounded-md border p-3 text-sm">
+              <div className="grid grid-cols-2 gap-3 p-3 text-sm">
                 <p><span className="text-muted-foreground">Cliente:</span> {venta.clientName}</p>
-                <p><span className="text-muted-foreground">Fecha:</span> {new Date(venta.soldAt).toLocaleString('es-ES')}</p>
+                <p><span className="text-muted-foreground">Fecha:</span> {formatDateTime(venta.soldAt)}</p>
                 <p><span className="text-muted-foreground">Subtotal:</span> {euro(venta.subtotalAmount ?? venta.totalAmount)}</p>
                 <p><span className="text-muted-foreground">Descuento:</span> {euro(venta.discountTotalAmount ?? 0)}</p>
                 <p><span className="text-muted-foreground">Descuento global:</span> {(venta.globalDiscountPct ?? 0).toFixed(2)}%</p>
@@ -36,7 +39,7 @@ export default function VentaDetailModal({ open, onClose, venta }: VentaDetailMo
             </ModalSection>
 
             <ModalSection title="Líneas" className="border-t pt-4">
-              <div className="rounded-lg border">
+              <div>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -61,7 +64,7 @@ export default function VentaDetailModal({ open, onClose, venta }: VentaDetailMo
                 </Table>
               </div>
               {venta.notas ? (
-                <div className="rounded-md border p-3 text-sm">
+                <div className="p-3 text-sm">
                   <span className="text-muted-foreground">Notas:</span> {venta.notas}
                 </div>
               ) : null}
