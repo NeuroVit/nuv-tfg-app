@@ -1,5 +1,7 @@
 export interface VentaItem {
   productId: number
+  bundleId?: number | null
+  bundleName?: string | null
   productoNombre: string
   sku: string
   quantity: number
@@ -31,6 +33,7 @@ export interface CrearVentaRequest {
     productId: number
     quantity: number
     descuentoPct?: number
+    bundleId?: number
   }>
   bundles?: Array<{
     bundleId: number

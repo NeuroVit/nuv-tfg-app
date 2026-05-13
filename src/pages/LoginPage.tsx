@@ -60,6 +60,8 @@ export default function LoginPage() {
   })
 
   const onSubmit = async (data: FormData) => {
+    if (isGoogleSubmitting) return
+    form.clearErrors('root')
     try {
       const res = await login(data)
       setUser({
@@ -70,9 +72,35 @@ export default function LoginPage() {
       })
       toast.success(`Bienvenido, ${res.username}.`)
       navigate('/dashboard')
-    } catch {
-      form.setError('root', { message: 'Credenciales incorrectas' })
-      toast.error('Credenciales incorrectas')
+    } catch (err: unknown) {
+      let msg = 'No se pudo iniciar sesión'
+      let status: number | undefined
+      if (isAxiosError<{ message?: string; mensaje?: string; error?: string }>(err)) {
+        status = err.response?.status
+        const backendMsg =
+          err.response?.data?.message ??
+          err.response?.data?.mensaje ??
+          err.response?.data?.error
+        if (backendMsg) {
+          msg = backendMsg
+        } else if (status === 401) {
+          msg = 'Credenciales incorrectas'
+        } else if (status === 429) {
+          msg = 'Demasiados intentos. Espera un momento e inténtalo de nuevo.'
+        } else if (!err.response) {
+          msg = 'No se pudo conectar con el servidor. Revisa tu conexión.'
+        } else if (status && status >= 500) {
+          msg = 'Error del servidor. Inténtalo de nuevo en unos minutos.'
+        }
+      }
+      if (import.meta.env.DEV) {
+        console.warn('[login] classic login failed', {
+          status,
+          endpoint: '/api/auth/login',
+        })
+      }
+      form.setError('root', { message: msg })
+      toast.error(msg)
     }
   }
 
@@ -235,13 +263,16 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={form.formState.isSubmitting}
+                disabled={form.formState.isSubmitting || isGoogleSubmitting}
               >
                 {form.formState.isSubmitting && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
                 Iniciar sesión
               </Button>
+              <p className="text-center text-xs text-muted-foreground">
+                Usa tu usuario y contraseña. No inicia el flujo de Google.
+              </p>
             </form>
           </Form>
 
@@ -275,6 +306,9 @@ export default function LoginPage() {
                 disabled={isGoogleSubmitting || form.formState.isSubmitting}
               />
             )}
+            <p className="text-center text-xs text-muted-foreground">
+              Inicia autenticación con tu cuenta de Google.
+            </p>
           </>
 
           <p className="text-center text-sm text-muted-foreground">

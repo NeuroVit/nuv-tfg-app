@@ -141,3 +141,44 @@ export interface StockReceiptRow {
   unitsReceived: number
   valueReceived: number
 }
+
+export interface BundlePerformanceRow {
+  bundleId: number
+  bundleName: string
+  unitsSold: number
+  revenue: number
+  cost: number
+  profit: number
+  margin: number
+  salesCount: number
+}
+
+export interface ClienteRentabilidadRow {
+  clientId: number
+  clientName: string
+  salesCount: number
+  unitsSold: number
+  revenue: number
+  cost: number
+  profit: number
+  margin: number
+  lastSaleAt: string
+  avgTicket: number
+}
+
+export interface ProveedorPerformanceRow {
+  providerId: number
+  providerName: string
+  orderCount: number
+  totalSpend: number
+  avgLeadTimeDays: number
+  onTimePct: number
+  lastOrderAt: string
+}
+
+export interface AlertaSerieRow {
+  bucketDate: string
+  alertType: string
+  createdCount: number
+  resolvedCount: number
+}
