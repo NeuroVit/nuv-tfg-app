@@ -137,7 +137,14 @@ export default function VentasPage() {
             <SelectTrigger className="w-56">
               <SelectValue placeholder="Filtrar cliente" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent
+              position="popper"
+              side="bottom"
+              align="start"
+              sideOffset={6}
+              className="overflow-hidden"
+              viewportClassName="max-h-[22rem] overflow-y-auto"
+            >
               <SelectItem value="all">Todos los clientes</SelectItem>
               {clients.map((client) => (
                 <SelectItem key={client.id} value={String(client.id)}>{client.nombre}</SelectItem>

@@ -50,8 +50,9 @@ export default function ProveedorModal({ open, onClose, onSaved, proveedor }: Pr
   const isFormValid = useMemo(() => {
     const dias = Number(form.diasEntrega)
     const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())
+    const nombreOk = Boolean(form.nombre.trim()) && !/\d/.test(form.nombre.trim())
     return (
-      Boolean(form.nombre.trim()) &&
+      nombreOk &&
       Boolean(form.ubicacionAlmacen.trim()) &&
       Boolean(form.email.trim()) &&
       Number.isFinite(dias) &&
@@ -72,6 +73,10 @@ export default function ProveedorModal({ open, onClose, onSaved, proveedor }: Pr
 
     if (!payload.nombre || !payload.ubicacionAlmacen) {
       toast.error('Nombre y ubicacion de almacen son obligatorios')
+      return
+    }
+    if (/\d/.test(payload.nombre)) {
+      toast.error('El nombre del proveedor no puede contener numeros')
       return
     }
     if (Number.isNaN(payload.diasEntrega) || payload.diasEntrega < 0) {
@@ -119,7 +124,12 @@ export default function ProveedorModal({ open, onClose, onSaved, proveedor }: Pr
             <label className="text-sm font-medium text-foreground">Nombre <RequiredMark /></label>
             <Input
               value={form.nombre}
-              onChange={(event) => setForm((current) => ({ ...current, nombre: event.target.value }))}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  nombre: event.target.value.replace(/\d/g, ''),
+                }))
+              }
             />
           </div>
           <div className="space-y-1.5">
