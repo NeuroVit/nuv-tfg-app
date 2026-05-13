@@ -7,6 +7,7 @@ import { RequiredMark } from '@/components/ModalShell'
 import type { ApiError, Categoria } from '@/types/api'
 import type { Producto } from '@/types/producto'
 import type { Proveedor } from '@/types/provider'
+import { parseApiError } from '@/lib/apiError'
 
 interface ProductoModalProps {
   isOpen: boolean
@@ -197,8 +198,11 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
           if (item.field === 'costoUnitario') mappedErrors.costoUnitario = item.message
         }
         setServerErrors(mappedErrors)
+        if (Object.keys(mappedErrors).length === 0) {
+          setFooterError(parseApiError(error, 'No se pudo guardar el producto'))
+        }
       } else {
-        setFooterError('No se pudo guardar el producto. Inténtalo de nuevo.')
+        setFooterError(parseApiError(error, 'No se pudo guardar el producto'))
       }
     } finally {
       setSaving(false)

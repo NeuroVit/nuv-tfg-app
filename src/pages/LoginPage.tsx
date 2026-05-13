@@ -169,8 +169,13 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-sm space-y-4 rounded-lg border bg-card p-4 sm:p-6">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-4">
+      <div className="pointer-events-none absolute inset-0 z-0">
+        <div className="absolute inset-0 dark:hidden" style={{ background: 'linear-gradient(180deg, #f4f7fb 0%, #e9eef6 52%, #e3e9f3 100%)' }} />
+        <div className="absolute inset-0 hidden dark:block" style={{ background: 'linear-gradient(180deg, #0b0b0c 0%, #050505 100%)' }} />
+      </div>
+
+      <div className="relative z-10 w-full max-w-sm space-y-4 p-4 sm:p-6">
         <div className="pb-4">
           <h1 className="text-2xl font-semibold tracking-tight">NeuralStock</h1>
           <p className="text-sm text-muted-foreground">Introduce tus credenciales para acceder</p>
@@ -243,7 +248,7 @@ export default function LoginPage() {
           <>
             <div className="relative">
               <Separator />
-              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-2 text-xs text-muted-foreground uppercase tracking-wide">
+              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 px-2 text-xs text-muted-foreground uppercase tracking-wide">
                 O continúa con
               </span>
             </div>

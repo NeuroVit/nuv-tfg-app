@@ -128,7 +128,7 @@ function SidebarProvider({
         <div
           data-slot="sidebar-wrapper"
           className={cn(
-            'group/sidebar-wrapper flex min-h-svh w-full has-data-[variant=inset]:bg-sidebar',
+            'group/sidebar-wrapper flex h-svh min-h-svh w-full overflow-hidden has-data-[variant=inset]:bg-sidebar',
             className
           )}
           style={

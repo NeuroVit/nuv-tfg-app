@@ -134,7 +134,7 @@ export default function ProveedoresPage() {
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
             <Input
-              placeholder="Buscar proveedor o almacén..."
+              placeholder="Buscar proveedor o almacÃ©n..."
               value={providerSearch}
               onChange={(event) => setProviderSearch(event.target.value)}
               className="w-full md:w-80"
@@ -162,15 +162,15 @@ export default function ProveedoresPage() {
         </div>
 
         <div className="rounded-lg border bg-card">
-          <Table>
+          <Table className="table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Almacén</TableHead>
-                <TableHead className="text-center">Entrega (días)</TableHead>
-                <TableHead className="text-center">Productos</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="w-16 text-right">Acciones</TableHead>
+                <TableHead className="w-[30%]">Nombre</TableHead>
+                <TableHead className="w-[24%]">AlmacÃ©n</TableHead>
+                <TableHead className="w-[14%] text-center">Entrega (dÃ­as)</TableHead>
+                <TableHead className="w-[12%] text-center">Productos</TableHead>
+                <TableHead className="w-[10%]">Estado</TableHead>
+                <TableHead className="w-[10%] text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -193,7 +193,9 @@ export default function ProveedoresPage() {
                     className={`cursor-pointer hover:bg-accent ${selectedProviderId === provider.id ? 'bg-muted' : ''}`}
                     onClick={() => goToProviderDetail(provider)}
                   >
-                    <TableCell className="font-medium">{provider.nombre}</TableCell>
+                    <TableCell className="font-medium">
+                      <span className="block truncate" title={provider.nombre}>{provider.nombre}</span>
+                    </TableCell>
                     <TableCell>{provider.ubicacionAlmacen}</TableCell>
                     <TableCell className="text-center">{provider.diasEntrega}</TableCell>
                     <TableCell className="text-center">{provider.cantidadProductos}</TableCell>
@@ -256,7 +258,7 @@ export default function ProveedoresPage() {
         </div>
 
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">Página {currentPage} de {totalPages} · {total} registros</p>
+          <p className="text-sm text-muted-foreground">PÃ¡gina {currentPage} de {totalPages} Â· {total} registros</p>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"

@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { AlertCircle, ArrowDown, ArrowUp, PackageSearch } from 'lucide-react'
 import { getFinanzasResumenAnalitica, getTopProductosVelocidadAnalitica, getVelocidadResumenAnalitica } from '@/api/analitica'
 import { useInventarioDashboard } from '@/hooks/useInventarioDashboard'
 import { useDisplayName } from '@/store/profileStore'
+import { useFormatters } from '@/lib/useFormatters'
 import type { TopProductVelocityRow, VelocitySummaryRow } from '@/types/analitica'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -45,8 +46,10 @@ const formatRelativeTime = (dateValue: string) => {
   return `Hace ${diffDays}d`
 }
 
-const getGreeting = () => {
-  const hour = new Date().getHours()
+const getGreeting = (timeZone: string) => {
+  const hour = Number(
+    new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', hour12: false }).format(new Date()),
+  )
   if (hour < 14) return 'Buenos días'
   if (hour < 21) return 'Buenas tardes'
   return 'Buenas noches'
@@ -81,11 +84,6 @@ const chartOptions: Array<{ value: DashboardChart; label: string }> = [
   { value: 'revenue', label: 'Tendencia de ingresos' },
   { value: 'winners', label: 'Productos ganadores' },
 ]
-
-const toDayKey = (date: Date) =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-
-const toHourKey = (date: Date) => `${toDayKey(date)}-${String(date.getHours()).padStart(2, '0')}`
 
 type RangeBounds = {
   start: Date | null
@@ -154,6 +152,7 @@ const isInRange = (date: Date, range: RangeBounds) => {
 const daysBetween = (start: Date, end: Date) => Math.max(1, Math.ceil((end.getTime() - start.getTime()) / DAY_MS))
 
 export default function Inicio() {
+  const { timeZone, toUserDayKey, formatShortDate } = useFormatters()
   const navigate = useNavigate()
   const displayName = useDisplayName()
   const [timeRange, setTimeRange] = useState<TimeRange>('weekly')
@@ -211,6 +210,19 @@ export default function Inicio() {
   const stockSnapshotKey = useMemo(
     () => `nuv-dashboard-stock-snapshot:${(displayName || 'usuario').toLowerCase()}`,
     [displayName],
+  )
+  const toDayKey = useCallback((date: Date) => toUserDayKey(date), [toUserDayKey])
+  const toHourKey = useCallback((date: Date) => {
+    const hour = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', hour12: false }).format(date)
+    return `${toDayKey(date)}-${hour}`
+  }, [timeZone, toDayKey])
+  const formatHour = useCallback(
+    (date: Date) => new Intl.DateTimeFormat('es-ES', { timeZone, hour: '2-digit', minute: '2-digit' }).format(date),
+    [timeZone],
+  )
+  const formatWeekday = useCallback(
+    (date: Date) => new Intl.DateTimeFormat('es-ES', { timeZone, weekday: 'short' }).format(date).replace('.', ''),
+    [timeZone],
   )
 
   useEffect(() => {
@@ -323,7 +335,7 @@ export default function Inicio() {
         d.setHours(hour, 0, 0, 0)
         const key = toHourKey(d)
         hours[key] = {
-          fecha: d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+          fecha: formatHour(d),
           Entradas: 0,
           Salidas: 0,
         }
@@ -351,7 +363,7 @@ export default function Inicio() {
           d.setDate(weekStart.getDate() + i)
           const key = toDayKey(d)
           days[key] = {
-            fecha: d.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', ''),
+            fecha: formatWeekday(d),
             Entradas: 0,
             Salidas: 0,
           }
@@ -363,7 +375,7 @@ export default function Inicio() {
         while (monthCursor <= monthEnd) {
           const key = toDayKey(monthCursor)
           days[key] = {
-            fecha: monthCursor.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+            fecha: formatShortDate(monthCursor),
             Entradas: 0,
             Salidas: 0,
           }
@@ -395,7 +407,7 @@ export default function Inicio() {
     while (cursor <= now) {
       const key = toDayKey(cursor)
       days[key] = {
-        fecha: cursor.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+        fecha: formatShortDate(cursor),
         Entradas: 0,
         Salidas: 0,
       }
@@ -410,7 +422,7 @@ export default function Inicio() {
     })
 
     return Object.values(days)
-  }, [movimientosInRange, timeRange])
+  }, [formatHour, formatShortDate, formatWeekday, movimientosInRange, timeRange, toDayKey, toHourKey])
 
   const revenueChartData = useMemo(() => {
     const now = new Date()
@@ -429,7 +441,7 @@ export default function Inicio() {
         d.setHours(hour, 0, 0, 0)
         const key = toHourKey(d)
         hours[key] = {
-          date: d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+          date: formatHour(d),
           unitsSold: 0,
           revenue: 0,
         }
@@ -458,7 +470,7 @@ export default function Inicio() {
           d.setDate(weekStart.getDate() + i)
           const key = toDayKey(d)
           days[key] = {
-            date: d.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', ''),
+            date: formatWeekday(d),
             unitsSold: 0,
             revenue: 0,
           }
@@ -470,7 +482,7 @@ export default function Inicio() {
         while (monthCursor <= monthEnd) {
           const key = toDayKey(monthCursor)
           days[key] = {
-            date: monthCursor.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+            date: formatShortDate(monthCursor),
             unitsSold: 0,
             revenue: 0,
           }
@@ -501,7 +513,7 @@ export default function Inicio() {
     while (cursor <= now) {
       const key = toDayKey(cursor)
       days[key] = {
-        date: cursor.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+        date: formatShortDate(cursor),
         unitsSold: 0,
         revenue: 0,
       }
@@ -516,7 +528,7 @@ export default function Inicio() {
     })
 
     return Object.values(days)
-  }, [revenueSummary, timeRange])
+  }, [formatHour, formatShortDate, formatWeekday, revenueSummary, timeRange, toDayKey, toHourKey])
 
 
   const winnersChartData = useMemo(
@@ -585,7 +597,7 @@ export default function Inicio() {
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-4 xl:items-center">
           <div className="space-y-1 xl:col-span-3">
             <h1 className="text-2xl font-semibold tracking-tight">
-              {getGreeting()}, {(displayName || 'Usuario').split(' ')[0]}
+              {getGreeting(timeZone)}, {(displayName || 'Usuario').split(' ')[0]}
             </h1>
             <p className="text-sm text-muted-foreground">Aquí tienes el resumen de tu inventario.</p>
           </div>

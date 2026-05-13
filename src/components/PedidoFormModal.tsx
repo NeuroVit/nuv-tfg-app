@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { crearPedidoProveedor } from '@/api/providerOrder'
 import type { Producto } from '@/types/producto'
@@ -7,15 +8,15 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import ModalShell, { ModalFooter, ModalSection, ModalSubmitButton, RequiredMark } from '@/components/ModalShell'
+import { userDayKeyToUtcDateKey } from '@/lib/datetime'
 import { parseApiError } from '@/lib/apiError'
+import { useFormatters } from '@/lib/useFormatters'
 
 type OrderItemForm = {
   productoId: string
   cantidad: number
   precioUnitario: number
 }
-
-const toDateInputValue = (date: Date) => date.toISOString().split('T')[0]
 
 interface PedidoFormModalProps {
   open: boolean
@@ -26,7 +27,8 @@ interface PedidoFormModalProps {
 }
 
 export default function PedidoFormModal({ open, onClose, onCreated, provider, providerProducts }: PedidoFormModalProps) {
-  const [arrivalDate, setArrivalDate] = useState<string>(toDateInputValue(new Date()))
+  const { timeZone, userTodayKey } = useFormatters()
+  const [arrivalDate, setArrivalDate] = useState<string>(userTodayKey())
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState<OrderItemForm[]>([{ productoId: '', cantidad: 1, precioUnitario: 0 }])
   const [creating, setCreating] = useState(false)
@@ -34,18 +36,18 @@ export default function PedidoFormModal({ open, onClose, onCreated, provider, pr
 
   useEffect(() => {
     if (!open) return
-    setArrivalDate(toDateInputValue(new Date()))
+    setArrivalDate(userTodayKey())
     setNotes('')
     setItems([{ productoId: '', cantidad: 1, precioUnitario: 0 }])
     setFooterError(null)
-  }, [open])
+  }, [open, userTodayKey])
 
   const recommendedOrderDate = useMemo(() => {
     if (!provider) return null
     const arrival = new Date(arrivalDate)
     if (Number.isNaN(arrival.getTime())) return null
     arrival.setDate(arrival.getDate() - provider.diasEntrega)
-    return toDateInputValue(arrival)
+    return arrival.toISOString().slice(0, 10)
   }, [arrivalDate, provider])
 
   const addItem = () => {
@@ -114,8 +116,14 @@ export default function PedidoFormModal({ open, onClose, onCreated, provider, pr
 
     setCreating(true)
     try {
+      const utcDate = userDayKeyToUtcDateKey(arrivalDate, timeZone)
+      if (!utcDate) {
+        toast.error('Fecha inválida')
+        setCreating(false)
+        return
+      }
       await crearPedidoProveedor(provider.id, {
-        fechaLlegadaDeseada: arrivalDate,
+        fechaLlegadaDeseada: utcDate,
         notas: notes.trim() || undefined,
         items: payloadItems,
       })
@@ -214,9 +222,11 @@ export default function PedidoFormModal({ open, onClose, onCreated, provider, pr
                 type="button"
                 onClick={() => removeItem(index)}
                 disabled={items.length === 1}
-                className="rounded-lg border border-input px-3 py-2 text-sm font-medium text-foreground transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label="Quitar línea"
+                title="Quitar línea"
               >
-                Quitar
+                <Trash2 className="h-4 w-4" />
               </button>
             </div>
           ))}

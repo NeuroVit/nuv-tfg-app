@@ -180,11 +180,15 @@ const startMobileGoogleLogin = async () => {
 }
 
   return (
-    <div className="min-h-screen flex bg-background">
+    <div className="relative flex min-h-screen overflow-hidden bg-background">
+      <div className="pointer-events-none absolute inset-0 z-0">
+        <div className="absolute inset-0 dark:hidden" style={{ background: 'linear-gradient(180deg, #f4f7fb 0%, #e9eef6 52%, #e3e9f3 100%)' }} />
+        <div className="absolute inset-0 hidden dark:block" style={{ background: 'linear-gradient(180deg, #0b0b0c 0%, #050505 100%)' }} />
+      </div>
 
         {/* Left — dark image panel */}
       <div
-        className="hidden lg:block w-1/2"
+        className="relative z-10 hidden w-1/2 overflow-hidden lg:block"
         style={{
           backgroundImage: `url('/moon-texture-registrar.jpg')`,
           backgroundSize: 'cover',
@@ -193,8 +197,12 @@ const startMobileGoogleLogin = async () => {
       />
 
       {/* Right — form */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 sm:px-8 bg-card">
-        <div className="w-full max-w-md space-y-6 sm:space-y-8">
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center overflow-hidden bg-card/90 px-4 py-8 backdrop-blur-sm sm:px-8">
+        <div aria-hidden className="pointer-events-none absolute inset-0 z-0">
+          <div className="absolute inset-0 dark:hidden" style={{ background: 'linear-gradient(180deg, rgba(248,250,252,0.7) 0%, rgba(241,245,249,0.62) 100%)' }} />
+          <div className="absolute inset-0 hidden dark:block" style={{ background: 'linear-gradient(180deg, rgba(8,10,14,0.75) 0%, rgba(8,10,14,0.62) 100%)' }} />
+        </div>
+        <div className="relative z-10 w-full max-w-md space-y-6 sm:space-y-8">
 
           <h1 className="text-3xl font-bold text-center text-foreground">
             Crea tu cuenta

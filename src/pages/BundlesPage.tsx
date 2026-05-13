@@ -28,10 +28,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
 import { parseApiError } from '@/lib/apiError'
+import { useFormatters } from '@/lib/useFormatters'
 import BundleDetailModal from '@/components/BundleDetailModal'
 import BundleFormModal from '@/components/BundleFormModal'
 
 export default function BundlesPage() {
+  const { formatDateTime } = useFormatters()
   const { hasRole } = useAuthStore()
   const canEdit = hasRole('ROLE_ADMIN') || hasRole('ROLE_MANAGER')
 
@@ -193,10 +195,7 @@ export default function BundlesPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {new Date(bundle.actualizadoEn).toLocaleString('es-ES', {
-                        dateStyle: 'short',
-                        timeStyle: 'short',
-                      })}
+                      {formatDateTime(bundle.actualizadoEn, { dateStyle: 'short', timeStyle: 'short' })}
                     </TableCell>
                     <TableCell>
                       {canEdit && (
@@ -271,5 +270,4 @@ export default function BundlesPage() {
     </div>
   )
 }
-
 
