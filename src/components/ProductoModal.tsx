@@ -213,15 +213,15 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm sm:items-center"
       onClick={onClose}
       role="presentation"
     >
       <div
-        className="w-full max-w-[560px] rounded-2xl border bg-background text-foreground shadow-2xl"
+        className="flex max-h-[calc(100dvh-2rem)] w-full max-w-[560px] flex-col overflow-hidden rounded-2xl border bg-background text-foreground shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between border-b px-6 py-4">
+        <div className="flex shrink-0 items-start justify-between border-b px-6 py-4">
           <div>
             <h2 className="text-xl font-semibold text-foreground">{isEditMode ? 'Editar producto' : 'Nuevo producto'}</h2>
             <p className="mt-1 text-sm text-muted-foreground">Completa la información del producto para guardarlo en inventario.</p>
@@ -236,7 +236,7 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5 px-6 py-5">
+        <form onSubmit={handleSubmit} className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
           <section className="space-y-4">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Información básica</h3>
 

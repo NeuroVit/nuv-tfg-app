@@ -162,15 +162,15 @@ export default function ProveedoresPage() {
         </div>
 
         <div className="rounded-lg border bg-card">
-          <Table className="table-fixed">
+          <Table className="min-w-[900px] table-auto">
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[30%]">Nombre</TableHead>
-                <TableHead className="w-[24%]">Almacén</TableHead>
-                <TableHead className="w-[14%] text-center">Entrega (días)</TableHead>
-                <TableHead className="w-[12%] text-center">Productos</TableHead>
-                <TableHead className="w-[10%]">Estado</TableHead>
-                <TableHead className="w-[10%] text-right">Acciones</TableHead>
+                <TableHead className="min-w-[220px]">Nombre</TableHead>
+                <TableHead className="min-w-[220px]">Almacén</TableHead>
+                <TableHead className="min-w-[130px] text-center">Entrega (días)</TableHead>
+                <TableHead className="min-w-[110px] text-center">Productos</TableHead>
+                <TableHead className="min-w-[120px]">Estado</TableHead>
+                <TableHead className="min-w-[100px] text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -196,7 +196,9 @@ export default function ProveedoresPage() {
                     <TableCell className="font-medium">
                       <span className="block truncate" title={provider.nombre}>{provider.nombre}</span>
                     </TableCell>
-                    <TableCell>{provider.ubicacionAlmacen}</TableCell>
+                    <TableCell>
+                      <span className="block truncate" title={provider.ubicacionAlmacen}>{provider.ubicacionAlmacen}</span>
+                    </TableCell>
                     <TableCell className="text-center">{provider.diasEntrega}</TableCell>
                     <TableCell className="text-center">{provider.cantidadProductos}</TableCell>
                     <TableCell>
