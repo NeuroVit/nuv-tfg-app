@@ -831,7 +831,7 @@ export default function Inicio() {
                     return (
                       <div
                         key={movimiento.id}
-                        className="flex items-center justify-between rounded-md border px-3 py-2"
+                        className="flex items-center justify-between rounded-md bg-secondary/55 px-3 py-2"
                       >
                         <div className="flex items-center gap-3">
                           <div
@@ -878,7 +878,7 @@ export default function Inicio() {
                     return (
                       <div
                         key={producto.id}
-                        className="flex items-center justify-between rounded-md border px-3 py-2"
+                        className="flex items-center justify-between rounded-md bg-secondary/55 px-3 py-2"
                       >
                         <div>
                           <p className="text-sm font-medium">{producto.nombre}</p>

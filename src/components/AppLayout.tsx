@@ -308,7 +308,7 @@ export default function AppLayout() {
                       <button
                         key={alert.id}
                         type="button"
-                        className="w-full rounded-md border p-3 text-left transition-colors hover:bg-muted"
+                        className="w-full rounded-md bg-secondary/55 p-3 text-left transition-colors hover:bg-muted"
                         onClick={() => {
                           setAlertsDrawerOpen(false)
                           navigate('/alertas')
@@ -319,19 +319,6 @@ export default function AppLayout() {
                       </button>
                     ))
                   )}
-                </div>
-                <div className="border-t p-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => {
-                      setAlertsDrawerOpen(false)
-                      navigate('/alertas')
-                    }}
-                  >
-                    Ver alertas
-                  </Button>
                 </div>
               </SheetContent>
             </Sheet>

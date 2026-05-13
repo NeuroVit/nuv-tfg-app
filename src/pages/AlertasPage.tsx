@@ -235,7 +235,7 @@ export default function AlertasPage() {
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-5">
         <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <article className="rounded-lg border bg-card p-4">
+          <article className="rounded-lg bg-card p-4">
             <div className="flex items-center gap-3">
               <div className="rounded-full bg-red-500/15 p-2"><AlertTriangle className="h-5 w-5 text-red-500" /></div>
               <div><p className="text-2xl font-bold text-red-600">{counters.critical}</p><p className="text-sm font-medium text-foreground">Críticas</p></div>
@@ -243,7 +243,7 @@ export default function AlertasPage() {
             <p className="mt-2 text-xs text-muted-foreground">Requieren atención</p>
           </article>
 
-          <article className="rounded-lg border bg-card p-4">
+          <article className="rounded-lg bg-card p-4">
             <div className="flex items-center gap-3">
               <div className="rounded-full bg-amber-500/15 p-2"><Boxes className="h-5 w-5 text-amber-500" /></div>
               <div><p className="text-2xl font-bold text-amber-600">{counters.low}</p><p className="text-sm font-medium text-foreground">Stock bajo</p></div>
@@ -251,7 +251,7 @@ export default function AlertasPage() {
             <p className="mt-2 text-xs text-muted-foreground">Monitorea inventario</p>
           </article>
 
-          <article className="rounded-lg border bg-card p-4">
+          <article className="rounded-lg bg-card p-4">
             <div className="flex items-center gap-3">
               <div className="rounded-full bg-violet-500/15 p-2"><TrendingUp className="h-5 w-5 text-violet-500" /></div>
               <div><p className="text-2xl font-bold text-violet-600">{counters.anomalies}</p><p className="text-sm font-medium text-foreground">Anomalías</p></div>
@@ -259,7 +259,7 @@ export default function AlertasPage() {
             <p className="mt-2 text-xs text-muted-foreground">Cambios detectados</p>
           </article>
 
-          <article className="rounded-lg border bg-card p-4">
+          <article className="rounded-lg bg-card p-4">
             <div className="flex items-center gap-3">
               <div className="rounded-full bg-cyan-500/15 p-2"><CheckCircle2 className="h-5 w-5 text-cyan-500" /></div>
               <div><p className="text-2xl font-bold text-cyan-600">{counters.resolvedLast7d}</p><p className="text-sm font-medium text-foreground">Resueltas</p></div>
@@ -268,7 +268,7 @@ export default function AlertasPage() {
           </article>
         </section>
 
-        <section className="rounded-lg border bg-card p-4">
+        <section className="rounded-lg bg-card p-4">
           <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center">
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -350,7 +350,7 @@ export default function AlertasPage() {
                 const rowAccent = seen ? 'before:bg-transparent' : meta.rowAccent
 
                 return (
-                  <article key={alert.id} className={`relative grid grid-cols-[40px_1fr_140px_80px] items-center gap-3 rounded-lg border bg-card p-3 before:absolute before:bottom-3 before:left-0 before:top-3 before:w-1 before:rounded-r-md ${rowAccent}`}>
+                  <article key={alert.id} className={`relative grid grid-cols-[40px_1fr_140px_80px] items-center gap-3 rounded-lg bg-secondary/55 p-3 before:absolute before:bottom-3 before:left-0 before:top-3 before:w-1 before:rounded-r-md ${rowAccent}`}>
                     <div className="text-center">
                       {!alert.resuelta && canResolveManually(alert) && showSelection ? (
                         <input
@@ -389,7 +389,7 @@ export default function AlertasPage() {
                     <div className="text-center">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button size="icon" variant="outline" disabled={resolving} aria-label="Acciones de alerta">
+                          <Button size="icon" variant="ghost" disabled={resolving} aria-label="Acciones de alerta">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>

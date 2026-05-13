@@ -4,7 +4,7 @@ import { logout as logoutRequest } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
 import { useDisplayName, useProfileStore } from '@/store/profileStore'
 import { useTheme } from 'next-themes'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -94,13 +94,20 @@ type AppSidebarProps = {
 export function AppSidebar({ isSettingsRoute = false, collapsible = 'icon' }: AppSidebarProps) {
   const { user, logout: clearSession } = useAuthStore()
   const displayName = useDisplayName()
+  const profileAvatarUrl = useProfileStore((s) => s.profile?.avatarUrl)
   const organizationName = useProfileStore((s) => s.organizationName)
   const { theme, resolvedTheme, setTheme } = useTheme()
   const navigate = useNavigate()
   const activeTheme = theme === 'system' ? resolvedTheme : theme
   const isDarkTheme = activeTheme === 'dark'
 
-  const initials = user?.username ? user.username.slice(0, 2).toUpperCase() : 'U'
+  const initials = (displayName || user?.username || 'Usuario')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]!.toUpperCase())
+    .join('')
+    .slice(0, 2) || 'U'
   const roleLabel = (user?.role ?? 'ROLE_VIEWER').replace('ROLE_', '')
   const accountLabel = displayName || user?.username || 'Usuario'
   const organizationLabel = organizationName || 'Organización'
@@ -230,6 +237,7 @@ export function AppSidebar({ isSettingsRoute = false, collapsible = 'icon' }: Ap
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
                   <Avatar className="h-7 w-7 rounded-full">
+                    {profileAvatarUrl ? <AvatarImage src={profileAvatarUrl} alt={accountLabel} /> : null}
                     <AvatarFallback className="rounded-full bg-muted text-muted-foreground text-[10px]">
                       {initials}
                     </AvatarFallback>
