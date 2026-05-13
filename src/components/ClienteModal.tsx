@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { crearCliente, editarCliente } from '@/api/cliente'
 import type { Cliente } from '@/types/cliente'
@@ -34,26 +34,33 @@ export default function ClienteModal({ open, onClose, onSaved, cliente, canEdit 
     }
   }, [open, cliente])
 
+  const nombreValid = Boolean(form.nombre.trim()) && !/\d/.test(form.nombre.trim())
   const emailValid = !form.email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())
-  const telefonoValid = !form.telefono.trim() || /^[+\d\s()-]{7,25}$/.test(form.telefono.trim())
+  const telefonoValid = !form.telefono.trim() || /^\d{9}$/.test(form.telefono.trim())
+
   const isFormValid = useMemo(
-    () => Boolean(form.nombre.trim()) && emailValid && telefonoValid,
-    [form.nombre, emailValid, telefonoValid]
+    () => nombreValid && emailValid && telefonoValid,
+    [nombreValid, emailValid, telefonoValid]
   )
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     if (!canEdit) return
+
     if (!form.nombre.trim()) {
       toast.error('El nombre es obligatorio')
       return
     }
-    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
-      toast.error('El formato del email no es válido')
+    if (/\d/.test(form.nombre.trim())) {
+      toast.error('El nombre no puede contener numeros')
       return
     }
-    if (form.telefono.trim() && !/^[+\d\s()-]{7,25}$/.test(form.telefono.trim())) {
-      toast.error('El formato del teléfono no es válido')
+    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      toast.error('El formato del email no es valido')
+      return
+    }
+    if (form.telefono.trim() && !/^\d{9}$/.test(form.telefono.trim())) {
+      toast.error('El telefono debe tener exactamente 9 numeros')
       return
     }
 
@@ -98,7 +105,12 @@ export default function ClienteModal({ open, onClose, onSaved, cliente, canEdit 
             <Input
               placeholder="Nombre"
               value={form.nombre}
-              onChange={(e) => setForm((prev) => ({ ...prev, nombre: e.target.value }))}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  nombre: e.target.value.replace(/\d/g, ''),
+                }))
+              }
             />
           </div>
           <div className="space-y-1.5">
@@ -111,11 +123,18 @@ export default function ClienteModal({ open, onClose, onSaved, cliente, canEdit 
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Teléfono</label>
+            <label className="text-sm font-medium text-foreground">Telefono</label>
             <Input
-              placeholder="Teléfono"
+              placeholder="Telefono"
+              inputMode="numeric"
+              maxLength={9}
               value={form.telefono}
-              onChange={(e) => setForm((prev) => ({ ...prev, telefono: e.target.value }))}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  telefono: e.target.value.replace(/\D/g, '').slice(0, 9),
+                }))
+              }
             />
           </div>
           <div className="space-y-1.5">
@@ -131,7 +150,7 @@ export default function ClienteModal({ open, onClose, onSaved, cliente, canEdit 
 
         <ModalFooter onCancel={onClose}>
           <ModalSubmitButton disabled={saving || !canEdit || !isFormValid}>
-            {saving ? 'Guardando…' : 'Guardar cliente'}
+            {saving ? 'Guardando...' : 'Guardar cliente'}
           </ModalSubmitButton>
         </ModalFooter>
       </form>
