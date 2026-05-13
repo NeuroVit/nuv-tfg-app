@@ -32,3 +32,8 @@ export function useDisplayName(): string {
     return toTitleCase(fullName || username || 'Usuario')
   }, [profile?.nombre, profile?.apellidos, username])
 }
+
+export function useUserTimeZone(): string {
+  const profileTimeZone = useProfileStore((s) => s.profile?.timeZone)
+  return profileTimeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
+}

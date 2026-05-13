@@ -37,6 +37,7 @@ import type {
 } from '@/types/analitica'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
+import { useFormatters } from '@/lib/useFormatters'
 import {
   AnaliticaShell,
   EmptyChartPlaceholder,
@@ -93,15 +94,16 @@ const stockReceiptsChartConfig = {
   },
 } satisfies ChartConfig
 
-const formatShortDate = (iso: string) => {
-  const date = new Date(`${iso}T00:00:00`)
+const formatShortDate = (iso: string, tz: string) => {
+  const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return iso
-  return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`
+  return new Intl.DateTimeFormat('es-ES', { timeZone: tz, day: '2-digit', month: '2-digit' }).format(date)
 }
 
 const PAGE_SIZE = 20
 
 export default function AnaliticaInventarioPage() {
+  const { timeZone } = useFormatters()
   const { timeRange, selectedDays, setTimeRange } = useAnaliticaRange()
   const [loading, setLoading] = useState(true)
   const [loadState, setLoadState] = useState<LoadState>('loading')
@@ -181,21 +183,21 @@ export default function AnaliticaInventarioPage() {
     () =>
       productosCreados.map((row) => ({
         date: row.creationDate,
-        label: formatShortDate(row.creationDate),
+        label: formatShortDate(row.creationDate, timeZone),
         productsCreated: row.productsCreated,
       })),
-    [productosCreados],
+    [productosCreados, timeZone],
   )
 
   const stockReceiptsData = useMemo(
     () =>
       stockRecibido.map((row) => ({
         date: row.receiptDate,
-        label: formatShortDate(row.receiptDate),
+        label: formatShortDate(row.receiptDate, timeZone),
         unitsReceived: row.unitsReceived,
         valueReceived: row.valueReceived,
       })),
-    [stockRecibido],
+    [stockRecibido, timeZone],
   )
 
   const categoryStockData = useMemo(

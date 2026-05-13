@@ -4,7 +4,7 @@ import { Bell } from 'lucide-react'
 
 import { getMetaAnalitica } from '@/api/analitica'
 import { getAlertas } from '@/api/alerta'
-import { getMe } from '@/api/auth'
+import { getMe, updateMe } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
 import { useProfileStore } from '@/store/profileStore'
 import type { AnaliticaMeta } from '@/types/analitica'
@@ -82,7 +82,25 @@ export default function AppLayout() {
         return
       }
       try {
-        const me = await getMe()
+        let me = await getMe()
+        const detectedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+        const shouldDetect =
+          (!me.timeZone || me.timeZone === 'Europe/Madrid') &&
+          !localStorage.getItem('tz-detected-once') &&
+          Boolean(detectedTimeZone)
+        if (shouldDetect) {
+          try {
+            me = await updateMe({
+              nombre: me.nombre,
+              apellidos: me.apellidos,
+              email: me.email,
+              timeZone: detectedTimeZone,
+            })
+            localStorage.setItem('tz-detected-once', '1')
+          } catch {
+            // ignore auto-detection errors
+          }
+        }
         if (!isMounted) return
         setProfile(me)
       } catch {

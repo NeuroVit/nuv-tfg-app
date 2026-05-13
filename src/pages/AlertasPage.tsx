@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useFormatters } from '@/lib/useFormatters'
 
 const PAGE_SIZE = 20
 const isStockShortageAlert = (alert: AlertaStock) => alert.tipo === 'LOW_STOCK' || alert.tipo === 'OUT_OF_STOCK'
@@ -37,18 +38,8 @@ const typeMeta: Record<string, { label: string; chipClass: string; dotClass: str
   },
 }
 
-const formatDate = (value: string | null) =>
-  value
-    ? new Date(value).toLocaleString('es-ES', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : '—'
-
 export default function AlertasPage() {
+  const { formatDateTime } = useFormatters()
   const navigate = useNavigate()
   const { hasRole, user } = useAuthStore()
   const canResolve = hasRole('ROLE_ADMIN') || hasRole('ROLE_MANAGER')
@@ -168,6 +159,16 @@ export default function AlertasPage() {
   }
 
   const isSeen = (alertId: number) => seenAlertIds.includes(alertId)
+  const formatDate = (value: string | null) =>
+    value
+      ? formatDateTime(value, {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : '—'
 
   const markSeen = (alertId: number) => {
     setSeenAlertIds((current) => (current.includes(alertId) ? current : [...current, alertId]))

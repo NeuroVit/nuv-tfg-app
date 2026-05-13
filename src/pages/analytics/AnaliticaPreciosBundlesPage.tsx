@@ -26,6 +26,7 @@ import {
   useAnaliticaRange,
   type LoadState,
 } from './shared'
+import { useFormatters } from '@/lib/useFormatters'
 
 const priceDeltaChartConfig = {
   priceDelta: {
@@ -42,6 +43,7 @@ const bundleChartConfig = {
 } satisfies ChartConfig
 
 export default function AnaliticaPreciosBundlesPage() {
+  const { formatDateTime, formatShortDate } = useFormatters()
   const { timeRange, selectedDays, setTimeRange } = useAnaliticaRange()
   const [loading, setLoading] = useState(true)
   const [loadState, setLoadState] = useState<LoadState>('loading')
@@ -97,10 +99,10 @@ export default function AnaliticaPreciosBundlesPage() {
         .reverse()
         .map((row) => ({
           product: row.productName,
-          date: new Date(row.changedAt).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+          date: formatShortDate(row.changedAt),
           priceDelta: row.priceDelta,
         })),
-    [precios],
+    [formatShortDate, precios],
   )
 
   const bundleChartData = useMemo(
@@ -225,7 +227,7 @@ export default function AnaliticaPreciosBundlesPage() {
                   <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Sin historial de cambios de precio.</TableCell></TableRow>
                 ) : precios.map((row) => (
                   <TableRow key={row.historyId}>
-                    <TableCell>{new Date(row.changedAt).toLocaleString('es-ES')}</TableCell>
+                    <TableCell>{formatDateTime(row.changedAt)}</TableCell>
                     <TableCell>{row.productName} <span className="text-xs text-muted-foreground">({row.sku})</span></TableCell>
                     <TableCell>{formatCurrency(row.oldPrice)}</TableCell>
                     <TableCell>{formatCurrency(row.newPrice)}</TableCell>

@@ -27,6 +27,7 @@ import {
 import type { AnaliticaMeta, RentabilidadProductoRow, TopProductVelocityRow, VelocitySummaryRow } from '@/types/analitica'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
+import { useFormatters } from '@/lib/useFormatters'
 import {
   AnaliticaShell,
   EmptyChartPlaceholder,
@@ -77,11 +78,12 @@ function formatHour(date: Date) {
   return `${String(date.getHours()).padStart(2, '0')}:00`
 }
 
-function formatWeekday(date: Date) {
-  return date.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '')
+function formatWeekday(date: Date, tz: string) {
+  return new Intl.DateTimeFormat('es-ES', { timeZone: tz, weekday: 'short' }).format(date).replace('.', '')
 }
 
 export default function AnaliticaVentasRentabilidadPage() {
+  const { timeZone } = useFormatters()
   const { timeRange, selectedDays, setTimeRange } = useAnaliticaRange()
   const [loading, setLoading] = useState(true)
   const [loadState, setLoadState] = useState<LoadState>('loading')
@@ -132,7 +134,7 @@ export default function AnaliticaVentasRentabilidadPage() {
       .filter((row) => !Number.isNaN(row.parsedDate.getTime()))
 
     if (selectedDays === 1) {
-      const dayKey = toDayKey(now)
+      const dayKey = toDayKey(now, timeZone)
       const hours: Record<string, { date: string; unitsSold: number; revenue: number }> = {}
 
       for (let hour = 0; hour < 24; hour++) {
@@ -147,8 +149,9 @@ export default function AnaliticaVentasRentabilidadPage() {
       }
 
       safeRows.forEach((row) => {
-        if (toDayKey(row.parsedDate) !== dayKey) return
-        const key = `${dayKey}-${String(row.parsedDate.getHours()).padStart(2, '0')}`
+        if (toDayKey(row.parsedDate, timeZone) !== dayKey) return
+        const hour = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', hour12: false }).format(row.parsedDate)
+        const key = `${dayKey}-${hour}`
         if (!(key in hours)) return
         hours[key]!.unitsSold += row.unitsSold
         hours[key]!.revenue += row.revenue
@@ -170,7 +173,7 @@ export default function AnaliticaVentasRentabilidadPage() {
       const cursor = new Date(firstDate)
 
       while (cursor <= now) {
-        const key = toDayKey(cursor)
+        const key = toDayKey(cursor, timeZone)
         days[key] = {
           date: formatDayMonth(cursor),
           unitsSold: 0,
@@ -180,7 +183,7 @@ export default function AnaliticaVentasRentabilidadPage() {
       }
 
       safeRows.forEach((row) => {
-        const key = toDayKey(row.parsedDate)
+        const key = toDayKey(row.parsedDate, timeZone)
         if (!(key in days)) return
         days[key]!.unitsSold += row.unitsSold
         days[key]!.revenue += row.revenue
@@ -199,9 +202,9 @@ export default function AnaliticaVentasRentabilidadPage() {
       for (let i = 0; i < 7; i++) {
         const d = new Date(weekStart)
         d.setDate(weekStart.getDate() + i)
-        const key = toDayKey(d)
+        const key = toDayKey(d, timeZone)
         days[key] = {
-          date: formatWeekday(d),
+          date: formatWeekday(d, timeZone),
           unitsSold: 0,
           revenue: 0,
         }
@@ -210,7 +213,7 @@ export default function AnaliticaVentasRentabilidadPage() {
       for (let i = selectedDays - 1; i >= 0; i--) {
         const d = new Date(now)
         d.setDate(d.getDate() - i)
-        const key = toDayKey(d)
+        const key = toDayKey(d, timeZone)
         days[key] = {
           date: formatDayMonth(d),
           unitsSold: 0,
@@ -220,14 +223,14 @@ export default function AnaliticaVentasRentabilidadPage() {
     }
 
     safeRows.forEach((row) => {
-      const key = toDayKey(row.parsedDate)
+      const key = toDayKey(row.parsedDate, timeZone)
       if (!(key in days)) return
       days[key]!.unitsSold += row.unitsSold
       days[key]!.revenue += row.revenue
     })
 
     return Object.values(days)
-  }, [selectedDays, velocidadResumen])
+  }, [selectedDays, timeZone, velocidadResumen])
 
   const revenueThresholds = useMemo(() => {
     if (salesLineData.length === 0) return null

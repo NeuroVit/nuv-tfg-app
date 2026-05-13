@@ -4,8 +4,27 @@ import { getMe, updateMe } from '@/api/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { parseApiError } from '@/lib/apiError'
 import { useProfileStore } from '@/store/profileStore'
+
+const FALLBACK_TIME_ZONES = [
+  'Europe/Madrid',
+  'Europe/London',
+  'America/New_York',
+  'America/Los_Angeles',
+  'UTC',
+]
+
+const detectTimeZones = () => {
+  const maybeIntl = Intl as typeof Intl & {
+    supportedValuesOf?: (key: 'timeZone') => string[]
+  }
+  if (typeof maybeIntl.supportedValuesOf === 'function') {
+    return maybeIntl.supportedValuesOf('timeZone')
+  }
+  return FALLBACK_TIME_ZONES
+}
 
 export default function SettingsProfilePage() {
   const [loading, setLoading] = useState(true)
@@ -13,6 +32,8 @@ export default function SettingsProfilePage() {
   const profile = useProfileStore((s) => s.profile)
   const setProfile = useProfileStore((s) => s.setProfile)
   const [form, setForm] = useState({ nombre: '', apellidos: '', email: '' })
+  const [timeZone, setTimeZone] = useState('Europe/Madrid')
+  const [timeZones] = useState<string[]>(() => detectTimeZones())
 
   useEffect(() => {
     const load = async () => {
@@ -25,6 +46,7 @@ export default function SettingsProfilePage() {
           apellidos: me.apellidos ?? '',
           email: me.email ?? '',
         })
+        setTimeZone(me.timeZone ?? 'Europe/Madrid')
       } catch (error: unknown) {
         toast.error(parseApiError(error, 'No se pudo cargar tu perfil'))
       } finally {
@@ -48,6 +70,7 @@ export default function SettingsProfilePage() {
         nombre: form.nombre.trim(),
         apellidos: form.apellidos.trim(),
         email: form.email.trim(),
+        timeZone,
       })
       setProfile(updated)
       toast.success('Perfil actualizado correctamente')
@@ -113,6 +136,22 @@ export default function SettingsProfilePage() {
               value={form.email}
               onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Zona horaria</Label>
+            <Select value={timeZone} onValueChange={setTimeZone}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona zona horaria" />
+              </SelectTrigger>
+              <SelectContent className="max-h-80">
+                {timeZones.map((tz) => (
+                  <SelectItem key={tz} value={tz}>
+                    {tz}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div>

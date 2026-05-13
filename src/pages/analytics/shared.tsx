@@ -3,6 +3,8 @@ import { useSearchParams } from 'react-router'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { toUserDayKey } from '@/lib/datetime'
+import { useFormatters } from '@/lib/useFormatters'
 import type { AnaliticaMeta } from '@/types/analitica'
 import type { LucideIcon } from 'lucide-react'
 
@@ -28,8 +30,8 @@ export const statusLabels: Record<string, string> = {
 export const formatCurrency = (value: number) => `€${value.toLocaleString('es-ES', { maximumFractionDigits: 2 })}`
 export const formatCompact = (value: number) => value.toLocaleString('es-ES')
 
-export const toDayKey = (date: Date) =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+export const toDayKey = (date: Date, tz?: string) =>
+  toUserDayKey(date, tz ?? Intl.DateTimeFormat().resolvedOptions().timeZone)
 
 export const toMonthKey = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
@@ -105,6 +107,7 @@ export function AnaliticaShell({
   onTimeRangeChange,
   hideHeader = false,
 }: AnaliticaShellProps) {
+  const { formatDateTime } = useFormatters()
   const rangeLabel =
     timeRangeOptions.find((option) => option.value === timeRange)?.label ??
     timeRangeOptions.find((option) => option.value === '30')?.label ??
@@ -133,8 +136,8 @@ export function AnaliticaShell({
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Seed local: {metadata?.seedEnabled ? 'Activo' : 'Inactivo'} - Ultima carga UI:{' '}
-                    {lastUpdatedAt ? lastUpdatedAt.toLocaleString('es-ES') : 'Sin datos'} - Ultimo movimiento backend:{' '}
-                    {metadata?.generatedAt ? new Date(metadata.generatedAt).toLocaleString('es-ES') : 'Sin datos'}
+                    {lastUpdatedAt ? formatDateTime(lastUpdatedAt) : 'Sin datos'} - Ultimo movimiento backend:{' '}
+                    {metadata?.generatedAt ? formatDateTime(metadata.generatedAt) : 'Sin datos'}
                   </p>
                 </div>
               </div>

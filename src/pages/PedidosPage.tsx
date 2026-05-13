@@ -25,18 +25,9 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { parseApiError } from '@/lib/apiError'
+import { useFormatters } from '@/lib/useFormatters'
 import PedidoFormModal from '@/components/PedidoFormModal'
 import PedidoDetailModal from '@/components/PedidoDetailModal'
-
-const formatDate = (value: string | null) =>
-  value ? new Date(value).toLocaleDateString('es-ES') : '—'
-const formatDateTimeNoSeconds = (value: string | null) =>
-  value
-    ? new Date(value).toLocaleString('es-ES', {
-        dateStyle: 'short',
-        timeStyle: 'short',
-      })
-    : '—'
 
 const statusLabelMap: Record<PedidoProveedor['status'], string> = {
   DRAFT: 'Borrador',
@@ -46,6 +37,7 @@ const statusLabelMap: Record<PedidoProveedor['status'], string> = {
 }
 
 export default function PedidosPage() {
+  const { formatDate, formatDateTime } = useFormatters()
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedProviderId = Number(searchParams.get('providerId')) || null
   const restockProductId = Number(searchParams.get('restockProductId')) || null
@@ -110,6 +102,10 @@ export default function PedidosPage() {
     const diffMs = received.getTime() - desired.getTime()
     return Math.floor(diffMs / (1000 * 60 * 60 * 24))
   }
+
+  const formatDateValue = (value: string | null) => (value ? formatDate(value) : '—')
+  const formatDateTimeNoSeconds = (value: string | null) =>
+    value ? formatDateTime(value, { dateStyle: 'short', timeStyle: 'short' }) : '—'
 
   const loadProviders = async () => {
     setLoadingProviders(true)
@@ -346,8 +342,8 @@ export default function PedidosPage() {
                             {statusLabelMap[order.status] ?? order.status}
                           </Badge>
                         </TableCell>
-                        <TableCell>{formatDate(order.fechaLlegadaDeseada)}</TableCell>
-                        <TableCell>{formatDate(order.creadoEn)}</TableCell>
+                        <TableCell>{formatDateValue(order.fechaLlegadaDeseada)}</TableCell>
+                        <TableCell>{formatDateValue(order.creadoEn)}</TableCell>
                         <TableCell>
                           {formatDateTimeNoSeconds(order.recibidoEn)}
                           {computeDelayDays(order) !== null ? (
