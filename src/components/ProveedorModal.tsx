@@ -56,8 +56,10 @@ export default function ProveedorModal({ open, onClose, onSaved, proveedor }: Pr
     const ubicacionAlmacen = form.ubicacionAlmacen.trim()
     const email = form.email.trim()
     const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    const nombreOk = !/\d/.test(nombre)
     return (
       Boolean(nombre) &&
+      nombreOk &&
       nombre.length <= PROVIDER_NAME_MAX_LENGTH &&
       Boolean(ubicacionAlmacen) &&
       ubicacionAlmacen.length <= WAREHOUSE_LOCATION_MAX_LENGTH &&
@@ -80,6 +82,10 @@ export default function ProveedorModal({ open, onClose, onSaved, proveedor }: Pr
 
     if (!payload.nombre || !payload.ubicacionAlmacen) {
       toast.error('Nombre y ubicacion de almacen son obligatorios')
+      return
+    }
+    if (/\d/.test(payload.nombre)) {
+      toast.error('El nombre del proveedor no puede contener numeros')
       return
     }
     if (payload.nombre.length > PROVIDER_NAME_MAX_LENGTH) {
@@ -135,8 +141,13 @@ export default function ProveedorModal({ open, onClose, onSaved, proveedor }: Pr
             <label className="text-sm font-medium text-foreground">Nombre <RequiredMark /></label>
             <Input
               value={form.nombre}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  nombre: event.target.value.replace(/\d/g, ''),
+                }))
+              }
               maxLength={PROVIDER_NAME_MAX_LENGTH}
-              onChange={(event) => setForm((current) => ({ ...current, nombre: event.target.value }))}
             />
           </div>
           <div className="space-y-1.5">

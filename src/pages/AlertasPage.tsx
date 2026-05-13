@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useFormatters } from '@/lib/useFormatters'
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = 7
 const isStockShortageAlert = (alert: AlertaStock) => alert.tipo === 'LOW_STOCK' || alert.tipo === 'OUT_OF_STOCK'
 const isPriceAnomalyAlert = (alert: AlertaStock) => alert.tipo === 'PRICE_ANOMALY'
 const canResolveManually = (alert: AlertaStock) => !isStockShortageAlert(alert) && !isPriceAnomalyAlert(alert)
