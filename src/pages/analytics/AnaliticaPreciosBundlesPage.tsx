@@ -14,8 +14,18 @@ import {
   YAxis,
   type ChartConfig,
 } from '@/components/ui/chart'
-import { getBundleCandidatosAnalitica, getMetaAnalitica, getPreciosAnalitica } from '@/api/analitica'
-import type { AnaliticaMeta, BundleCandidateRow, PriceTrendRow } from '@/types/analitica'
+import {
+  getBundleCandidatosAnalitica,
+  getBundlesPerformance,
+  getMetaAnalitica,
+  getPreciosAnalitica,
+} from '@/api/analitica'
+import type {
+  AnaliticaMeta,
+  BundleCandidateRow,
+  BundlePerformanceRow,
+  PriceTrendRow,
+} from '@/types/analitica'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import {
   AnaliticaShell,
@@ -42,6 +52,17 @@ const bundleChartConfig = {
   },
 } satisfies ChartConfig
 
+const bundlePerformanceChartConfig = {
+  revenue: {
+    label: 'Ingresos',
+    color: '#0f766e',
+  },
+  profit: {
+    label: 'Margen',
+    color: '#f59e0b',
+  },
+} satisfies ChartConfig
+
 export default function AnaliticaPreciosBundlesPage() {
   const { formatDateTime, formatShortDate } = useFormatters()
   const { timeRange, selectedDays, setTimeRange } = useAnaliticaRange()
@@ -51,20 +72,23 @@ export default function AnaliticaPreciosBundlesPage() {
   const [metadata, setMetadata] = useState<AnaliticaMeta | null>(null)
   const [precios, setPrecios] = useState<PriceTrendRow[]>([])
   const [bundles, setBundles] = useState<BundleCandidateRow[]>([])
+  const [bundlePerformance, setBundlePerformance] = useState<BundlePerformanceRow[]>([])
 
   useEffect(() => {
     const load = async () => {
       setLoading(true)
       setLoadState('loading')
       try {
-        const [pri, bun, meta] = await Promise.all([
+        const [pri, bun, perf, meta] = await Promise.all([
           getPreciosAnalitica(120, selectedDays),
           getBundleCandidatosAnalitica(120, selectedDays),
+          getBundlesPerformance(selectedDays, 20),
           getMetaAnalitica(selectedDays),
         ])
 
         setPrecios(pri)
         setBundles(bun)
+        setBundlePerformance(perf)
         setMetadata(meta)
         setLastUpdatedAt(new Date())
         setLoadState('ready')
@@ -87,10 +111,11 @@ export default function AnaliticaPreciosBundlesPage() {
     return {
       priceUpdates: precios.length,
       bundleCandidates: bundles.length,
+      bundlePerformanceRows: bundlePerformance.length,
       maxAbsDelta,
       avgPctChange,
     }
-  }, [bundles, precios])
+  }, [bundlePerformance.length, bundles, precios])
 
   const priceDeltaChartData = useMemo(
     () =>
@@ -115,6 +140,19 @@ export default function AnaliticaPreciosBundlesPage() {
         }))
         .reverse(),
     [bundles],
+  )
+
+  const bundlePerformanceChartData = useMemo(
+    () =>
+      bundlePerformance
+        .slice(0, 10)
+        .map((row) => ({
+          bundleName: row.bundleName,
+          revenue: row.revenue,
+          profit: row.profit,
+        }))
+        .reverse(),
+    [bundlePerformance],
   )
 
   return (
@@ -144,6 +182,10 @@ export default function AnaliticaPreciosBundlesPage() {
         <article className="rounded-lg bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Variación media %</p>
           <p className="mt-2 text-xl font-semibold text-indigo-700">{kpis.avgPctChange.toFixed(2)}%</p>
+        </article>
+        <article className="rounded-lg bg-card p-4">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Bundles con ventas reales</p>
+          <p className="mt-2 text-xl font-semibold text-teal-700">{formatCompact(kpis.bundlePerformanceRows)}</p>
         </article>
       </section>
 
@@ -199,6 +241,33 @@ export default function AnaliticaPreciosBundlesPage() {
                   <YAxis type="category" width={200} dataKey="pair" tick={{ fontSize: 11 }} />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <Bar dataKey="coOccurrenceCount" fill="var(--color-coOccurrenceCount)" name="coOccurrenceCount" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ChartContainer>
+            )}
+          </div>
+        </article>
+
+        <article className="rounded-lg bg-card p-4">
+          <h2 className="text-sm font-semibold text-foreground">Bundle performance real</h2>
+          <div className="mt-3 h-72">
+            {loading ? (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
+            ) : bundlePerformanceChartData.length === 0 ? (
+              <EmptyChartPlaceholder
+                icon={Boxes}
+                message="No hay líneas de venta con bundle asociado en el rango."
+              />
+            ) : (
+              <ChartContainer config={bundlePerformanceChartConfig} className="h-full w-full">
+                <BarChart data={bundlePerformanceChartData} margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="bundleName" tick={{ fontSize: 11 }} minTickGap={12} />
+                  <YAxis />
+                  <ChartTooltip
+                    content={<ChartTooltipContent formatter={(value) => formatCurrency(Number(value))} />}
+                  />
+                  <Bar dataKey="revenue" fill="var(--color-revenue)" name="revenue" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="profit" fill="var(--color-profit)" name="profit" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ChartContainer>
             )}
@@ -260,6 +329,39 @@ export default function AnaliticaPreciosBundlesPage() {
                     <TableCell>{row.productBName} <span className="text-xs text-muted-foreground">({row.productBSku})</span></TableCell>
                     <TableCell>{formatCompact(row.coOccurrenceCount)}</TableCell>
                     <TableCell>{formatCurrency(row.combinedPrice)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </article>
+
+          <article className="rounded-lg border bg-card p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Bundle</TableHead>
+                  <TableHead>Ventas</TableHead>
+                  <TableHead>Unidades</TableHead>
+                  <TableHead>Ingresos</TableHead>
+                  <TableHead>Coste</TableHead>
+                  <TableHead>Margen</TableHead>
+                  <TableHead>Margen %</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
+                ) : bundlePerformance.length === 0 ? (
+                  <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">No hay bundle performance real disponible.</TableCell></TableRow>
+                ) : bundlePerformance.map((row) => (
+                  <TableRow key={row.bundleId}>
+                    <TableCell>{row.bundleName}</TableCell>
+                    <TableCell>{formatCompact(row.salesCount)}</TableCell>
+                    <TableCell>{formatCompact(row.unitsSold)}</TableCell>
+                    <TableCell>{formatCurrency(row.revenue)}</TableCell>
+                    <TableCell>{formatCurrency(row.cost)}</TableCell>
+                    <TableCell>{formatCurrency(row.profit)}</TableCell>
+                    <TableCell>{row.margin.toFixed(2)}%</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

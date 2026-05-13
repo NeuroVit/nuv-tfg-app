@@ -34,6 +34,7 @@ const analiticaTabs: TopTab[] = [
   { to: '/analitica/ventas-rentabilidad', label: 'Ventas y Rentabilidad' },
   { to: '/analitica/inventario', label: 'Inventario' },
   { to: '/analitica/precios-bundles', label: 'Precios y Bundles' },
+  { to: '/analitica/proveedores', label: 'Proveedores' },
 ]
 
 const inRouteGroup = (pathname: string, routes: string[]) =>

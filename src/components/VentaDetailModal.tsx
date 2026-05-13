@@ -44,6 +44,7 @@ export default function VentaDetailModal({ open, onClose, venta }: VentaDetailMo
                   <TableHeader>
                     <TableRow>
                       <TableHead>Producto</TableHead>
+                      <TableHead>Bundle</TableHead>
                       <TableHead>SKU</TableHead>
                       <TableHead>Cantidad</TableHead>
                       <TableHead>Precio unitario</TableHead>
@@ -52,8 +53,9 @@ export default function VentaDetailModal({ open, onClose, venta }: VentaDetailMo
                   </TableHeader>
                   <TableBody>
                     {venta.items.map((item) => (
-                      <TableRow key={`${venta.id}-${item.productId}`}>
+                      <TableRow key={`${venta.id}-${item.productId}-${item.bundleId ?? 'directo'}`}>
                         <TableCell>{item.productoNombre}</TableCell>
+                        <TableCell>{item.bundleName ?? 'Directo'}</TableCell>
                         <TableCell className="font-mono text-xs">{item.sku}</TableCell>
                         <TableCell>{item.quantity}</TableCell>
                         <TableCell>{euro(item.unitPriceSnapshot)}</TableCell>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router'
 import { toast } from 'sonner'
 import {
   getBundleCandidatosAnalitica,
@@ -462,6 +463,14 @@ export default function AnaliticaPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Analítica</h1>
           <p className="mt-1 text-sm text-muted-foreground">Métricas reales de ventas, costes y rentabilidad por producto.</p>
+          <div className="mt-3">
+            <Link
+              to="/analitica/proveedores"
+              className="inline-flex rounded-md border px-3 py-1.5 text-sm font-medium text-foreground transition hover:bg-accent"
+            >
+              Ver performance de proveedores
+            </Link>
+          </div>
         </div>
 
         <section className="rounded-lg border bg-card p-4">

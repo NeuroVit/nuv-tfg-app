@@ -87,6 +87,7 @@ const isRedirectedApiResponseToLogin = (response: { request?: unknown; config?: 
   const requestUrl = typeof config?.url === 'string' ? config.url.toLowerCase() : ''
 
   if (!requestUrl.startsWith('/')) return false
+  if (isAuthEndpoint(requestUrl)) return false
   return responseUrl.endsWith('/login') || responseUrl.includes('/login?')
 }
 

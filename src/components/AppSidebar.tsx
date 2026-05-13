@@ -1,10 +1,12 @@
+import { useEffect, useState } from 'react'
 import { useNavigate, NavLink } from 'react-router'
 import { toast } from 'sonner'
 import { logout as logoutRequest } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
 import { useDisplayName, useProfileStore } from '@/store/profileStore'
 import { useTheme } from 'next-themes'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { normalizeAvatarUrl } from '@/lib/googleAvatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -111,6 +113,15 @@ export function AppSidebar({ isSettingsRoute = false, collapsible = 'icon' }: Ap
   const roleLabel = (user?.role ?? 'ROLE_VIEWER').replace('ROLE_', '')
   const accountLabel = displayName || user?.username || 'Usuario'
   const organizationLabel = organizationName || 'Organización'
+  const effectiveAvatarUrl = normalizeAvatarUrl(profileAvatarUrl)
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
+  const [avatarLoaded, setAvatarLoaded] = useState(false)
+  const showAvatarImage = Boolean(effectiveAvatarUrl) && !avatarLoadFailed
+
+  useEffect(() => {
+    setAvatarLoadFailed(false)
+    setAvatarLoaded(false)
+  }, [effectiveAvatarUrl])
 
   const handleLogout = async () => {
     try {
@@ -237,8 +248,27 @@ export function AppSidebar({ isSettingsRoute = false, collapsible = 'icon' }: Ap
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
                   <Avatar className="h-7 w-7 rounded-full">
-                    {profileAvatarUrl ? <AvatarImage src={profileAvatarUrl} alt={accountLabel} /> : null}
-                    <AvatarFallback className="rounded-full bg-muted text-muted-foreground text-[10px]">
+                    {showAvatarImage ? (
+                      <>
+                        {!avatarLoaded ? (
+                          <span
+                            aria-hidden
+                            className="absolute inset-0 animate-pulse rounded-full bg-muted"
+                          />
+                        ) : null}
+                        <img
+                          src={effectiveAvatarUrl!}
+                          alt={accountLabel}
+                          referrerPolicy="no-referrer"
+                          className={`aspect-square size-full rounded-full object-cover transition-opacity duration-200 ${avatarLoaded ? 'opacity-100' : 'opacity-0'}`}
+                          onLoad={() => setAvatarLoaded(true)}
+                          onError={() => setAvatarLoadFailed(true)}
+                        />
+                      </>
+                    ) : null}
+                    <AvatarFallback
+                      className={`rounded-full bg-muted text-muted-foreground text-[10px] ${showAvatarImage && avatarLoaded ? 'opacity-0' : 'opacity-100'}`}
+                    >
                       {initials}
                     </AvatarFallback>
                   </Avatar>
