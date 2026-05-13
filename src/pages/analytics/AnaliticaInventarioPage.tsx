@@ -44,6 +44,7 @@ import {
   RevealDataSection,
   formatCompact,
   formatCurrency,
+  toDayKey,
   statusFillKey,
   statusLabels,
   useAnaliticaRange,
@@ -94,10 +95,103 @@ const stockReceiptsChartConfig = {
   },
 } satisfies ChartConfig
 
-const formatShortDate = (iso: string, tz: string) => {
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return iso
-  return new Intl.DateTimeFormat('es-ES', { timeZone: tz, day: '2-digit', month: '2-digit' }).format(date)
+const DAY_KEY_REGEX = /^\d{4}-\d{2}-\d{2}$/
+type InventoryTimelineBucket = {
+  date: string
+  label: string
+  productsCreated: number
+  unitsReceived: number
+  valueReceived: number
+}
+
+const asDayKey = (value: string, tz: string) => {
+  if (DAY_KEY_REGEX.test(value)) return value
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return toDayKey(date, tz)
+}
+
+const formatDayMonthFromKey = (dayKey: string) => {
+  const parts = dayKey.split('-')
+  if (parts.length !== 3) return dayKey
+  const [, month, day] = parts
+  return `${day}/${month}`
+}
+
+const formatWeekdayFromKey = (dayKey: string) => {
+  const parts = dayKey.split('-')
+  if (parts.length !== 3) return dayKey
+  const [yearRaw, monthRaw, dayRaw] = parts
+  const year = Number(yearRaw)
+  const month = Number(monthRaw)
+  const day = Number(dayRaw)
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return dayKey
+  const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0))
+  return new Intl.DateTimeFormat('es-ES', { timeZone: 'UTC', weekday: 'short' }).format(date).replace('.', '')
+}
+
+const buildDayBuckets = (selectedDays: number, tz: string, dayKeys: string[]) => {
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+
+  const buckets: Record<string, InventoryTimelineBucket> = {}
+
+  if (selectedDays <= 0) {
+    if (dayKeys.length === 0) return buckets
+    const sorted = dayKeys.slice().sort()
+    const first = sorted[0]
+    if (!first) return buckets
+    const firstDate = new Date(`${first}T00:00:00`)
+    if (Number.isNaN(firstDate.getTime())) return buckets
+    firstDate.setHours(0, 0, 0, 0)
+    const cursor = new Date(firstDate)
+    while (cursor <= now) {
+      const key = toDayKey(cursor, tz)
+      buckets[key] = {
+        date: key,
+        label: formatDayMonthFromKey(key),
+        productsCreated: 0,
+        unitsReceived: 0,
+        valueReceived: 0,
+      }
+      cursor.setDate(cursor.getDate() + 1)
+    }
+    return buckets
+  }
+
+  if (selectedDays === 7) {
+    const weekStart = new Date(now)
+    const mondayOffset = (weekStart.getDay() + 6) % 7
+    weekStart.setDate(weekStart.getDate() - mondayOffset)
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(weekStart)
+      d.setDate(weekStart.getDate() + i)
+      const key = toDayKey(d, tz)
+      buckets[key] = {
+        date: key,
+        label: formatWeekdayFromKey(key),
+        productsCreated: 0,
+        unitsReceived: 0,
+        valueReceived: 0,
+      }
+    }
+    return buckets
+  }
+
+  for (let i = selectedDays - 1; i >= 0; i--) {
+    const d = new Date(now)
+    d.setDate(d.getDate() - i)
+    const key = toDayKey(d, tz)
+    buckets[key] = {
+      date: key,
+      label: formatDayMonthFromKey(key),
+      productsCreated: 0,
+      unitsReceived: 0,
+      valueReceived: 0,
+    }
+  }
+
+  return buckets
 }
 
 const PAGE_SIZE = 20
@@ -155,6 +249,7 @@ export default function AnaliticaInventarioPage() {
     const overStockCount = inventario.filter((row) => row.stockStatus === 'OVERSTOCK').length
     const optimalCount = inventario.filter((row) => row.stockStatus === 'OK').length
     const stockValue = inventario.reduce((sum, row) => sum + row.stockValue, 0)
+    const totalUnits = inventario.reduce((sum, row) => sum + row.currentQuantity, 0)
 
     return {
       lowStockCount,
@@ -163,6 +258,7 @@ export default function AnaliticaInventarioPage() {
       optimalCount,
       stockValue,
       productsCount: inventario.length,
+      totalUnits,
     }
   }, [inventario])
 
@@ -180,24 +276,66 @@ export default function AnaliticaInventarioPage() {
   )
 
   const productCreationData = useMemo(
-    () =>
-      productosCreados.map((row) => ({
-        date: row.creationDate,
-        label: formatShortDate(row.creationDate, timeZone),
+    () => {
+      const normalizedRows = productosCreados
+        .map((row) => ({
+          dayKey: asDayKey(row.creationDate, timeZone),
+          productsCreated: row.productsCreated,
+        }))
+        .filter((row): row is { dayKey: string; productsCreated: number } => row.dayKey !== null)
+
+      const dayBuckets = buildDayBuckets(
+        selectedDays,
+        timeZone,
+        normalizedRows.map((row) => row.dayKey),
+      )
+
+      normalizedRows.forEach((row) => {
+        if (!(row.dayKey in dayBuckets)) return
+        dayBuckets[row.dayKey]!.productsCreated += row.productsCreated
+      })
+
+      return Object.values(dayBuckets).map((row) => ({
+        date: row.date,
+        label: row.label,
         productsCreated: row.productsCreated,
-      })),
-    [productosCreados, timeZone],
+      }))
+    },
+    [productosCreados, selectedDays, timeZone],
   )
 
   const stockReceiptsData = useMemo(
-    () =>
-      stockRecibido.map((row) => ({
-        date: row.receiptDate,
-        label: formatShortDate(row.receiptDate, timeZone),
+    () => {
+      const normalizedRows = stockRecibido
+        .map((row) => ({
+          dayKey: asDayKey(row.receiptDate, timeZone),
+          unitsReceived: row.unitsReceived,
+          valueReceived: row.valueReceived,
+        }))
+        .filter(
+          (row): row is { dayKey: string; unitsReceived: number; valueReceived: number } => row.dayKey !== null,
+        )
+
+      const dayBuckets = buildDayBuckets(
+        selectedDays,
+        timeZone,
+        normalizedRows.map((row) => row.dayKey),
+      )
+
+      normalizedRows.forEach((row) => {
+        if (!(row.dayKey in dayBuckets)) return
+        dayBuckets[row.dayKey]!.unitsReceived += row.unitsReceived
+        dayBuckets[row.dayKey]!.valueReceived += row.valueReceived
+      })
+
+      return Object.values(dayBuckets).map((row) => ({
+        date: row.date,
+        label: row.label,
         unitsReceived: row.unitsReceived,
         valueReceived: row.valueReceived,
-      })),
-    [stockRecibido, timeZone],
+      }))
+    },
+    [selectedDays, stockRecibido, timeZone],
   )
 
   const categoryStockData = useMemo(
@@ -241,6 +379,7 @@ export default function AnaliticaInventarioPage() {
         <article className="rounded-lg bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Productos totales</p>
           <p className="mt-2 text-xl font-semibold text-foreground">{formatCompact(kpis.productsCount)}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{formatCompact(kpis.totalUnits)} unidades totales</p>
         </article>
         <article className="rounded-lg bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Valor total stock</p>

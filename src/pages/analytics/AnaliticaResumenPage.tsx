@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { LineChart as LineChartIcon } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   Bar,
   BarChart,
@@ -22,6 +23,7 @@ import {
   getRevenueComparativaAnalitica,
   getVelocidadResumenAnalitica,
 } from '@/api/analitica'
+import { getBundles } from '@/api/bundle'
 import type {
   AnaliticaMeta,
   FinanzasResumen,
@@ -34,6 +36,7 @@ import {
   EmptyChartPlaceholder,
   formatCompact,
   formatCurrency,
+  timeRangeOptions,
   useAnaliticaRange,
   type LoadState,
 } from './shared'
@@ -108,8 +111,9 @@ export default function AnaliticaResumenPage() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
   const [metadata, setMetadata] = useState<AnaliticaMeta | null>(null)
   const [finanzas, setFinanzas] = useState<FinanzasResumen | null>(null)
-  const [velocidadResumen, setVelocidadResumen] = useState<VelocitySummaryRow[]>([])
   const [inventario, setInventario] = useState<InventorySummaryRow[]>([])
+  const [velocidadResumen, setVelocidadResumen] = useState<VelocitySummaryRow[]>([])
+  const [bundlesCount, setBundlesCount] = useState(0)
   const [revenueComparativa, setRevenueComparativa] = useState<RevenueComparativa | null>(null)
 
   useEffect(() => {
@@ -122,20 +126,22 @@ export default function AnaliticaResumenPage() {
       }
 
       try {
-        const [fin, velRes, inv, meta, revComp] = await Promise.all([
+        const [fin, inv, velRes, meta, revComp, bundles] = await Promise.all([
           getFinanzasResumenAnalitica(selectedDays),
-          getVelocidadResumenAnalitica(selectedDays),
           getInventarioAnalitica(),
+          getVelocidadResumenAnalitica(selectedDays),
           getMetaAnalitica(selectedDays),
           getRevenueComparativaAnalitica(selectedDays),
+          getBundles().catch(() => []),
         ])
 
         if (!active) return
         setFinanzas(fin)
-        setVelocidadResumen(velRes)
         setInventario(inv)
+        setVelocidadResumen(velRes)
         setMetadata(meta)
         setRevenueComparativa(revComp)
+        setBundlesCount(bundles.length)
         setLastUpdatedAt(new Date())
         setLoadState('ready')
       } catch {
@@ -163,22 +169,26 @@ export default function AnaliticaResumenPage() {
   }, [selectedDays])
 
   const kpis = useMemo(() => {
+    const stockValue = inventario.reduce((sum, row) => sum + row.stockValue, 0)
+    const productsCount = inventario.length
+    const totalUnits = inventario.reduce((sum, row) => sum + row.currentQuantity, 0)
     const lowStockCount = inventario.filter((row) => row.stockStatus === 'LOW_STOCK').length
     const outOfStockCount = inventario.filter((row) => row.stockStatus === 'OUT_OF_STOCK').length
     const unitsSold = velocidadResumen.reduce((sum, row) => sum + row.unitsSold, 0)
 
     return {
+      ingresos: finanzas?.ventas30d ?? 0,
+      stockValue,
+      productsCount,
+      totalUnits,
+      bundlesCount,
       lowStockCount,
       outOfStockCount,
-      unitsSold,
-      ventas: finanzas?.ventas30d ?? 0,
-      cogs: finanzas?.cogsReal30d ?? 0,
-      margen: finanzas?.margenReal30d ?? 0,
+      costoStockReal: finanzas?.costoStockReal ?? 0,
       flujoNeto: finanzas?.flujoNeto30d ?? 0,
-      ticketPromedio: finanzas?.ticketPromedio ?? 0,
-      margenBrutoPct: finanzas?.margenBrutoPct ?? 0,
+      unitsSold,
     }
-  }, [finanzas, inventario, velocidadResumen])
+  }, [bundlesCount, finanzas, inventario, velocidadResumen])
 
   const revenueComparison = useMemo(() => {
     if (!revenueComparativa || revenueComparativa.buckets.length === 0) {
@@ -248,39 +258,31 @@ export default function AnaliticaResumenPage() {
       timeRange={timeRange}
       onTimeRangeChange={setTimeRange}
       hideHeader
+      showTimeRangeControl={false}
     >
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <article className="rounded-lg bg-card p-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Ventas (rango)</p>
-          <p className="mt-2 text-xl font-semibold text-emerald-700">{formatCurrency(kpis.ventas)}</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Valor total stock</p>
+          <p className="mt-2 text-xl font-semibold text-indigo-700">{formatCurrency(kpis.stockValue)}</p>
         </article>
         <article className="rounded-lg bg-card p-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Coste de ventas real (rango)</p>
-          <p className="mt-2 text-xl font-semibold text-orange-700">-{formatCurrency(kpis.cogs)}</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Ingresos</p>
+          <p className="mt-2 text-xl font-semibold text-emerald-700">{formatCurrency(kpis.ingresos)}</p>
         </article>
         <article className="rounded-lg bg-card p-4">
-          <p className={`mt-2 text-xl font-semibold ${kpis.margen >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-            {formatCurrency(kpis.margen)}
-          </p>
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Margen real (rango)</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Coste total stock</p>
+          <p className="mt-2 text-xl font-semibold text-orange-700">{formatCurrency(kpis.costoStockReal)}</p>
         </article>
         <article className="rounded-lg bg-card p-4">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Flujo neto</p>
           <p className={`mt-2 text-xl font-semibold ${kpis.flujoNeto >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
             {formatCurrency(kpis.flujoNeto)}
           </p>
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Flujo neto (rango)</p>
         </article>
         <article className="rounded-lg bg-card p-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Unidades vendidas (rango)</p>
-          <p className="mt-2 text-xl font-semibold text-blue-700">{formatCompact(kpis.unitsSold)}</p>
-        </article>
-        <article className="rounded-lg bg-card p-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Ticket promedio</p>
-          <p className="mt-2 text-xl font-semibold text-foreground">{formatCurrency(kpis.ticketPromedio)}</p>
-        </article>
-        <article className="rounded-lg bg-card p-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Margen bruto %</p>
-          <p className="mt-2 text-xl font-semibold text-emerald-700">{kpis.margenBrutoPct.toFixed(2)}%</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Productos totales</p>
+          <p className="mt-2 text-xl font-semibold text-foreground">{formatCompact(kpis.productsCount)}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{formatCompact(kpis.totalUnits)} unidades totales</p>
         </article>
         <article className="rounded-lg bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Productos críticos</p>
@@ -291,7 +293,31 @@ export default function AnaliticaResumenPage() {
             {formatCompact(kpis.lowStockCount)} bajo stock · {formatCompact(kpis.outOfStockCount)} sin stock
           </p>
         </article>
+        <article className="rounded-lg bg-card p-4">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Cantidad de bundles</p>
+          <p className="mt-2 text-xl font-semibold text-violet-700">{formatCompact(kpis.bundlesCount)}</p>
+        </article>
+        <article className="rounded-lg bg-card p-4">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Unidades vendidas</p>
+          <p className="mt-2 text-xl font-semibold text-blue-700">{formatCompact(kpis.unitsSold)}</p>
+        </article>
       </section>
+
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+        <span className="text-sm text-muted-foreground">Rango temporal</span>
+        <Select value={timeRange} onValueChange={(value) => setTimeRange(value as typeof timeRange)}>
+          <SelectTrigger className="w-full sm:w-56">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {timeRangeOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       <section className="overflow-hidden rounded-lg bg-card">
         {loading ? (

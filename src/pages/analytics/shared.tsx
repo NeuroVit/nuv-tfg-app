@@ -94,6 +94,7 @@ type AnaliticaShellProps = {
   timeRange: TimeRangeValue
   onTimeRangeChange: (value: TimeRangeValue) => void
   hideHeader?: boolean
+  showTimeRangeControl?: boolean
 }
 
 export function AnaliticaShell({
@@ -106,6 +107,7 @@ export function AnaliticaShell({
   timeRange,
   onTimeRangeChange,
   hideHeader = false,
+  showTimeRangeControl = true,
 }: AnaliticaShellProps) {
   const { formatDateTime } = useFormatters()
   const rangeLabel =
@@ -145,21 +147,23 @@ export function AnaliticaShell({
           </>
         ) : null}
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-          <span className="text-sm text-muted-foreground">Rango temporal</span>
-          <Select value={timeRange} onValueChange={(value) => onTimeRangeChange(value as TimeRangeValue)}>
-            <SelectTrigger className="w-full sm:w-56">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {timeRangeOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {showTimeRangeControl ? (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+            <span className="text-sm text-muted-foreground">Rango temporal</span>
+            <Select value={timeRange} onValueChange={(value) => onTimeRangeChange(value as TimeRangeValue)}>
+              <SelectTrigger className="w-full sm:w-56">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {timeRangeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
 
         {children}
       </div>

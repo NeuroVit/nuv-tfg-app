@@ -19,12 +19,19 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart'
 import {
+  getFinanzasResumenAnalitica,
   getMetaAnalitica,
   getRentabilidadProductosAnalitica,
   getTopProductosVelocidadAnalitica,
   getVelocidadResumenAnalitica,
 } from '@/api/analitica'
-import type { AnaliticaMeta, RentabilidadProductoRow, TopProductVelocityRow, VelocitySummaryRow } from '@/types/analitica'
+import type {
+  AnaliticaMeta,
+  FinanzasResumen,
+  RentabilidadProductoRow,
+  TopProductVelocityRow,
+  VelocitySummaryRow,
+} from '@/types/analitica'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { useFormatters } from '@/lib/useFormatters'
@@ -89,6 +96,7 @@ export default function AnaliticaVentasRentabilidadPage() {
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
   const [metadata, setMetadata] = useState<AnaliticaMeta | null>(null)
+  const [finanzas, setFinanzas] = useState<FinanzasResumen | null>(null)
   const [velocidadResumen, setVelocidadResumen] = useState<VelocitySummaryRow[]>([])
   const [topProductos, setTopProductos] = useState<TopProductVelocityRow[]>([])
   const [rentabilidad, setRentabilidad] = useState<RentabilidadProductoRow[]>([])
@@ -99,13 +107,15 @@ export default function AnaliticaVentasRentabilidadPage() {
       setLoading(true)
       setLoadState('loading')
       try {
-        const [velRes, topVel, rent, meta] = await Promise.all([
+        const [fin, velRes, topVel, rent, meta] = await Promise.all([
+          getFinanzasResumenAnalitica(selectedDays),
           getVelocidadResumenAnalitica(selectedDays),
           getTopProductosVelocidadAnalitica(selectedDays, 10),
           getRentabilidadProductosAnalitica(selectedDays, 20),
           getMetaAnalitica(selectedDays),
         ])
 
+        setFinanzas(fin)
         setVelocidadResumen(velRes)
         setTopProductos(topVel)
         setRentabilidad(rent)
@@ -122,6 +132,19 @@ export default function AnaliticaVentasRentabilidadPage() {
 
     void load()
   }, [selectedDays])
+
+  const kpis = useMemo(() => {
+    const unitsSold = velocidadResumen.reduce((sum, row) => sum + row.unitsSold, 0)
+    return {
+      unitsSold,
+      ventas: finanzas?.ventas30d ?? 0,
+      cogs: finanzas?.cogsReal30d ?? 0,
+      margen: finanzas?.margenReal30d ?? 0,
+      flujoNeto: finanzas?.flujoNeto30d ?? 0,
+      ticketPromedio: finanzas?.ticketPromedio ?? 0,
+      margenBrutoPct: finanzas?.margenBrutoPct ?? 0,
+    }
+  }, [finanzas, velocidadResumen])
 
   const salesLineData = useMemo(() => {
     const now = new Date()
@@ -330,6 +353,41 @@ export default function AnaliticaVentasRentabilidadPage() {
       onTimeRangeChange={setTimeRange}
       hideHeader
     >
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <article className="rounded-lg bg-card p-4">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Ventas (rango)</p>
+          <p className="mt-2 text-xl font-semibold text-emerald-700">{formatCurrency(kpis.ventas)}</p>
+        </article>
+        <article className="rounded-lg bg-card p-4">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Coste de ventas real (rango)</p>
+          <p className="mt-2 text-xl font-semibold text-orange-700">-{formatCurrency(kpis.cogs)}</p>
+        </article>
+        <article className="rounded-lg bg-card p-4">
+          <p className={`mt-2 text-xl font-semibold ${kpis.margen >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+            {formatCurrency(kpis.margen)}
+          </p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Margen real (rango)</p>
+        </article>
+        <article className="rounded-lg bg-card p-4">
+          <p className={`mt-2 text-xl font-semibold ${kpis.flujoNeto >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+            {formatCurrency(kpis.flujoNeto)}
+          </p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Flujo neto (rango)</p>
+        </article>
+        <article className="rounded-lg bg-card p-4">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Unidades vendidas (rango)</p>
+          <p className="mt-2 text-xl font-semibold text-blue-700">{formatCompact(kpis.unitsSold)}</p>
+        </article>
+        <article className="rounded-lg bg-card p-4">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Ticket promedio</p>
+          <p className="mt-2 text-xl font-semibold text-foreground">{formatCurrency(kpis.ticketPromedio)}</p>
+        </article>
+        <article className="rounded-lg bg-card p-4">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Margen bruto %</p>
+          <p className="mt-2 text-xl font-semibold text-emerald-700">{kpis.margenBrutoPct.toFixed(2)}%</p>
+        </article>
+      </section>
+
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <article className="rounded-lg bg-card p-4 xl:col-span-2">
           <h2 className="text-sm font-semibold text-foreground">{salesTrendTitle}</h2>

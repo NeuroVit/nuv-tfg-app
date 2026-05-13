@@ -46,6 +46,7 @@ export default function AlertasPage() {
 
   const [filter, setFilter] = useState<'all' | 'open' | 'resolved'>('open')
   const [alerts, setAlerts] = useState<AlertaStock[]>([])
+  const [kpiAlerts, setKpiAlerts] = useState<AlertaStock[]>([])
   const [loading, setLoading] = useState(true)
   const [resolving, setResolving] = useState(false)
   const [offset, setOffset] = useState(0)
@@ -83,8 +84,12 @@ export default function AlertasPage() {
   const loadAlerts = async () => {
     setLoading(true)
     try {
-      const data = await getAlertas(filter === 'all' ? undefined : filter === 'resolved')
-      setAlerts(data)
+      const [tableData, allData] = await Promise.all([
+        getAlertas(filter === 'all' ? undefined : filter === 'resolved'),
+        filter === 'all' ? Promise.resolve<AlertaStock[]>([]) : getAlertas(undefined),
+      ])
+      setAlerts(tableData)
+      setKpiAlerts(filter === 'all' ? tableData : allData)
       setSelectedAlertIds([])
     } catch {
       toast.error('No se pudieron cargar las alertas')
@@ -179,19 +184,19 @@ export default function AlertasPage() {
   }
 
   const counters = useMemo(() => {
-    const open = alerts.filter((alert) => !alert.resuelta).length
-    const resolved = alerts.filter((alert) => alert.resuelta).length
-    const critical = alerts.filter((alert) => !alert.resuelta && alert.tipo === 'OUT_OF_STOCK').length
-    const low = alerts.filter((alert) => !alert.resuelta && alert.tipo === 'LOW_STOCK').length
-    const anomalies = alerts.filter((alert) => !alert.resuelta && alert.tipo === 'PRICE_ANOMALY').length
-    const resolvedLast7d = alerts.filter((alert) => {
+    const open = kpiAlerts.filter((alert) => !alert.resuelta).length
+    const resolved = kpiAlerts.filter((alert) => alert.resuelta).length
+    const critical = kpiAlerts.filter((alert) => !alert.resuelta && alert.tipo === 'OUT_OF_STOCK').length
+    const low = kpiAlerts.filter((alert) => !alert.resuelta && alert.tipo === 'LOW_STOCK').length
+    const anomalies = kpiAlerts.filter((alert) => !alert.resuelta && alert.tipo === 'PRICE_ANOMALY').length
+    const resolvedLast7d = kpiAlerts.filter((alert) => {
       if (!alert.resuelta || !alert.resueltaEn) return false
       const resolvedAt = new Date(alert.resueltaEn).getTime()
       if (!Number.isFinite(resolvedAt)) return false
       return Date.now() - resolvedAt <= 7 * 24 * 60 * 60 * 1000
     }).length
     return { open, resolved, critical, low, anomalies, resolvedLast7d }
-  }, [alerts])
+  }, [kpiAlerts])
 
   const filteredAlerts = useMemo(() => {
     const term = search.trim().toLowerCase()

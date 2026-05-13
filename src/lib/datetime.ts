@@ -3,6 +3,23 @@ const LOCALE = 'es-ES'
 const getFormatter = (tz: string, options: Intl.DateTimeFormatOptions) =>
   new Intl.DateTimeFormat(LOCALE, { timeZone: tz, ...options })
 
+const hasGranularDateTimeOptions = (opts?: Intl.DateTimeFormatOptions): boolean => {
+  if (!opts) return false
+  return (
+    opts.weekday !== undefined ||
+    opts.era !== undefined ||
+    opts.year !== undefined ||
+    opts.month !== undefined ||
+    opts.day !== undefined ||
+    opts.dayPeriod !== undefined ||
+    opts.hour !== undefined ||
+    opts.minute !== undefined ||
+    opts.second !== undefined ||
+    opts.fractionalSecondDigits !== undefined ||
+    opts.timeZoneName !== undefined
+  )
+}
+
 export const formatDateTime = (
   iso: string | Date,
   tz: string,
@@ -10,7 +27,10 @@ export const formatDateTime = (
 ): string => {
   const date = typeof iso === 'string' ? new Date(iso) : iso
   if (Number.isNaN(date.getTime())) return ''
-  return getFormatter(tz, { dateStyle: 'medium', timeStyle: 'short', ...opts }).format(date)
+  const safeOptions: Intl.DateTimeFormatOptions = hasGranularDateTimeOptions(opts)
+    ? (opts ?? {})
+    : { dateStyle: 'medium', timeStyle: 'short', ...opts }
+  return getFormatter(tz, safeOptions).format(date)
 }
 
 export const formatDate = (iso: string | Date, tz: string): string => {
