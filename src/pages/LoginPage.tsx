@@ -60,6 +60,8 @@ export default function LoginPage() {
   })
 
   const onSubmit = async (data: FormData) => {
+    if (isGoogleSubmitting) return
+    form.clearErrors('root')
     try {
       const res = await login(data)
       setUser({
@@ -70,9 +72,35 @@ export default function LoginPage() {
       })
       toast.success(`Bienvenido, ${res.username}.`)
       navigate('/dashboard')
-    } catch {
-      form.setError('root', { message: 'Credenciales incorrectas' })
-      toast.error('Credenciales incorrectas')
+    } catch (err: unknown) {
+      let msg = 'No se pudo iniciar sesión'
+      let status: number | undefined
+      if (isAxiosError<{ message?: string; mensaje?: string; error?: string }>(err)) {
+        status = err.response?.status
+        const backendMsg =
+          err.response?.data?.message ??
+          err.response?.data?.mensaje ??
+          err.response?.data?.error
+        if (backendMsg) {
+          msg = backendMsg
+        } else if (status === 401) {
+          msg = 'Credenciales incorrectas'
+        } else if (status === 429) {
+          msg = 'Demasiados intentos. Espera un momento e inténtalo de nuevo.'
+        } else if (!err.response) {
+          msg = 'No se pudo conectar con el servidor. Revisa tu conexión.'
+        } else if (status && status >= 500) {
+          msg = 'Error del servidor. Inténtalo de nuevo en unos minutos.'
+        }
+      }
+      if (import.meta.env.DEV) {
+        console.warn('[login] classic login failed', {
+          status,
+          endpoint: '/api/auth/login',
+        })
+      }
+      form.setError('root', { message: msg })
+      toast.error(msg)
     }
   }
 
@@ -169,8 +197,41 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-sm space-y-4 rounded-lg border bg-card p-4 sm:p-6">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-4">
+      <div className="pointer-events-none absolute inset-0 z-0">
+        <div className="absolute inset-0 dark:hidden" style={{ background: 'linear-gradient(180deg, #f4f7fb 0%, #e9eef6 52%, #e3e9f3 100%)' }} />
+        <div
+          className="absolute inset-[-20%] dark:hidden blur-[24px]"
+          style={{
+            background:
+              'radial-gradient(circle at 20% 18%, rgba(71,85,105,0.20), transparent 30%), radial-gradient(circle at 78% 26%, rgba(59,130,246,0.16), transparent 33%), linear-gradient(180deg, #f8fbff, #e9eef6)',
+          }}
+        />
+        <div
+          className="absolute inset-0 dark:hidden opacity-90 blur-[5px]"
+          style={{
+            background:
+              'radial-gradient(120% 60% at 50% 0%, rgba(255,255,255,0.98), transparent 60%), radial-gradient(120% 60% at 50% 24%, rgba(203,213,225,0.42), transparent 61%), radial-gradient(120% 60% at 50% 50%, rgba(148,163,184,0.33), transparent 62%), radial-gradient(120% 60% at 50% 76%, rgba(148,163,184,0.24), transparent 62%)',
+          }}
+        />
+        <div className="absolute inset-0 hidden dark:block" style={{ background: 'linear-gradient(180deg, #0b0b0c 0%, #050505 100%)' }} />
+        <div
+          className="absolute inset-[-20%] hidden dark:block blur-[34px]"
+          style={{
+            background:
+              'radial-gradient(circle at 20% 20%, rgba(255,255,255,0.08), transparent 25%), radial-gradient(circle at 80% 30%, rgba(255,255,255,0.05), transparent 30%), linear-gradient(180deg, #0b0b0c, #050505)',
+          }}
+        />
+        <div
+          className="absolute inset-0 hidden dark:block opacity-95 blur-[8px]"
+          style={{
+            background:
+              'radial-gradient(120% 60% at 50% 0%, rgba(255,255,255,0.08), transparent 60%), radial-gradient(120% 60% at 50% 25%, rgba(255,255,255,0.05), transparent 60%), radial-gradient(120% 60% at 50% 50%, rgba(255,255,255,0.06), transparent 60%), radial-gradient(120% 60% at 50% 75%, rgba(255,255,255,0.04), transparent 60%)',
+          }}
+        />
+      </div>
+
+      <div className="relative z-10 w-full max-w-sm space-y-4 p-4 sm:p-6">
         <div className="pb-4">
           <h1 className="text-2xl font-semibold tracking-tight">NeuralStock</h1>
           <p className="text-sm text-muted-foreground">Introduce tus credenciales para acceder</p>
@@ -204,9 +265,9 @@ export default function LoginPage() {
                 name="username"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Usuario</FormLabel>
+                    <FormLabel>Usuario o email</FormLabel>
                     <FormControl>
-                      <Input placeholder="tu_usuario" {...field} />
+                      <Input placeholder="tu_usuario o correo@dominio.com" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -230,7 +291,7 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={form.formState.isSubmitting}
+                disabled={form.formState.isSubmitting || isGoogleSubmitting}
               >
                 {form.formState.isSubmitting && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -243,7 +304,7 @@ export default function LoginPage() {
           <>
             <div className="relative">
               <Separator />
-              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-2 text-xs text-muted-foreground uppercase tracking-wide">
+              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 px-2 text-xs text-muted-foreground uppercase tracking-wide">
                 O continúa con
               </span>
             </div>

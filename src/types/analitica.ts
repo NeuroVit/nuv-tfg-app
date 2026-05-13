@@ -117,3 +117,68 @@ export interface AnaliticaMeta {
   generatedAt: string
   windowDays: number
 }
+
+export interface RevenueComparativaBucket {
+  label: string
+  currentRevenue: number
+  previousRevenue: number
+}
+
+export interface RevenueComparativa {
+  currentLabel: string
+  previousLabel: string
+  granularity: 'HOUR' | 'DAY' | 'WEEK' | 'MONTH' | 'YEAR' | string
+  buckets: RevenueComparativaBucket[]
+}
+
+export interface ProductCreationRow {
+  creationDate: string
+  productsCreated: number
+}
+
+export interface StockReceiptRow {
+  receiptDate: string
+  unitsReceived: number
+  valueReceived: number
+}
+
+export interface BundlePerformanceRow {
+  bundleId: number
+  bundleName: string
+  unitsSold: number
+  revenue: number
+  cost: number
+  profit: number
+  margin: number
+  salesCount: number
+}
+
+export interface ClienteRentabilidadRow {
+  clientId: number
+  clientName: string
+  salesCount: number
+  unitsSold: number
+  revenue: number
+  cost: number
+  profit: number
+  margin: number
+  lastSaleAt: string
+  avgTicket: number
+}
+
+export interface ProveedorPerformanceRow {
+  providerId: number
+  providerName: string
+  orderCount: number
+  totalSpend: number
+  avgLeadTimeDays: number
+  onTimePct: number
+  lastOrderAt: string
+}
+
+export interface AlertaSerieRow {
+  bucketDate: string
+  alertType: string
+  createdCount: number
+  resolvedCount: number
+}

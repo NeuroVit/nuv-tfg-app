@@ -1,5 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router'
+import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { getMovimientos } from '@/api/movimiento'
 import { getProductos } from '@/api/producto'
@@ -9,52 +8,26 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { useFormatters } from '@/lib/useFormatters'
 
 const PAGE_SIZE = 20
 const MIN_DATE = '2000-01-01'
 const MAX_DATE = '2100-12-31'
 
-const formatDate = (value: string) => {
-  const date = new Date(value)
-  const today = new Date()
-  const yesterday = new Date()
-  yesterday.setDate(today.getDate() - 1)
-
-  const isSameDay = (a: Date, b: Date) =>
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-
-  const time = date.toLocaleTimeString('es-ES', {
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-
-  if (isSameDay(date, today)) return `Hoy, ${time}`
-  if (isSameDay(date, yesterday)) return `Ayer, ${time}`
-
-  return date.toLocaleString('es-ES', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
 const formatReason = (reason: string) => {
   const reasonLabels: Record<string, string> = {
     SALE: 'Venta',
     PURCHASE: 'Compra',
     ADJUSTMENT: 'Ajuste',
-    RETURN: 'Devolución',
-    DAMAGE: 'Daño',
+    RETURN: 'Devolucion',
+    DAMAGE: 'Dano',
     INITIAL: 'Inicial',
   }
   return reasonLabels[reason] ?? reason
 }
 
 export default function MovimientosPage() {
-  const [searchParams, setSearchParams] = useSearchParams()
+  const { timeZone, formatDate, toUserDayKey } = useFormatters()
   const [productos, setProductos] = useState<Producto[]>([])
   const [movimientos, setMovimientos] = useState<MovimientoStock[]>([])
   const [total, setTotal] = useState(0)
@@ -78,6 +51,11 @@ export default function MovimientosPage() {
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1
   const hasActiveFilters =
     productId !== 'all' || tipo !== 'all' || razon !== 'all' || Boolean(desde) || Boolean(hasta)
+  const invalidDateRange = Boolean(desde && hasta && desde > hasta)
+  const invalidYear = Boolean(
+    (desde && (desde < MIN_DATE || desde > MAX_DATE)) ||
+    (hasta && (hasta < MIN_DATE || hasta > MAX_DATE))
+  )
   const debouncedInvalidDateRange = Boolean(
     debouncedFilters.desde && debouncedFilters.hasta && debouncedFilters.desde > debouncedFilters.hasta
   )
@@ -145,7 +123,7 @@ export default function MovimientosPage() {
   }, [productId, tipo, razon, desde, hasta])
 
   const reasons = useMemo(
-    () => ['SALE', 'PURCHASE', 'RETURN', 'DAMAGE'],
+    () => ['SALE', 'PURCHASE', 'ADJUSTMENT', 'RETURN', 'DAMAGE', 'INITIAL'],
     []
   )
 
@@ -158,68 +136,41 @@ export default function MovimientosPage() {
     setOffset(0)
   }
 
-  useEffect(() => {
-    const product = searchParams.get('productId')
-    const tipoParam = searchParams.get('tipo')
-    const razonParam = searchParams.get('razon')
-    const desdeParam = searchParams.get('desde')
-    const hastaParam = searchParams.get('hasta')
-    if (product) setProductId(product)
-    if (tipoParam === 'all' || tipoParam === 'ENTRADA' || tipoParam === 'SALIDA') setTipo(tipoParam)
-    if (razonParam) setRazon(razonParam)
-    if (desdeParam) setDesde(desdeParam)
-    if (hastaParam) setHasta(hastaParam)
-    // Hidratacion inicial desde URL.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  const formatMovementDate = (value: string) => {
+    const date = new Date(value)
+    const now = new Date()
+    const dayKey = toUserDayKey(date)
+    const todayKey = toUserDayKey(now)
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+    const yesterdayKey = toUserDayKey(yesterday)
+    const time = new Intl.DateTimeFormat('es-ES', {
+      timeZone,
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date)
 
-  useEffect(() => {
-    const next = new URLSearchParams(searchParams)
-    if (productId !== 'all') next.set('productId', productId)
-    else next.delete('productId')
-    if (tipo !== 'all') next.set('tipo', tipo)
-    else next.delete('tipo')
-    if (razon !== 'all') next.set('razon', razon)
-    else next.delete('razon')
-    if (desde) next.set('desde', desde)
-    else next.delete('desde')
-    if (hasta) next.set('hasta', hasta)
-    else next.delete('hasta')
-
-    const prevSerialized = searchParams.toString()
-    const nextSerialized = next.toString()
-    if (prevSerialized !== nextSerialized) {
-      setSearchParams(next, { replace: true })
-    }
-  }, [desde, hasta, productId, razon, searchParams, setSearchParams, tipo])
+    if (dayKey === todayKey) return `Hoy, ${time}`
+    if (dayKey === yesterdayKey) return `Ayer, ${time}`
+    return `${formatDate(date)}, ${time}`
+  }
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Movimientos</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Historico completo de entradas y salidas de stock.</p>
-        </div>
-
-        {debouncedInvalidDateRange ? (
-          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            El rango de fechas no es valido: "Desde" no puede ser mayor que "Hasta".
-          </div>
-        ) : null}
-        {debouncedInvalidYear ? (
-          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            Las fechas deben estar dentro del rango permitido ({MIN_DATE} a {MAX_DATE}).
-          </div>
-        ) : null}
-
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-12">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
           <div className="min-w-0 space-y-1 xl:col-span-3">
             <p className="text-xs font-medium text-muted-foreground">Producto</p>
             <Select value={productId} onValueChange={setProductId}>
               <SelectTrigger className="w-full min-w-0">
                 <SelectValue placeholder="Selecciona producto" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent
+                position="popper"
+                side="bottom"
+                align="start"
+                className="max-h-80"
+                viewportClassName="max-h-80 overflow-y-auto"
+              >
                 <SelectItem value="all">Todos los productos</SelectItem>
                 {productos.map((product) => (
                   <SelectItem key={product.id} value={String(product.id)}>
@@ -287,16 +238,23 @@ export default function MovimientosPage() {
           </div>
         </div>
 
+        {invalidDateRange && (
+          <p className="text-sm text-red-600">El rango de fechas no es valido: "desde" no puede ser mayor que "hasta".</p>
+        )}
+        {invalidYear && (
+          <p className="text-sm text-red-600">El ano debe estar entre 2000 y 2100.</p>
+        )}
+
         <div className="rounded-lg border bg-card">
-          <Table className="w-full table-fixed">
+          <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[20%]">Fecha</TableHead>
-                <TableHead className="w-[26%]">Producto</TableHead>
-                <TableHead className="w-[16%]">SKU</TableHead>
-                <TableHead className="w-[12%]">Tipo</TableHead>
-                <TableHead className="w-[15%]">Razon</TableHead>
-                <TableHead className="w-[11%] text-center">Cantidad</TableHead>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Producto</TableHead>
+                <TableHead>SKU</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Razon</TableHead>
+                <TableHead className="text-center">Cantidad</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -313,13 +271,11 @@ export default function MovimientosPage() {
               ) : (
                 movimientos.map((movimiento) => (
                   <TableRow key={movimiento.id}>
-                    <TableCell className="text-muted-foreground">{formatDate(movimiento.fecha)}</TableCell>
-                    <TableCell className="truncate font-medium" title={movimiento.productoNombre}>
-                      {movimiento.productoNombre}
-                    </TableCell>
+                    <TableCell>{formatMovementDate(movimiento.fecha)}</TableCell>
+                    <TableCell>{movimiento.productoNombre}</TableCell>
                     <TableCell className="font-mono text-xs">{movimiento.productoSku}</TableCell>
                     <TableCell>
-                      <span className={movimiento.tipo === 'ENTRADA' ? 'text-green-700' : 'text-red-700'}>
+                      <span className={movimiento.tipo === 'ENTRADA' ? 'text-green-500' : 'text-red-500'}>
                         {movimiento.tipo === 'ENTRADA' ? 'Entrada' : 'Salida'}
                       </span>
                     </TableCell>
@@ -333,7 +289,7 @@ export default function MovimientosPage() {
         </div>
 
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} | {total} registros</p>
+          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} - {total} registros</p>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"

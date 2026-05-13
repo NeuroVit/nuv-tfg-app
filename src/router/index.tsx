@@ -18,6 +18,7 @@ import AnaliticaResumenPage from '../pages/analytics/AnaliticaResumenPage'
 import AnaliticaVentasRentabilidadPage from '../pages/analytics/AnaliticaVentasRentabilidadPage'
 import AnaliticaInventarioPage from '../pages/analytics/AnaliticaInventarioPage'
 import AnaliticaPreciosBundlesPage from '../pages/analytics/AnaliticaPreciosBundlesPage'
+import AnaliticaProveedoresPage from '../pages/analytics/AnaliticaProveedoresPage'
 import ProveedorDetailPage from '../pages/ProveedorDetailPage'
 import ClientesPage from '../pages/ClientesPage'
 import VentasPage from '../pages/VentasPage'
@@ -61,6 +62,7 @@ export const router = createBrowserRouter([
           { path: '/analitica/ventas-rentabilidad', element: <AnaliticaVentasRentabilidadPage /> },
           { path: '/analitica/inventario', element: <AnaliticaInventarioPage /> },
           { path: '/analitica/precios-bundles', element: <AnaliticaPreciosBundlesPage /> },
+          { path: '/analitica/proveedores', element: <AnaliticaProveedoresPage /> },
           { path: '/usuarios', element: <Navigate to="/settings/users" replace /> },
           { path: '/clientes', element: <ClientesPage /> },
           { path: '/ventas', element: <VentasPage /> },

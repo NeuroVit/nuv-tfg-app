@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { GoogleLogin, type CredentialResponse } from '@react-oauth/google'
 import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -30,11 +31,18 @@ export function GoogleAuthButton({
   disabled = false,
   className,
 }: GoogleAuthButtonProps) {
+  const [activated, setActivated] = useState(false)
+
   return (
-    <div className={cn('group relative w-full', className)}>
+    <div
+      className={cn('group relative w-full', className)}
+      onPointerDownCapture={() => {
+        if (!activated && !disabled) setActivated(true)
+      }}
+    >
       <div
         className={cn(
-          'inline-flex h-10 w-full items-center justify-center gap-2 rounded-4xl border border-transparent bg-primary px-3 text-sm font-medium text-primary-foreground transition-all',
+          'inline-flex h-9 w-full items-center justify-center gap-2 rounded-4xl border border-transparent bg-primary px-3 text-sm font-medium text-primary-foreground transition-all',
           'group-hover:bg-primary/90 group-focus-within:bg-primary/90',
           disabled && 'pointer-events-none opacity-50'
         )}
@@ -43,7 +51,7 @@ export function GoogleAuthButton({
         {label}
       </div>
 
-      {!disabled && (
+      {activated && !disabled && (
         <GoogleLogin
           onSuccess={onSuccess}
           onError={onError}

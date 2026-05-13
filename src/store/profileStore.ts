@@ -1,15 +1,39 @@
+import { useMemo } from 'react'
 import { create } from 'zustand'
+import type { UserProfile } from '@/types/auth'
+import { useAuthStore } from '@/store/authStore'
 
 interface ProfileState {
-  displayName: string
+  profile: UserProfile | null
   organizationName: string
-  setDisplayName: (name: string) => void
+  setProfile: (profile: UserProfile | null) => void
   setOrganizationName: (name: string) => void
 }
 
 export const useProfileStore = create<ProfileState>()((set) => ({
-  displayName: '',
+  profile: null,
   organizationName: '',
-  setDisplayName: (name) => set({ displayName: name }),
+  setProfile: (profile) => set({ profile }),
   setOrganizationName: (name) => set({ organizationName: name }),
 }))
+
+export const toTitleCase = (str: string) =>
+  str.toLowerCase().replace(/\b\p{L}/gu, (c) => c.toUpperCase())
+
+/**
+ * Display name for the current user, derived from the stored profile, falling
+ * back to the auth username and finally a generic label.
+ */
+export function useDisplayName(): string {
+  const profile = useProfileStore((s) => s.profile)
+  const username = useAuthStore((s) => s.user?.username)
+  return useMemo(() => {
+    const fullName = [profile?.nombre?.trim(), profile?.apellidos?.trim()].filter(Boolean).join(' ').trim()
+    return toTitleCase(fullName || username || 'Usuario')
+  }, [profile?.nombre, profile?.apellidos, username])
+}
+
+export function useUserTimeZone(): string {
+  const profileTimeZone = useProfileStore((s) => s.profile?.timeZone)
+  return profileTimeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
+}

@@ -17,6 +17,7 @@ export interface AuthResponse {
   role: string
   expiresIn: number
   mustChangePassword: boolean
+  timeZone: string
 }
 
 export interface AuthUser {
@@ -36,12 +37,14 @@ export interface UserProfile {
   activo: boolean
   avatarUrl: string | null
   mustChangePassword: boolean
+  timeZone: string
 }
 
 export interface UpdateProfileRequest {
   nombre: string
   apellidos: string
   email: string
+  timeZone?: string
 }
 
 export interface ChangePasswordRequest {

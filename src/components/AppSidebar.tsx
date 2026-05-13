@@ -1,10 +1,12 @@
+import { useEffect, useState } from 'react'
 import { useNavigate, NavLink } from 'react-router'
 import { toast } from 'sonner'
 import { logout as logoutRequest } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
-import { useProfileStore } from '@/store/profileStore'
+import { useDisplayName, useProfileStore } from '@/store/profileStore'
 import { useTheme } from 'next-themes'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { normalizeAvatarUrl } from '@/lib/googleAvatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -88,19 +90,38 @@ const settingsNavItems: NavItem[] = [
 
 type AppSidebarProps = {
   isSettingsRoute?: boolean
+  collapsible?: 'offcanvas' | 'icon' | 'none'
 }
 
-export function AppSidebar({ isSettingsRoute = false }: AppSidebarProps) {
+export function AppSidebar({ isSettingsRoute = false, collapsible = 'icon' }: AppSidebarProps) {
   const { user, logout: clearSession } = useAuthStore()
-  const displayName = useProfileStore((s) => s.displayName)
+  const displayName = useDisplayName()
+  const profileAvatarUrl = useProfileStore((s) => s.profile?.avatarUrl)
   const organizationName = useProfileStore((s) => s.organizationName)
-  const { theme, setTheme } = useTheme()
+  const { theme, resolvedTheme, setTheme } = useTheme()
   const navigate = useNavigate()
+  const activeTheme = theme === 'system' ? resolvedTheme : theme
+  const isDarkTheme = activeTheme === 'dark'
 
-  const initials = user?.username ? user.username.slice(0, 2).toUpperCase() : 'U'
+  const initials = (displayName || user?.username || 'Usuario')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]!.toUpperCase())
+    .join('')
+    .slice(0, 2) || 'U'
   const roleLabel = (user?.role ?? 'ROLE_VIEWER').replace('ROLE_', '')
   const accountLabel = displayName || user?.username || 'Usuario'
   const organizationLabel = organizationName || 'Organización'
+  const effectiveAvatarUrl = normalizeAvatarUrl(profileAvatarUrl)
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
+  const [avatarLoaded, setAvatarLoaded] = useState(false)
+  const showAvatarImage = Boolean(effectiveAvatarUrl) && !avatarLoadFailed
+
+  useEffect(() => {
+    setAvatarLoadFailed(false)
+    setAvatarLoaded(false)
+  }, [effectiveAvatarUrl])
 
   const handleLogout = async () => {
     try {
@@ -114,28 +135,47 @@ export function AppSidebar({ isSettingsRoute = false }: AppSidebarProps) {
   }
 
   return (
-    <Sidebar collapsible="icon" variant="sidebar">
+    <Sidebar collapsible={collapsible} variant="sidebar">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-0 dark:hidden"
+        style={{
+          backgroundImage:
+            "linear-gradient(180deg, rgba(255,255,255,0.90) 0%, rgba(248,250,252,0.86) 45%, rgba(241,245,249,0.82) 100%), url('/moon-texture-registrar.jpg')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          opacity: 0.95,
+        }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-0 hidden dark:block"
+        style={{
+          backgroundImage:
+            "linear-gradient(180deg, rgba(5,5,5,0.92) 0%, rgba(5,5,5,0.74) 45%, rgba(5,5,5,0.38) 100%), url('/moon-texture-registrar.jpg')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          opacity: 0.95,
+        }}
+      />
       <SidebarHeader>
+        <div className="relative z-10">
         <SidebarMenu>
           <SidebarMenuItem>
             {isSettingsRoute ? (
               <NavLink to="/dashboard">
                 {({ isActive }) => (
                   <SidebarMenuButton isActive={isActive} size="lg" tooltip="Volver a la app">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                      <ArrowLeft className="h-4 w-4" />
-                    </div>
-                    <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-medium">Volver a la app</span>
-                      <span className="truncate text-xs text-muted-foreground">Regresar al dashboard</span>
-                    </div>
+                    <ArrowLeft className="h-8 w-8" />
                   </SidebarMenuButton>
                 )}
               </NavLink>
             ) : (
               <SidebarMenuButton size="lg" className="cursor-default">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sidebar-primary text-[10px] font-semibold text-sidebar-primary-foreground">
-                  NS
+                  {organizationLabel.slice(0, 2).toUpperCase()}
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{organizationLabel}</span>
@@ -145,9 +185,11 @@ export function AppSidebar({ isSettingsRoute = false }: AppSidebarProps) {
             )}
           </SidebarMenuItem>
         </SidebarMenu>
+        </div>
       </SidebarHeader>
 
       <SidebarContent>
+        <div className="relative z-10">
         {isSettingsRoute ? (
           <SidebarGroup>
             <SidebarGroupLabel>Ajustes</SidebarGroupLabel>
@@ -191,9 +233,11 @@ export function AppSidebar({ isSettingsRoute = false }: AppSidebarProps) {
             </SidebarGroup>
           ))
         )}
+        </div>
       </SidebarContent>
 
       <SidebarFooter>
+        <div className="relative z-10">
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
@@ -204,7 +248,27 @@ export function AppSidebar({ isSettingsRoute = false }: AppSidebarProps) {
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
                   <Avatar className="h-7 w-7 rounded-full">
-                    <AvatarFallback className="rounded-full bg-muted text-muted-foreground text-[10px]">
+                    {showAvatarImage ? (
+                      <>
+                        {!avatarLoaded ? (
+                          <span
+                            aria-hidden
+                            className="absolute inset-0 animate-pulse rounded-full bg-muted"
+                          />
+                        ) : null}
+                        <img
+                          src={effectiveAvatarUrl!}
+                          alt={accountLabel}
+                          referrerPolicy="no-referrer"
+                          className={`aspect-square size-full rounded-full object-cover transition-opacity duration-200 ${avatarLoaded ? 'opacity-100' : 'opacity-0'}`}
+                          onLoad={() => setAvatarLoaded(true)}
+                          onError={() => setAvatarLoadFailed(true)}
+                        />
+                      </>
+                    ) : null}
+                    <AvatarFallback
+                      className={`rounded-full bg-muted text-muted-foreground text-[10px] ${showAvatarImage && avatarLoaded ? 'opacity-0' : 'opacity-100'}`}
+                    >
                       {initials}
                     </AvatarFallback>
                   </Avatar>
@@ -221,9 +285,9 @@ export function AppSidebar({ isSettingsRoute = false }: AppSidebarProps) {
                 sideOffset={4}
                 className="w-[--radix-popper-anchor-width] min-w-52"
               >
-                <DropdownMenuItem onSelect={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
-                  {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                  {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+                <DropdownMenuItem onSelect={() => setTheme(isDarkTheme ? 'light' : 'dark')}>
+                  {isDarkTheme ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                  {isDarkTheme ? 'Modo claro' : 'Modo oscuro'}
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => navigate('/settings/general')}>
                   <Settings className="h-4 w-4" />
@@ -238,6 +302,7 @@ export function AppSidebar({ isSettingsRoute = false }: AppSidebarProps) {
             </DropdownMenu>
           </SidebarMenuItem>
         </SidebarMenu>
+        </div>
       </SidebarFooter>
     </Sidebar>
   )

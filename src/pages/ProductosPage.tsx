@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -75,8 +75,8 @@ const productoSchema = z.object({
 })
 
 type ProductoFormValues = z.infer<typeof productoSchema>
-type EstadoFiltro = 'all' | 'low' | 'normal'
-const PAGE_SIZE = 20
+type EstadoFiltro = 'all' | 'low' | 'normal' | 'anomaly'
+const PAGE_SIZE = 17
 
 const defaultProductoValues: ProductoFormValues = {
   nombre: '',
@@ -126,6 +126,9 @@ export default function ProductosPage() {
   const [submittingEdit, setSubmittingEdit] = useState(false)
   const [submittingDelete, setSubmittingDelete] = useState(false)
 
+  const hasPriceAnomaly = (producto: Producto) =>
+    producto.costoUnitario != null && Number(producto.precioUnitario) < Number(producto.costoUnitario)
+
   const createForm = useForm<ProductoFormValues>({
     resolver: zodResolver(productoSchema),
     defaultValues: defaultProductoValues,
@@ -165,12 +168,37 @@ export default function ProductosPage() {
     if (search) setGlobalFilter(search)
     if (categoria) setFiltroCategoria(categoria)
     if (proveedor) setFiltroProveedor(proveedor)
-    if (estado === 'all' || estado === 'low' || estado === 'normal') {
+    if (estado === 'all' || estado === 'low' || estado === 'normal' || estado === 'anomaly') {
       setFiltroEstado(estado)
     }
     // Se carga una sola vez para hidratar estado inicial desde URL.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    const editProductIdRaw = searchParams.get('editProductId')
+    if (!editProductIdRaw) return
+
+    const editProductId = Number(editProductIdRaw)
+    if (!Number.isFinite(editProductId)) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('editProductId')
+      next.delete('focus')
+      setSearchParams(next, { replace: true })
+      return
+    }
+
+    const productToEdit = productos.find((product) => product.id === editProductId)
+    if (!productToEdit) return
+
+    setProductoEditar(productToEdit)
+    setModalOpen(true)
+
+    const next = new URLSearchParams(searchParams)
+    next.delete('editProductId')
+    next.delete('focus')
+    setSearchParams(next, { replace: true })
+  }, [productos, searchParams, setSearchParams])
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams)
@@ -329,19 +357,31 @@ export default function ProductosPage() {
   }
 
   const productosFiltrados = useMemo(() => {
-    return productos.filter((producto) => {
+    const filtrados = productos.filter((producto) => {
       const categoriaOk =
         filtroCategoria === 'all' || String(producto.categoriaId) === filtroCategoria
       const providerOk =
         filtroProveedor === 'all' || String(producto.providerId) === filtroProveedor
 
       const esStockBajo = producto.cantidadActual <= producto.nivelMinimoStock
+      const esAnomaliaPrecio = hasPriceAnomaly(producto)
       const estadoOk =
         filtroEstado === 'all' ||
         (filtroEstado === 'low' && esStockBajo) ||
-        (filtroEstado === 'normal' && !esStockBajo)
+        (filtroEstado === 'anomaly' && esAnomaliaPrecio) ||
+        (filtroEstado === 'normal' && !esStockBajo && !esAnomaliaPrecio)
 
       return categoriaOk && providerOk && estadoOk
+    })
+
+    return filtrados.sort((a, b) => {
+      const aTime = a.creadoEn ? new Date(a.creadoEn).getTime() : Number.NaN
+      const bTime = b.creadoEn ? new Date(b.creadoEn).getTime() : Number.NaN
+      const safeATime = Number.isFinite(aTime) ? aTime : 0
+      const safeBTime = Number.isFinite(bTime) ? bTime : 0
+
+      if (safeBTime !== safeATime) return safeBTime - safeATime
+      return b.id - a.id
     })
   }, [productos, filtroCategoria, filtroProveedor, filtroEstado])
 
@@ -359,16 +399,6 @@ export default function ProductosPage() {
       cell: ({ getValue }) => <span className="font-medium text-foreground">{getValue<string>()}</span>,
     },
     {
-      accessorKey: 'categoriaNombre',
-      header: 'Categoría',
-      cell: ({ getValue }) => getValue<string>() ?? '—',
-    },
-    {
-      accessorKey: 'providerNombre',
-      header: 'Proveedor',
-      cell: ({ getValue }) => getValue<string>() ?? '—',
-    },
-    {
       accessorKey: 'cantidadActual',
       header: 'Stock Actual',
       cell: ({ row }) => {
@@ -376,7 +406,7 @@ export default function ProductosPage() {
         const minimo = row.original.nivelMinimoStock
         const low = actual <= minimo
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center gap-2">
             <span className={low ? 'text-red-600 font-semibold' : ''}>{actual}</span>
             {low && <AlertTriangle className="h-3 w-3 text-red-500" />}
           </div>
@@ -405,6 +435,8 @@ export default function ProductosPage() {
       header: 'Estado',
       cell: ({ row }) => {
         const low = row.original.cantidadActual <= row.original.nivelMinimoStock
+        const priceAnomaly = hasPriceAnomaly(row.original)
+        if (priceAnomaly) return <Badge variant="secondary">Anomalía en precio</Badge>
         return <Badge variant={low ? 'destructive' : 'default'}>{low ? 'Stock bajo' : 'Normal'}</Badge>
       },
     },
@@ -412,7 +444,7 @@ export default function ProductosPage() {
       id: 'acciones',
       header: '',
       cell: ({ row }) => (
-        <div className="flex items-center justify-end gap-2" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-center justify-center gap-2" onClick={(event) => event.stopPropagation()}>
           {canEdit && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -475,27 +507,16 @@ export default function ProductosPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Productos</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{total} productos en inventario</p>
-          </div>
-          <Button className="w-full sm:w-auto" onClick={() => { setProductoEditar(null); setModalOpen(true) }}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo producto
-          </Button>
-        </div>
-
-        <div className="flex flex-col gap-3 md:flex-row md:items-center">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:gap-2">
           <Input
             placeholder="Buscar por nombre, SKU, categoría..."
             value={globalFilter}
             onChange={(event) => setGlobalFilter(event.target.value)}
-            className="w-full md:max-w-sm"
+            className="w-full xl:min-w-[280px] xl:flex-1"
           />
 
           <Select value={filtroCategoria} onValueChange={setFiltroCategoria}>
-            <SelectTrigger className="w-full md:w-56">
+            <SelectTrigger className="w-full xl:w-56">
               <SelectValue placeholder="Filtrar por categoría" />
             </SelectTrigger>
             <SelectContent>
@@ -509,7 +530,7 @@ export default function ProductosPage() {
           </Select>
 
           <Select value={filtroProveedor} onValueChange={setFiltroProveedor}>
-            <SelectTrigger className="w-full md:w-56">
+            <SelectTrigger className="w-full xl:w-56">
               <SelectValue placeholder="Filtrar por proveedor" />
             </SelectTrigger>
             <SelectContent>
@@ -523,24 +544,36 @@ export default function ProductosPage() {
           </Select>
 
           <Select value={filtroEstado} onValueChange={(value) => setFiltroEstado(value as EstadoFiltro)}>
-            <SelectTrigger className="w-full md:w-56">
+            <SelectTrigger className="w-full xl:w-48">
               <SelectValue placeholder="Filtrar por estado" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos</SelectItem>
               <SelectItem value="low">Stock bajo</SelectItem>
+              <SelectItem value="anomaly">Anomalía en precio</SelectItem>
               <SelectItem value="normal">Normal</SelectItem>
             </SelectContent>
           </Select>
+
+          <Button
+            className="w-full xl:ml-auto xl:w-auto xl:shrink-0"
+            onClick={() => {
+              setProductoEditar(null)
+              setModalOpen(true)
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Nuevo producto
+          </Button>
         </div>
 
         <div className="rounded-lg border bg-card">
-          <Table className="min-w-[1000px]">
+          <Table className="min-w-[900px]">
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id}>
+                    <TableHead key={header.id} className="text-center">
                       {flexRender(header.column.columnDef.header, header.getContext())}
                     </TableHead>
                   ))}
@@ -571,7 +604,7 @@ export default function ProductosPage() {
                     }}
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
+                      <TableCell key={cell.id} className="text-center align-middle">
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </TableCell>
                     ))}
@@ -582,8 +615,8 @@ export default function ProductosPage() {
           </Table>
         </div>
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} · {total} registros</p>
-          <div className="flex items-center gap-2">
+          <p className="text-sm text-muted-foreground">Página {currentPage} de {totalPages} · {total} registros</p>
+          <div className="flex items-center justify-center gap-2">
             <Button
               variant="outline"
               onClick={() => setOffset((prev) => Math.max(0, prev - PAGE_SIZE))}
@@ -765,8 +798,8 @@ export default function ProductosPage() {
                 )}
               />
 
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setCreateDialog(false)}>
+              <DialogFooter className="flex-row justify-end">
+                <Button type="button" variant="ghost" onClick={() => setCreateDialog(false)}>
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={submittingCreate}>
@@ -1062,4 +1095,3 @@ export default function ProductosPage() {
     </div>
   )
 }
-

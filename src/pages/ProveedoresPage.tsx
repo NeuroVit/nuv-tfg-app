@@ -1,19 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
-import { Archive, MoreHorizontal, Plus, RotateCcw, Truck } from 'lucide-react'
+import { Archive, Eye, MoreHorizontal, Pencil, Plus, RotateCcw, Truck } from 'lucide-react'
 import {
   archivarProveedor,
-  crearProveedor,
-  editarProveedor,
   getProveedores,
   restaurarProveedor,
 } from '@/api/provider'
-import type { Proveedor, ProveedorRequest } from '@/types/provider'
+import type { Proveedor } from '@/types/provider'
 import { useAuthStore } from '@/store/authStore'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,22 +18,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { parseApiError } from '@/lib/apiError'
+import ProveedorModal from '@/components/ProveedorModal'
 
-type ProviderFormState = {
-  nombre: string
-  ubicacionAlmacen: string
-  diasEntrega: string
-}
-
-const emptyProviderForm: ProviderFormState = {
-  nombre: '',
-  ubicacionAlmacen: '',
-  diasEntrega: '0',
-}
 const PAGE_SIZE = 20
 
 export default function ProveedoresPage() {
@@ -55,10 +41,7 @@ export default function ProveedoresPage() {
   const [offset, setOffset] = useState(0)
 
   const [providerDialogOpen, setProviderDialogOpen] = useState(false)
-  const [providerDialogMode, setProviderDialogMode] = useState<'create' | 'edit'>('create')
-  const [providerForm, setProviderForm] = useState<ProviderFormState>(emptyProviderForm)
   const [editingProvider, setEditingProvider] = useState<Proveedor | null>(null)
-  const [savingProvider, setSavingProvider] = useState(false)
 
   const loadProviders = async () => {
     setLoadingProviders(true)
@@ -112,55 +95,13 @@ export default function ProveedoresPage() {
   }, [offset, total])
 
   const openCreateProvider = () => {
-    setProviderDialogMode('create')
     setEditingProvider(null)
-    setProviderForm(emptyProviderForm)
     setProviderDialogOpen(true)
   }
 
   const openEditProvider = (provider: Proveedor) => {
-    setProviderDialogMode('edit')
     setEditingProvider(provider)
-    setProviderForm({
-      nombre: provider.nombre,
-      ubicacionAlmacen: provider.ubicacionAlmacen,
-      diasEntrega: String(provider.diasEntrega),
-    })
     setProviderDialogOpen(true)
-  }
-
-  const submitProvider = async () => {
-    const payload: ProveedorRequest = {
-      nombre: providerForm.nombre.trim(),
-      ubicacionAlmacen: providerForm.ubicacionAlmacen.trim(),
-      diasEntrega: Number(providerForm.diasEntrega),
-    }
-
-    if (!payload.nombre || !payload.ubicacionAlmacen) {
-      toast.error('Nombre y ubicación de almacén son obligatorios')
-      return
-    }
-    if (Number.isNaN(payload.diasEntrega) || payload.diasEntrega < 0) {
-      toast.error('El plazo de entrega debe ser un número mayor o igual a 0')
-      return
-    }
-
-    setSavingProvider(true)
-    try {
-      if (providerDialogMode === 'create') {
-        await crearProveedor(payload)
-        toast.success('Proveedor creado correctamente')
-      } else if (editingProvider) {
-        await editarProveedor(editingProvider.id, payload)
-        toast.success('Proveedor actualizado correctamente')
-      }
-      setProviderDialogOpen(false)
-      await loadProviders()
-    } catch (error: unknown) {
-      toast.error(parseApiError(error, 'No se pudo guardar el proveedor'))
-    } finally {
-      setSavingProvider(false)
-    }
   }
 
   const toggleArchiveProvider = async (provider: Proveedor) => {
@@ -189,10 +130,6 @@ export default function ProveedoresPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Proveedores</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Haz clic en una fila para abrir el detalle del proveedor o usa acciones para ver pedidos.</p>
-        </div>
 
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
@@ -225,15 +162,15 @@ export default function ProveedoresPage() {
         </div>
 
         <div className="rounded-lg border bg-card">
-          <Table>
+          <Table className="min-w-[900px] table-auto">
             <TableHeader>
               <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Almacén</TableHead>
-                <TableHead>Entrega (días)</TableHead>
-                <TableHead>Productos</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="w-16 text-right">Acciones</TableHead>
+                <TableHead className="min-w-[220px]">Nombre</TableHead>
+                <TableHead className="min-w-[220px]">Almacén</TableHead>
+                <TableHead className="min-w-[130px] text-center">Entrega (días)</TableHead>
+                <TableHead className="min-w-[110px] text-center">Productos</TableHead>
+                <TableHead className="min-w-[120px]">Estado</TableHead>
+                <TableHead className="min-w-[100px] text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -256,10 +193,14 @@ export default function ProveedoresPage() {
                     className={`cursor-pointer hover:bg-accent ${selectedProviderId === provider.id ? 'bg-muted' : ''}`}
                     onClick={() => goToProviderDetail(provider)}
                   >
-                    <TableCell className="font-medium">{provider.nombre}</TableCell>
-                    <TableCell>{provider.ubicacionAlmacen}</TableCell>
-                    <TableCell>{provider.diasEntrega}</TableCell>
-                    <TableCell>{provider.cantidadProductos}</TableCell>
+                    <TableCell className="font-medium">
+                      <span className="block truncate" title={provider.nombre}>{provider.nombre}</span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="block truncate" title={provider.ubicacionAlmacen}>{provider.ubicacionAlmacen}</span>
+                    </TableCell>
+                    <TableCell className="text-center">{provider.diasEntrega}</TableCell>
+                    <TableCell className="text-center">{provider.cantidadProductos}</TableCell>
                     <TableCell>
                       <Badge variant={provider.activo ? 'default' : 'secondary'}>
                         {provider.activo ? 'Activo' : 'Archivado'}
@@ -279,11 +220,13 @@ export default function ProveedoresPage() {
                               Ver pedidos de este proveedor
                             </DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => goToProviderDetail(provider)}>
+                              <Eye className="h-4 w-4" />
                               Ver detalle del proveedor
                             </DropdownMenuItem>
                             {canEdit && (
                               <>
                                 <DropdownMenuItem onSelect={() => openEditProvider(provider)}>
+                                  <Pencil className="h-4 w-4" />
                                   Editar proveedor
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
@@ -317,7 +260,7 @@ export default function ProveedoresPage() {
         </div>
 
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} · {total} registros</p>
+          <p className="text-sm text-muted-foreground">Página {currentPage} de {totalPages} · {total} registros</p>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -337,55 +280,12 @@ export default function ProveedoresPage() {
         </div>
       </div>
 
-      <Dialog open={providerDialogOpen} onOpenChange={setProviderDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {providerDialogMode === 'create' ? 'Crear proveedor' : 'Editar proveedor'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-2">
-            <div className="space-y-2">
-              <Label>Nombre</Label>
-              <Input
-                value={providerForm.nombre}
-                onChange={(event) =>
-                  setProviderForm((current) => ({ ...current, nombre: event.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Ubicación del almacén</Label>
-              <Input
-                value={providerForm.ubicacionAlmacen}
-                onChange={(event) =>
-                  setProviderForm((current) => ({ ...current, ubicacionAlmacen: event.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Días de entrega</Label>
-              <Input
-                type="number"
-                min="0"
-                value={providerForm.diasEntrega}
-                onChange={(event) =>
-                  setProviderForm((current) => ({ ...current, diasEntrega: event.target.value }))
-                }
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setProviderDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={() => void submitProvider()} disabled={savingProvider}>
-              {savingProvider ? 'Guardando...' : 'Guardar'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ProveedorModal
+        open={providerDialogOpen}
+        onClose={() => setProviderDialogOpen(false)}
+        onSaved={() => void loadProviders()}
+        proveedor={editingProvider}
+      />
     </div>
   )
 }
-

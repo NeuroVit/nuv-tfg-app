@@ -180,11 +180,15 @@ const startMobileGoogleLogin = async () => {
 }
 
   return (
-    <div className="min-h-screen flex bg-background">
+    <div className="relative flex min-h-screen overflow-hidden bg-background">
+      <div className="pointer-events-none absolute inset-0 z-0">
+        <div className="absolute inset-0 dark:hidden" style={{ background: 'linear-gradient(180deg, #f4f7fb 0%, #e9eef6 52%, #e3e9f3 100%)' }} />
+        <div className="absolute inset-0 hidden dark:block" style={{ background: 'linear-gradient(180deg, #0b0b0c 0%, #050505 100%)' }} />
+      </div>
 
         {/* Left — dark image panel */}
       <div
-        className="hidden lg:block w-1/2"
+        className="relative z-10 hidden w-1/2 overflow-hidden lg:block"
         style={{
           backgroundImage: `url('/moon-texture-registrar.jpg')`,
           backgroundSize: 'cover',
@@ -193,8 +197,40 @@ const startMobileGoogleLogin = async () => {
       />
 
       {/* Right — form */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 sm:px-8 bg-card">
-        <div className="w-full max-w-md space-y-6 sm:space-y-8">
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center overflow-hidden bg-card/90 px-4 py-8 backdrop-blur-sm sm:px-8">
+        <div aria-hidden className="pointer-events-none absolute inset-0 z-0">
+          <div className="absolute inset-0 dark:hidden" style={{ background: 'linear-gradient(180deg, #f4f7fb 0%, #e9eef6 52%, #e3e9f3 100%)' }} />
+          <div
+            className="absolute inset-[-20%] dark:hidden blur-[24px]"
+            style={{
+              background:
+                'radial-gradient(circle at 20% 18%, rgba(71,85,105,0.20), transparent 30%), radial-gradient(circle at 78% 26%, rgba(59,130,246,0.16), transparent 33%), linear-gradient(180deg, #f8fbff, #e9eef6)',
+            }}
+          />
+          <div
+            className="absolute inset-0 dark:hidden opacity-90 blur-[5px]"
+            style={{
+              background:
+                'radial-gradient(120% 60% at 50% 0%, rgba(255,255,255,0.98), transparent 60%), radial-gradient(120% 60% at 50% 24%, rgba(203,213,225,0.42), transparent 61%), radial-gradient(120% 60% at 50% 50%, rgba(148,163,184,0.33), transparent 62%), radial-gradient(120% 60% at 50% 76%, rgba(148,163,184,0.24), transparent 62%)',
+            }}
+          />
+          <div className="absolute inset-0 hidden dark:block" style={{ background: 'linear-gradient(180deg, #0b0b0c 0%, #050505 100%)' }} />
+          <div
+            className="absolute inset-[-20%] hidden dark:block blur-[34px]"
+            style={{
+              background:
+                'radial-gradient(circle at 20% 20%, rgba(255,255,255,0.08), transparent 25%), radial-gradient(circle at 80% 30%, rgba(255,255,255,0.05), transparent 30%), linear-gradient(180deg, #0b0b0c, #050505)',
+            }}
+          />
+          <div
+            className="absolute inset-0 hidden dark:block opacity-95 blur-[8px]"
+            style={{
+              background:
+                'radial-gradient(120% 60% at 50% 0%, rgba(255,255,255,0.08), transparent 60%), radial-gradient(120% 60% at 50% 25%, rgba(255,255,255,0.05), transparent 60%), radial-gradient(120% 60% at 50% 50%, rgba(255,255,255,0.06), transparent 60%), radial-gradient(120% 60% at 50% 75%, rgba(255,255,255,0.04), transparent 60%)',
+            }}
+          />
+        </div>
+        <div className="relative z-10 w-full max-w-md space-y-6 sm:space-y-8">
 
           <h1 className="text-3xl font-bold text-center text-foreground">
             Crea tu cuenta
@@ -301,7 +337,7 @@ const startMobileGoogleLogin = async () => {
 
               <Button
                 type="submit"
-                className="w-full border border-border bg-white text-black hover:bg-white/90"
+                className="w-full border border-border bg-primary text-primary-foreground hover:bg-primary/90"
                 disabled={form.formState.isSubmitting}
               >
                 {form.formState.isSubmitting && (
@@ -311,9 +347,7 @@ const startMobileGoogleLogin = async () => {
               </Button>
             </form>
           </Form>
-
           
-
           {/* Google */}
           {tauriMobile ? (
             <Button

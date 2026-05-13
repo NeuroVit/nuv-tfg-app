@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { PieChart as PieChartIcon, Warehouse } from 'lucide-react'
+import { LineChart as LineChartIcon, PackagePlus, PieChart as PieChartIcon, Warehouse } from 'lucide-react'
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -21,15 +23,28 @@ import {
   getDistribucionStockAnalitica,
   getInventarioAnalitica,
   getMetaAnalitica,
+  getProductosCreadosAnalitica,
   getStockPorCategoriaAnalitica,
+  getStockRecibidoAnalitica,
 } from '@/api/analitica'
-import type { AnaliticaMeta, InventorySummaryRow, StockByCategoryRow, StockDistributionRow } from '@/types/analitica'
+import type {
+  AnaliticaMeta,
+  InventorySummaryRow,
+  ProductCreationRow,
+  StockByCategoryRow,
+  StockDistributionRow,
+  StockReceiptRow,
+} from '@/types/analitica'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Button } from '@/components/ui/button'
+import { useFormatters } from '@/lib/useFormatters'
 import {
   AnaliticaShell,
   EmptyChartPlaceholder,
+  RevealDataSection,
   formatCompact,
   formatCurrency,
+  toDayKey,
   statusFillKey,
   statusLabels,
   useAnaliticaRange,
@@ -62,7 +77,127 @@ const categoryStockChartConfig = {
   },
 } satisfies ChartConfig
 
+const productCreationChartConfig = {
+  productsCreated: {
+    label: 'Productos creados',
+    color: '#8b5cf6',
+  },
+} satisfies ChartConfig
+
+const stockReceiptsChartConfig = {
+  unitsReceived: {
+    label: 'Unidades recibidas',
+    color: '#0ea5e9',
+  },
+  valueReceived: {
+    label: 'Valor recibido',
+    color: '#22c55e',
+  },
+} satisfies ChartConfig
+
+const DAY_KEY_REGEX = /^\d{4}-\d{2}-\d{2}$/
+type InventoryTimelineBucket = {
+  date: string
+  label: string
+  productsCreated: number
+  unitsReceived: number
+  valueReceived: number
+}
+
+const asDayKey = (value: string, tz: string) => {
+  if (DAY_KEY_REGEX.test(value)) return value
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return toDayKey(date, tz)
+}
+
+const formatDayMonthFromKey = (dayKey: string) => {
+  const parts = dayKey.split('-')
+  if (parts.length !== 3) return dayKey
+  const [, month, day] = parts
+  return `${day}/${month}`
+}
+
+const formatWeekdayFromKey = (dayKey: string) => {
+  const parts = dayKey.split('-')
+  if (parts.length !== 3) return dayKey
+  const [yearRaw, monthRaw, dayRaw] = parts
+  const year = Number(yearRaw)
+  const month = Number(monthRaw)
+  const day = Number(dayRaw)
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return dayKey
+  const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0))
+  return new Intl.DateTimeFormat('es-ES', { timeZone: 'UTC', weekday: 'short' }).format(date).replace('.', '')
+}
+
+const buildDayBuckets = (selectedDays: number, tz: string, dayKeys: string[]) => {
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+
+  const buckets: Record<string, InventoryTimelineBucket> = {}
+
+  if (selectedDays <= 0) {
+    if (dayKeys.length === 0) return buckets
+    const sorted = dayKeys.slice().sort()
+    const first = sorted[0]
+    if (!first) return buckets
+    const firstDate = new Date(`${first}T00:00:00`)
+    if (Number.isNaN(firstDate.getTime())) return buckets
+    firstDate.setHours(0, 0, 0, 0)
+    const cursor = new Date(firstDate)
+    while (cursor <= now) {
+      const key = toDayKey(cursor, tz)
+      buckets[key] = {
+        date: key,
+        label: formatDayMonthFromKey(key),
+        productsCreated: 0,
+        unitsReceived: 0,
+        valueReceived: 0,
+      }
+      cursor.setDate(cursor.getDate() + 1)
+    }
+    return buckets
+  }
+
+  if (selectedDays === 7) {
+    const weekStart = new Date(now)
+    const mondayOffset = (weekStart.getDay() + 6) % 7
+    weekStart.setDate(weekStart.getDate() - mondayOffset)
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(weekStart)
+      d.setDate(weekStart.getDate() + i)
+      const key = toDayKey(d, tz)
+      buckets[key] = {
+        date: key,
+        label: formatWeekdayFromKey(key),
+        productsCreated: 0,
+        unitsReceived: 0,
+        valueReceived: 0,
+      }
+    }
+    return buckets
+  }
+
+  for (let i = selectedDays - 1; i >= 0; i--) {
+    const d = new Date(now)
+    d.setDate(d.getDate() - i)
+    const key = toDayKey(d, tz)
+    buckets[key] = {
+      date: key,
+      label: formatDayMonthFromKey(key),
+      productsCreated: 0,
+      unitsReceived: 0,
+      valueReceived: 0,
+    }
+  }
+
+  return buckets
+}
+
+const PAGE_SIZE = 20
+
 export default function AnaliticaInventarioPage() {
+  const { timeZone } = useFormatters()
   const { timeRange, selectedDays, setTimeRange } = useAnaliticaRange()
   const [loading, setLoading] = useState(true)
   const [loadState, setLoadState] = useState<LoadState>('loading')
@@ -71,22 +206,29 @@ export default function AnaliticaInventarioPage() {
   const [inventario, setInventario] = useState<InventorySummaryRow[]>([])
   const [distribucionStock, setDistribucionStock] = useState<StockDistributionRow[]>([])
   const [stockPorCategoria, setStockPorCategoria] = useState<StockByCategoryRow[]>([])
+  const [productosCreados, setProductosCreados] = useState<ProductCreationRow[]>([])
+  const [stockRecibido, setStockRecibido] = useState<StockReceiptRow[]>([])
+  const [offset, setOffset] = useState(0)
 
   useEffect(() => {
     const load = async () => {
       setLoading(true)
       setLoadState('loading')
       try {
-        const [inv, dist, byCat, meta] = await Promise.all([
+        const [inv, dist, byCat, creados, recibido, meta] = await Promise.all([
           getInventarioAnalitica(),
           getDistribucionStockAnalitica(),
           getStockPorCategoriaAnalitica(),
+          getProductosCreadosAnalitica(selectedDays),
+          getStockRecibidoAnalitica(selectedDays),
           getMetaAnalitica(selectedDays),
         ])
 
         setInventario(inv)
         setDistribucionStock(dist)
         setStockPorCategoria(byCat)
+        setProductosCreados(creados)
+        setStockRecibido(recibido)
         setMetadata(meta)
         setLastUpdatedAt(new Date())
         setLoadState('ready')
@@ -107,6 +249,7 @@ export default function AnaliticaInventarioPage() {
     const overStockCount = inventario.filter((row) => row.stockStatus === 'OVERSTOCK').length
     const optimalCount = inventario.filter((row) => row.stockStatus === 'OK').length
     const stockValue = inventario.reduce((sum, row) => sum + row.stockValue, 0)
+    const totalUnits = inventario.reduce((sum, row) => sum + row.currentQuantity, 0)
 
     return {
       lowStockCount,
@@ -115,6 +258,7 @@ export default function AnaliticaInventarioPage() {
       optimalCount,
       stockValue,
       productsCount: inventario.length,
+      totalUnits,
     }
   }, [inventario])
 
@@ -131,6 +275,69 @@ export default function AnaliticaInventarioPage() {
     [distribucionStock],
   )
 
+  const productCreationData = useMemo(
+    () => {
+      const normalizedRows = productosCreados
+        .map((row) => ({
+          dayKey: asDayKey(row.creationDate, timeZone),
+          productsCreated: row.productsCreated,
+        }))
+        .filter((row): row is { dayKey: string; productsCreated: number } => row.dayKey !== null)
+
+      const dayBuckets = buildDayBuckets(
+        selectedDays,
+        timeZone,
+        normalizedRows.map((row) => row.dayKey),
+      )
+
+      normalizedRows.forEach((row) => {
+        if (!(row.dayKey in dayBuckets)) return
+        dayBuckets[row.dayKey]!.productsCreated += row.productsCreated
+      })
+
+      return Object.values(dayBuckets).map((row) => ({
+        date: row.date,
+        label: row.label,
+        productsCreated: row.productsCreated,
+      }))
+    },
+    [productosCreados, selectedDays, timeZone],
+  )
+
+  const stockReceiptsData = useMemo(
+    () => {
+      const normalizedRows = stockRecibido
+        .map((row) => ({
+          dayKey: asDayKey(row.receiptDate, timeZone),
+          unitsReceived: row.unitsReceived,
+          valueReceived: row.valueReceived,
+        }))
+        .filter(
+          (row): row is { dayKey: string; unitsReceived: number; valueReceived: number } => row.dayKey !== null,
+        )
+
+      const dayBuckets = buildDayBuckets(
+        selectedDays,
+        timeZone,
+        normalizedRows.map((row) => row.dayKey),
+      )
+
+      normalizedRows.forEach((row) => {
+        if (!(row.dayKey in dayBuckets)) return
+        dayBuckets[row.dayKey]!.unitsReceived += row.unitsReceived
+        dayBuckets[row.dayKey]!.valueReceived += row.valueReceived
+      })
+
+      return Object.values(dayBuckets).map((row) => ({
+        date: row.date,
+        label: row.label,
+        unitsReceived: row.unitsReceived,
+        valueReceived: row.valueReceived,
+      }))
+    },
+    [selectedDays, stockRecibido, timeZone],
+  )
+
   const categoryStockData = useMemo(
     () =>
       stockPorCategoria.map((row) => ({
@@ -139,6 +346,23 @@ export default function AnaliticaInventarioPage() {
       })),
     [stockPorCategoria],
   )
+  const total = inventario.length
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const currentPage = Math.floor(offset / PAGE_SIZE) + 1
+  const paginatedInventario = useMemo(
+    () => inventario.slice(offset, offset + PAGE_SIZE),
+    [inventario, offset],
+  )
+
+  useEffect(() => {
+    setOffset(0)
+  }, [selectedDays])
+
+  useEffect(() => {
+    if (offset >= total && total > 0) {
+      setOffset(Math.max(0, (Math.ceil(total / PAGE_SIZE) - 1) * PAGE_SIZE))
+    }
+  }, [offset, total])
 
   return (
     <AnaliticaShell
@@ -149,17 +373,19 @@ export default function AnaliticaInventarioPage() {
       lastUpdatedAt={lastUpdatedAt}
       timeRange={timeRange}
       onTimeRangeChange={setTimeRange}
+      hideHeader
     >
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-lg bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Productos totales</p>
           <p className="mt-2 text-xl font-semibold text-foreground">{formatCompact(kpis.productsCount)}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{formatCompact(kpis.totalUnits)} unidades totales</p>
         </article>
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-lg bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Valor total stock</p>
           <p className="mt-2 text-xl font-semibold text-indigo-700">{formatCurrency(kpis.stockValue)}</p>
         </article>
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-lg bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Stock bajo / sin stock</p>
           <p className="mt-2 text-xl font-semibold text-red-700">
             {formatCompact(kpis.lowStockCount + kpis.outOfStockCount)}
@@ -168,7 +394,7 @@ export default function AnaliticaInventarioPage() {
             {formatCompact(kpis.lowStockCount)} bajo · {formatCompact(kpis.outOfStockCount)} sin stock
           </p>
         </article>
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-lg bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Óptimo / Sobrestock</p>
           <p className="mt-2 text-xl font-semibold text-emerald-700">
             {formatCompact(kpis.optimalCount + kpis.overStockCount)}
@@ -180,7 +406,7 @@ export default function AnaliticaInventarioPage() {
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-lg bg-card p-4">
           <h2 className="text-sm font-semibold text-foreground">Distribución de estado de stock</h2>
           <div className="mt-3 h-72">
             {loading ? (
@@ -206,7 +432,7 @@ export default function AnaliticaInventarioPage() {
           </div>
         </article>
 
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-lg bg-card p-4">
           <h2 className="text-sm font-semibold text-foreground">Valor de stock por categoría</h2>
           <div className="mt-3 h-72">
             {loading ? (
@@ -233,36 +459,150 @@ export default function AnaliticaInventarioPage() {
         </article>
       </section>
 
-      <section className="rounded-lg border bg-card p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Producto</TableHead>
-              <TableHead>Categoría</TableHead>
-              <TableHead>Stock</TableHead>
-              <TableHead>Mínimo</TableHead>
-              <TableHead>Valor</TableHead>
-              <TableHead>Estado</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <article className="rounded-lg bg-card p-4">
+          <h2 className="text-sm font-semibold text-foreground">Productos creados en el tiempo</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Productos nuevos por día según su fecha de alta.
+          </p>
+          <div className="mt-3 h-72">
             {loading ? (
-              <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
-            ) : inventario.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">No hay productos de inventario para mostrar.</TableCell></TableRow>
-            ) : inventario.map((row) => (
-              <TableRow key={row.productId}>
-                <TableCell>{row.productName} <span className="text-xs text-muted-foreground">({row.sku})</span></TableCell>
-                <TableCell>{row.categoryName}</TableCell>
-                <TableCell>{row.currentQuantity}</TableCell>
-                <TableCell>{row.minimumStockLevel}</TableCell>
-                <TableCell>{formatCurrency(row.stockValue)}</TableCell>
-                <TableCell>{statusLabels[row.stockStatus] ?? row.stockStatus}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
+            ) : productCreationData.length === 0 ? (
+              <EmptyChartPlaceholder
+                icon={LineChartIcon}
+                message="Aún no hay productos creados en este rango de tiempo."
+              />
+            ) : (
+              <ChartContainer config={productCreationChartConfig} className="h-full w-full">
+                <AreaChart data={productCreationData} margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="label" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
+                  <YAxis allowDecimals={false} />
+                  <ChartTooltip
+                    content={<ChartTooltipContent formatter={(value) => formatCompact(Number(value))} />}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="productsCreated"
+                    stroke="var(--color-productsCreated)"
+                    fill="var(--color-productsCreated)"
+                    fillOpacity={0.25}
+                    name="productsCreated"
+                  />
+                </AreaChart>
+              </ChartContainer>
+            )}
+          </div>
+        </article>
+
+        <article className="rounded-lg bg-card p-4">
+          <h2 className="text-sm font-semibold text-foreground">Stock recibido en el tiempo</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Unidades y valor de compra recibidos por día (movimientos PURCHASE).
+          </p>
+          <div className="mt-3 h-72">
+            {loading ? (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
+            ) : stockReceiptsData.length === 0 ? (
+              <EmptyChartPlaceholder
+                icon={PackagePlus}
+                message="No hay recepciones de stock registradas en este rango."
+              />
+            ) : (
+              <ChartContainer config={stockReceiptsChartConfig} className="h-full w-full">
+                <AreaChart data={stockReceiptsData} margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="label" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
+                  <YAxis yAxisId="units" allowDecimals={false} />
+                  <YAxis yAxisId="value" orientation="right" tickFormatter={(value) => formatCompact(Number(value))} />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        formatter={(value, name) =>
+                          name === 'valueReceived' ? formatCurrency(Number(value)) : formatCompact(Number(value))
+                        }
+                      />
+                    }
+                  />
+                  <ChartLegend content={<ChartLegendContent />} />
+                  <Area
+                    yAxisId="units"
+                    type="monotone"
+                    dataKey="unitsReceived"
+                    stroke="var(--color-unitsReceived)"
+                    fill="var(--color-unitsReceived)"
+                    fillOpacity={0.25}
+                    name="unitsReceived"
+                  />
+                  <Area
+                    yAxisId="value"
+                    type="monotone"
+                    dataKey="valueReceived"
+                    stroke="var(--color-valueReceived)"
+                    fill="var(--color-valueReceived)"
+                    fillOpacity={0.15}
+                    name="valueReceived"
+                  />
+                </AreaChart>
+              </ChartContainer>
+            )}
+          </div>
+        </article>
       </section>
+
+      <RevealDataSection>
+        <section className="rounded-lg border bg-card p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Producto</TableHead>
+                <TableHead>Categoría</TableHead>
+                <TableHead>Stock</TableHead>
+                <TableHead>Mínimo</TableHead>
+                <TableHead>Valor</TableHead>
+                <TableHead>Estado</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
+              ) : paginatedInventario.length === 0 ? (
+                <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">No hay productos de inventario para mostrar.</TableCell></TableRow>
+              ) : paginatedInventario.map((row) => (
+                <TableRow key={row.productId}>
+                  <TableCell>{row.productName} <span className="text-xs text-muted-foreground">({row.sku})</span></TableCell>
+                  <TableCell>{row.categoryName}</TableCell>
+                  <TableCell>{row.currentQuantity}</TableCell>
+                  <TableCell>{row.minimumStockLevel}</TableCell>
+                  <TableCell>{formatCurrency(row.stockValue)}</TableCell>
+                  <TableCell>{statusLabels[row.stockStatus] ?? row.stockStatus}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </section>
+
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} | {total} registros</p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setOffset((prev) => Math.max(0, prev - PAGE_SIZE))}
+              disabled={offset === 0}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setOffset((prev) => (prev + PAGE_SIZE >= total ? prev : prev + PAGE_SIZE))}
+              disabled={offset + PAGE_SIZE >= total}
+            >
+              Siguiente
+            </Button>
+          </div>
+        </div>
+      </RevealDataSection>
     </AnaliticaShell>
   )
 }

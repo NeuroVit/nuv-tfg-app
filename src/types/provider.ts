@@ -1,6 +1,7 @@
 export interface Proveedor {
   id: number
   nombre: string
+  email: string | null
   ubicacionAlmacen: string
   diasEntrega: number
   activo: boolean
@@ -9,6 +10,7 @@ export interface Proveedor {
 
 export interface ProveedorRequest {
   nombre: string
+  email?: string
   ubicacionAlmacen: string
   diasEntrega: number
 }

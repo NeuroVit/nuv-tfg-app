@@ -61,8 +61,7 @@ client.interceptors.request.use((config) => {
 
   if (!useAuthStore.getState().isAuthenticated()) {
     if (!isPublicRoute && !isAuthCall) {
-      useAuthStore.getState().logout()
-      window.location.href = '/login'
+      throw new axios.CanceledError('AUTH_REQUIRED')
     }
     return config
   }
@@ -81,11 +80,33 @@ const redirectToLogin = () => {
   }
 }
 
+const isRedirectedApiResponseToLogin = (response: { request?: unknown; config?: unknown }): boolean => {
+  const request = response.request as { responseURL?: unknown } | undefined
+  const config = response.config as { url?: unknown } | undefined
+  const responseUrl = typeof request?.responseURL === 'string' ? request.responseURL.toLowerCase() : ''
+  const requestUrl = typeof config?.url === 'string' ? config.url.toLowerCase() : ''
+
+  if (!requestUrl.startsWith('/')) return false
+  if (isAuthEndpoint(requestUrl)) return false
+  return responseUrl.endsWith('/login') || responseUrl.includes('/login?')
+}
+
 let refreshPromise: Promise<string> | null = null
 
 client.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    if (isRedirectedApiResponseToLogin(res)) {
+      redirectToLogin()
+      return Promise.reject(new axios.CanceledError('AUTH_REDIRECTED_TO_LOGIN'))
+    }
+    return res
+  },
   async (error: AxiosError) => {
+    if (axios.isCancel(error) && error.message === 'AUTH_REQUIRED') {
+      redirectToLogin()
+      return Promise.reject(error)
+    }
+
     const status = error.response?.status
     const originalRequest = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined
 
