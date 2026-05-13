@@ -328,7 +328,7 @@ export default function AnaliticaVentasRentabilidadPage() {
       hideHeader
     >
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <article className="rounded-lg border bg-card p-4 xl:col-span-2">
+        <article className="rounded-lg bg-card p-4 xl:col-span-2">
           <h2 className="text-sm font-semibold text-foreground">{salesTrendTitle}</h2>
           <div className="mt-3 h-72">
             {loading ? (
@@ -393,7 +393,7 @@ export default function AnaliticaVentasRentabilidadPage() {
           </div>
         </article>
 
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-lg bg-card p-4">
           <h2 className="text-sm font-semibold text-foreground">Top productos por velocidad (rango)</h2>
           <div className="mt-3 h-72">
             {loading ? (
@@ -417,7 +417,7 @@ export default function AnaliticaVentasRentabilidadPage() {
           </div>
         </article>
 
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-lg bg-card p-4">
           <h2 className="text-sm font-semibold text-foreground">Productos ganadores vs perdedores (margen)</h2>
           <div className="mt-3 h-72">
             {loading ? (

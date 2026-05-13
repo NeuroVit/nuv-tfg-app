@@ -5,10 +5,13 @@ import type {
   FinanzasResumen,
   InventorySummaryRow,
   PriceTrendRow,
+  ProductCreationRow,
   RentabilidadProductoRow,
+  RevenueComparativa,
   SalesVelocityRow,
   StockByCategoryRow,
   StockDistributionRow,
+  StockReceiptRow,
   TopProductVelocityRow,
   VelocitySummaryRow,
 } from '@/types/analitica'
@@ -24,14 +27,18 @@ export const getVelocidadAnalitica = async (limit = 120, days = 30): Promise<Sal
   return data
 }
 
-export const getPreciosAnalitica = async (limit = 120): Promise<PriceTrendRow[]> => {
-  const { data } = await client.get<PriceTrendRow[]>('/analitica/precios', { params: { limit } })
+export const getPreciosAnalitica = async (limit = 120, days?: number): Promise<PriceTrendRow[]> => {
+  const params: { limit: number; days?: number } = { limit }
+  if (days !== undefined) params.days = days
+  const { data } = await client.get<PriceTrendRow[]>('/analitica/precios', { params })
   return data
 }
 
-export const getBundleCandidatosAnalitica = async (limit = 120): Promise<BundleCandidateRow[]> => {
+export const getBundleCandidatosAnalitica = async (limit = 120, days?: number): Promise<BundleCandidateRow[]> => {
+  const params: { limit: number; days?: number } = { limit }
+  if (days !== undefined) params.days = days
   const { data } = await client.get<BundleCandidateRow[]>('/analitica/bundles-candidatos', {
-    params: { limit },
+    params,
   })
   return data
 }
@@ -81,6 +88,28 @@ export const getRentabilidadProductosAnalitica = async (
   const { data } = await client.get<RentabilidadProductoRow[]>('/analitica/rentabilidad-productos', {
     params,
   })
+  return data
+}
+
+export const getRevenueComparativaAnalitica = async (days = 30): Promise<RevenueComparativa> => {
+  const params = { days }
+  const { data } = await client.get<RevenueComparativa>('/analitica/revenue-comparativa', { params })
+  return data
+}
+
+export const getProductosCreadosAnalitica = async (
+  days = 30,
+): Promise<ProductCreationRow[]> => {
+  const params = { days }
+  const { data } = await client.get<ProductCreationRow[]>('/analitica/productos-creados', {
+    params,
+  })
+  return data
+}
+
+export const getStockRecibidoAnalitica = async (days = 30): Promise<StockReceiptRow[]> => {
+  const params = { days }
+  const { data } = await client.get<StockReceiptRow[]>('/analitica/stock-recibido', { params })
   return data
 }
 

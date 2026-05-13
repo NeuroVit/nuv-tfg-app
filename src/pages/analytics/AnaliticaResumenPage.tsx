@@ -2,15 +2,15 @@ import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { LineChart as LineChartIcon } from 'lucide-react'
 import {
+  Bar,
+  BarChart,
   CartesianGrid,
+  Cell,
   ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
-  Line,
-  LineChart,
-  ReferenceLine,
+  Pie,
+  PieChart,
   XAxis,
   YAxis,
   type ChartConfig,
@@ -19,40 +19,86 @@ import {
   getFinanzasResumenAnalitica,
   getInventarioAnalitica,
   getMetaAnalitica,
+  getRevenueComparativaAnalitica,
   getVelocidadResumenAnalitica,
 } from '@/api/analitica'
-import type { AnaliticaMeta, FinanzasResumen, InventorySummaryRow, VelocitySummaryRow } from '@/types/analitica'
+import type {
+  AnaliticaMeta,
+  FinanzasResumen,
+  InventorySummaryRow,
+  RevenueComparativa,
+  VelocitySummaryRow,
+} from '@/types/analitica'
 import {
   AnaliticaShell,
   EmptyChartPlaceholder,
   formatCompact,
   formatCurrency,
-  toDayKey,
   useAnaliticaRange,
   type LoadState,
 } from './shared'
 
-const salesTrendChartConfig = {
-  unitsSold: {
-    label: 'Unidades',
-    color: '#2563eb',
-  },
-  revenue: {
-    label: 'Ingresos',
+const revenueComparisonChartConfig = {
+  currentRevenue: {
+    label: 'Periodo actual',
     color: '#16a34a',
+  },
+  previousRevenue: {
+    label: 'Periodo anterior',
+    color: '#86efac',
   },
 } satisfies ChartConfig
 
-function formatDayMonth(date: Date) {
-  return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`
+type RevenueComparisonRow = {
+  label: string
+  currentRevenue: number
+  previousRevenue: number
+  previousRevenueNegative: number
+  currentColor: string
+  previousColor: string
 }
 
-function formatHour(date: Date) {
-  return `${String(date.getHours()).padStart(2, '0')}:00`
+type ImpactLevel = 'positive' | 'neutral' | 'negative'
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value))
 }
 
-function formatWeekday(date: Date) {
-  return date.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '')
+function resolveImpactFromGrowth(growthPct: number): ImpactLevel {
+  if (growthPct >= 10) return 'positive'
+  if (growthPct >= 0) return 'neutral'
+  return 'negative'
+}
+
+function resolveImpactColors(impact: ImpactLevel) {
+  if (impact === 'positive') {
+    return {
+      strong: '#16a34a',
+      soft: '#86efac',
+      textClass: 'text-emerald-700',
+    }
+  }
+  if (impact === 'neutral') {
+    return {
+      strong: '#eab308',
+      soft: '#fde047',
+      textClass: 'text-yellow-700',
+    }
+  }
+  return {
+    strong: '#dc2626',
+    soft: '#fca5a5',
+    textClass: 'text-red-700',
+  }
+}
+
+function resolveRowImpact(currentRevenue: number, previousRevenue: number): ImpactLevel {
+  if (previousRevenue <= 0) {
+    if (currentRevenue > 0) return 'positive'
+    return 'neutral'
+  }
+  const growthPct = ((currentRevenue - previousRevenue) / previousRevenue) * 100
+  return resolveImpactFromGrowth(growthPct)
 }
 
 export default function AnaliticaResumenPage() {
@@ -64,34 +110,56 @@ export default function AnaliticaResumenPage() {
   const [finanzas, setFinanzas] = useState<FinanzasResumen | null>(null)
   const [velocidadResumen, setVelocidadResumen] = useState<VelocitySummaryRow[]>([])
   const [inventario, setInventario] = useState<InventorySummaryRow[]>([])
+  const [revenueComparativa, setRevenueComparativa] = useState<RevenueComparativa | null>(null)
 
   useEffect(() => {
-    const load = async () => {
-      setLoading(true)
-      setLoadState('loading')
+    let active = true
+
+    const load = async (backgroundRefresh = false) => {
+      if (!backgroundRefresh) {
+        setLoading(true)
+        setLoadState('loading')
+      }
+
       try {
-        const [fin, velRes, inv, meta] = await Promise.all([
+        const [fin, velRes, inv, meta, revComp] = await Promise.all([
           getFinanzasResumenAnalitica(selectedDays),
           getVelocidadResumenAnalitica(selectedDays),
           getInventarioAnalitica(),
           getMetaAnalitica(selectedDays),
+          getRevenueComparativaAnalitica(selectedDays),
         ])
 
+        if (!active) return
         setFinanzas(fin)
         setVelocidadResumen(velRes)
         setInventario(inv)
         setMetadata(meta)
+        setRevenueComparativa(revComp)
         setLastUpdatedAt(new Date())
         setLoadState('ready')
       } catch {
+        if (!active) return
         setLoadState('error')
-        toast.error('No se pudieron cargar los datos del resumen de analítica')
+        if (!backgroundRefresh) {
+          toast.error('No se pudieron cargar los datos del resumen de analítica')
+        }
       } finally {
-        setLoading(false)
+        if (!backgroundRefresh && active) {
+          setLoading(false)
+        }
       }
     }
 
-    void load()
+    void load(false)
+    const refreshTimer = window.setInterval(() => {
+      void load(true)
+    }, 60 * 60 * 1000)
+
+    return () => {
+      active = false
+      window.clearInterval(refreshTimer)
+    }
   }, [selectedDays])
 
   const kpis = useMemo(() => {
@@ -104,7 +172,6 @@ export default function AnaliticaResumenPage() {
       outOfStockCount,
       unitsSold,
       ventas: finanzas?.ventas30d ?? 0,
-      ventasPromedioDiarias: finanzas?.ventasPromedioDiarias ?? 0,
       cogs: finanzas?.cogsReal30d ?? 0,
       margen: finanzas?.margenReal30d ?? 0,
       flujoNeto: finanzas?.flujoNeto30d ?? 0,
@@ -113,144 +180,63 @@ export default function AnaliticaResumenPage() {
     }
   }, [finanzas, inventario, velocidadResumen])
 
-  const salesLineData = useMemo(() => {
-    const now = new Date()
-    now.setHours(0, 0, 0, 0)
-    const safeRows = velocidadResumen
-      .map((row) => ({
-        ...row,
-        parsedDate: new Date(row.movementDate),
-      }))
-      .filter((row) => !Number.isNaN(row.parsedDate.getTime()))
-
-    if (selectedDays === 1) {
-      const dayKey = toDayKey(now)
-      const hours: Record<string, { date: string; unitsSold: number; revenue: number }> = {}
-
-      for (let hour = 0; hour < 24; hour++) {
-        const slotDate = new Date(now)
-        slotDate.setHours(hour, 0, 0, 0)
-        const key = `${dayKey}-${String(hour).padStart(2, '0')}`
-        hours[key] = {
-          date: formatHour(slotDate),
-          unitsSold: 0,
-          revenue: 0,
-        }
-      }
-
-      safeRows.forEach((row) => {
-        if (toDayKey(row.parsedDate) !== dayKey) return
-        const key = `${dayKey}-${String(row.parsedDate.getHours()).padStart(2, '0')}`
-        if (!(key in hours)) return
-        hours[key]!.unitsSold += row.unitsSold
-        hours[key]!.revenue += row.revenue
-      })
-
-      return Object.values(hours)
+  const revenueComparison = useMemo(() => {
+    if (!revenueComparativa || revenueComparativa.buckets.length === 0) {
+      return null
     }
 
-    if (selectedDays <= 0) {
-      if (safeRows.length === 0) return []
-
-      const firstDate = new Date(safeRows.reduce(
-        (minDate, row) => (row.parsedDate < minDate ? row.parsedDate : minDate),
-        safeRows[0]!.parsedDate,
-      ))
-      firstDate.setHours(0, 0, 0, 0)
-
-      const days: Record<string, { date: string; unitsSold: number; revenue: number }> = {}
-      const cursor = new Date(firstDate)
-
-      while (cursor <= now) {
-        const key = toDayKey(cursor)
-        days[key] = {
-          date: formatDayMonth(cursor),
-          unitsSold: 0,
-          revenue: 0,
-        }
-        cursor.setDate(cursor.getDate() + 1)
+    const rows: RevenueComparisonRow[] = revenueComparativa.buckets.map((bucket) => {
+      const currentValue = Number(bucket.currentRevenue) || 0
+      const previousValue = Number(bucket.previousRevenue) || 0
+      const impact = resolveRowImpact(currentValue, previousValue)
+      const impactColors = resolveImpactColors(impact)
+      return {
+        label: bucket.label,
+        currentRevenue: currentValue,
+        previousRevenue: previousValue,
+        previousRevenueNegative: previousValue === 0 ? 0 : -previousValue,
+        currentColor: impactColors.strong,
+        previousColor: impactColors.soft,
       }
-
-      safeRows.forEach((row) => {
-        const key = toDayKey(row.parsedDate)
-        if (!(key in days)) return
-        days[key]!.unitsSold += row.unitsSold
-        days[key]!.revenue += row.revenue
-      })
-
-      return Object.values(days)
-    }
-
-    const days: Record<string, { date: string; unitsSold: number; revenue: number }> = {}
-
-    if (selectedDays === 7) {
-      const weekStart = new Date(now)
-      const mondayOffset = (weekStart.getDay() + 6) % 7
-      weekStart.setDate(weekStart.getDate() - mondayOffset)
-
-      for (let i = 0; i < 7; i++) {
-        const d = new Date(weekStart)
-        d.setDate(weekStart.getDate() + i)
-        const key = toDayKey(d)
-        days[key] = {
-          date: formatWeekday(d),
-          unitsSold: 0,
-          revenue: 0,
-        }
-      }
-    } else {
-      for (let i = selectedDays - 1; i >= 0; i--) {
-        const d = new Date(now)
-        d.setDate(d.getDate() - i)
-        const key = toDayKey(d)
-        days[key] = {
-          date: formatDayMonth(d),
-          unitsSold: 0,
-          revenue: 0,
-        }
-      }
-    }
-
-    safeRows.forEach((row) => {
-      const key = toDayKey(row.parsedDate)
-      if (!(key in days)) return
-      days[key]!.unitsSold += row.unitsSold
-      days[key]!.revenue += row.revenue
     })
 
-    return Object.values(days)
-  }, [selectedDays, velocidadResumen])
+    const currentTotal = rows.reduce((sum, row) => sum + row.currentRevenue, 0)
+    const previousTotal = rows.reduce((sum, row) => sum + row.previousRevenue, 0)
+    const growthPct =
+      previousTotal > 0
+        ? ((currentTotal - previousTotal) / previousTotal) * 100
+        : currentTotal > 0
+          ? 100
+          : 0
+    const growthImpact = resolveImpactFromGrowth(growthPct)
+    const growthColors = resolveImpactColors(growthImpact)
+    const gaugePct = clamp(growthPct, 0, 100)
 
-  const salesTrendTitle =
-    selectedDays <= 0
-      ? 'Tendencia histórica de ventas'
-      : selectedDays === 1
-        ? 'Tendencia de ventas (hoy)'
-        : selectedDays === 7
-        ? 'Tendencia semanal de ventas'
-        : 'Tendencia de ventas (rango)'
-  const salesXAxisInterval = useMemo(() => {
-    if (selectedDays === 1) return 1
-    if (selectedDays === 7) return 0
-    return 'equidistantPreserveStart' as const
-  }, [selectedDays])
+    const segmentCount = 28
+    const activeSegments = Math.round((gaugePct / 100) * segmentCount)
+    const gaugeSegments = Array.from({ length: segmentCount }, (_, index) => ({
+      value: 1,
+      fill: index < activeSegments ? growthColors.strong : '#e4e4e7',
+    }))
 
-  const revenueThresholds = useMemo(() => {
-    if (salesLineData.length === 0) return null
-    const values = salesLineData
-      .map((row) => row.revenue)
-      .filter((value) => Number.isFinite(value))
-    if (values.length === 0) return null
-
-    const averageRevenue = values.reduce((sum, value) => sum + value, 0) / values.length
-    const target = kpis.ventasPromedioDiarias > 0 ? kpis.ventasPromedioDiarias : averageRevenue
-    if (target <= 0) return null
+    const maxBarAbs = rows.reduce(
+      (max, row) => Math.max(max, Math.abs(row.currentRevenue), Math.abs(row.previousRevenue)),
+      0,
+    )
 
     return {
-      lower: target * 0.8,
-      target,
+      rows,
+      currentLabel: revenueComparativa.currentLabel,
+      previousLabel: revenueComparativa.previousLabel,
+      currentTotal,
+      previousTotal,
+      growthPct,
+      growthColors,
+      gaugePct,
+      gaugeSegments,
+      maxBarAbs: maxBarAbs > 0 ? maxBarAbs : 100,
     }
-  }, [salesLineData, kpis.ventasPromedioDiarias])
+  }, [revenueComparativa])
 
   return (
     <AnaliticaShell
@@ -264,39 +250,39 @@ export default function AnaliticaResumenPage() {
       hideHeader
     >
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-lg bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Ventas (rango)</p>
           <p className="mt-2 text-xl font-semibold text-emerald-700">{formatCurrency(kpis.ventas)}</p>
         </article>
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-lg bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Coste de ventas real (rango)</p>
           <p className="mt-2 text-xl font-semibold text-orange-700">-{formatCurrency(kpis.cogs)}</p>
         </article>
-        <article className="rounded-lg border bg-card p-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Margen real (rango)</p>
+        <article className="rounded-lg bg-card p-4">
           <p className={`mt-2 text-xl font-semibold ${kpis.margen >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
             {formatCurrency(kpis.margen)}
           </p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Margen real (rango)</p>
         </article>
-        <article className="rounded-lg border bg-card p-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Flujo neto (rango)</p>
+        <article className="rounded-lg bg-card p-4">
           <p className={`mt-2 text-xl font-semibold ${kpis.flujoNeto >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
             {formatCurrency(kpis.flujoNeto)}
           </p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Flujo neto (rango)</p>
         </article>
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-lg bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Unidades vendidas (rango)</p>
           <p className="mt-2 text-xl font-semibold text-blue-700">{formatCompact(kpis.unitsSold)}</p>
         </article>
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-lg bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Ticket promedio</p>
           <p className="mt-2 text-xl font-semibold text-foreground">{formatCurrency(kpis.ticketPromedio)}</p>
         </article>
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-lg bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Margen bruto %</p>
           <p className="mt-2 text-xl font-semibold text-emerald-700">{kpis.margenBrutoPct.toFixed(2)}%</p>
         </article>
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-lg bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Productos críticos</p>
           <p className="mt-2 text-xl font-semibold text-red-700">
             {formatCompact(kpis.lowStockCount + kpis.outOfStockCount)}
@@ -307,67 +293,119 @@ export default function AnaliticaResumenPage() {
         </article>
       </section>
 
-      <section className="rounded-lg border bg-card p-4">
-        <h2 className="text-sm font-semibold text-foreground">{salesTrendTitle}</h2>
-        <div className="mt-3 h-80">
-          {loading ? (
-            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
-          ) : salesLineData.length === 0 ? (
+      <section className="overflow-hidden rounded-lg bg-card">
+        {loading ? (
+          <div className="flex h-[520px] items-center justify-center text-sm text-muted-foreground">Cargando...</div>
+        ) : !revenueComparison || revenueComparison.rows.length === 0 ? (
+          <div className="p-4">
             <EmptyChartPlaceholder
               icon={LineChartIcon}
-              message="No hay datos de ventas en el rango seleccionado para mostrar la tendencia."
+              message="No hay datos reales de ventas para construir la comparativa."
             />
-          ) : (
-            <ChartContainer config={salesTrendChartConfig} className="h-full w-full">
-              <LineChart data={salesLineData} margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" interval={salesXAxisInterval} />
-                <YAxis yAxisId="left" />
-                <YAxis yAxisId="right" orientation="right" />
-                <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
-                <ChartLegend content={<ChartLegendContent />} />
-                <Line
-                  yAxisId="left"
-                  type="monotone"
-                  dataKey="unitsSold"
-                  stroke="var(--color-unitsSold)"
-                  strokeWidth={2}
-                  dot={false}
-                  name="unitsSold"
-                />
-                <Line
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="var(--color-revenue)"
-                  strokeWidth={2}
-                  dot={false}
-                  name="revenue"
-                />
-                {revenueThresholds ? (
-                  <>
-                    <ReferenceLine
-                      yAxisId="right"
-                      y={revenueThresholds.lower}
-                      stroke="#f59e0b"
-                      strokeDasharray="6 4"
-                      ifOverflow="extendDomain"
-                      label={{ value: 'Umbral bajo', position: 'insideTopLeft', fill: '#b45309', fontSize: 11 }}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 xl:grid-cols-[2fr_1fr]">
+            <div className="border-b p-5 xl:border-b-0 xl:border-r">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-2xl font-semibold tracking-tight text-foreground">Ingresos totales</h2>
+                  <div className="mt-3 flex items-center gap-5 text-sm text-muted-foreground">
+                    <span className="inline-flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: revenueComparison.growthColors.strong }} />
+                      {revenueComparison.currentLabel}
+                    </span>
+                    <span className="inline-flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: revenueComparison.growthColors.soft }} />
+                      {revenueComparison.previousLabel}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 h-[360px]">
+                <ChartContainer config={revenueComparisonChartConfig} className="h-full w-full">
+                  <BarChart data={revenueComparison.rows} margin={{ top: 8, right: 16, bottom: 4, left: 6 }} barCategoryGap={20}>
+                    <CartesianGrid vertical={false} strokeDasharray="4 6" />
+                    <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={12} />
+                    <YAxis
+                      domain={[-revenueComparison.maxBarAbs * 1.15, revenueComparison.maxBarAbs * 1.15]}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => formatCompact(Math.abs(Number(value) || 0))}
                     />
-                    <ReferenceLine
-                      yAxisId="right"
-                      y={revenueThresholds.target}
-                      stroke="#16a34a"
-                      strokeDasharray="6 4"
-                      ifOverflow="extendDomain"
-                      label={{ value: 'Umbral objetivo', position: 'insideTopRight', fill: '#166534', fontSize: 11 }}
+                    <ChartTooltip
+                      content={
+                        <ChartTooltipContent
+                          formatter={(value, name) => {
+                            const numericValue = Math.abs(Number(value) || 0)
+                            const label = name === 'previousRevenueNegative'
+                              ? revenueComparison.previousLabel
+                              : revenueComparison.currentLabel
+                            return `${label}: ${formatCurrency(numericValue)}`
+                          }}
+                        />
+                      }
                     />
-                  </>
-                ) : null}
-              </LineChart>
-            </ChartContainer>
-          )}
-        </div>
+                    <Bar dataKey="currentRevenue" name="currentRevenue" barSize={18} radius={[10, 10, 0, 0]}>
+                      {revenueComparison.rows.map((row, idx) => (
+                        <Cell key={`current-${idx}`} fill={row.currentColor} />
+                      ))}
+                    </Bar>
+                    <Bar dataKey="previousRevenueNegative" name="previousRevenueNegative" barSize={18} radius={[0, 0, 10, 10]}>
+                      {revenueComparison.rows.map((row, idx) => (
+                        <Cell key={`previous-${idx}`} fill={row.previousColor} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ChartContainer>
+              </div>
+            </div>
+
+            <div className="p-5">
+              <div className="mt-4 flex flex-col items-center">
+                <ChartContainer config={{ gauge: { label: 'Crecimiento', color: '#111111' } }} className="h-[240px] w-full">
+                  <PieChart>
+                    <Pie
+                      data={revenueComparison.gaugeSegments}
+                      dataKey="value"
+                      cx="50%"
+                      cy="72%"
+                      startAngle={210}
+                      endAngle={-30}
+                      innerRadius={82}
+                      outerRadius={112}
+                      paddingAngle={2}
+                      isAnimationActive={false}
+                    >
+                      {revenueComparison.gaugeSegments.map((segment, idx) => (
+                        <Cell key={`gauge-${idx}`} fill={segment.fill} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ChartContainer>
+                <div className="-mt-[128px] text-center">
+                  <p className={`text-5xl font-semibold ${revenueComparison.growthColors.textClass}`}>{Math.round(revenueComparison.gaugePct)}%</p>
+                  <p className="text-lg text-muted-foreground">Crecimiento</p>
+                </div>
+                <p className={`mt-10 text-center text-2xl ${revenueComparison.growthColors.textClass}`}>
+                  {revenueComparison.growthPct >= 0 ? '+' : ''}
+                  {revenueComparison.growthPct.toFixed(1)}% Crecimiento de la empresa
+                </p>
+              </div>
+
+              <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <article className="rounded-lg bg-background/60 p-4">
+                  <p className="text-sm text-muted-foreground">{revenueComparison.currentLabel}</p>
+                  <p className="mt-1 text-3xl font-semibold text-foreground">{formatCurrency(revenueComparison.currentTotal)}</p>
+                </article>
+                <article className="rounded-lg  bg-background/60 p-4">
+                  <p className="text-sm text-muted-foreground">{revenueComparison.previousLabel}</p>
+                  <p className="mt-1 text-3xl font-semibold text-foreground">{formatCurrency(revenueComparison.previousTotal)}</p>
+                </article>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
     </AnaliticaShell>
   )

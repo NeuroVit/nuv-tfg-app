@@ -162,7 +162,7 @@ export default function AppLayout() {
   return (
     <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
       <AppSidebar isSettingsRoute={isSettingsRoute} collapsible="offcanvas" />
-      <SidebarInset className="relative h-dvh min-h-0 min-w-0 overflow-x-hidden bg-transparent">
+      <SidebarInset className="relative h-dvh min-h-0 min-w-0 overflow-hidden bg-transparent">
         <div className="pointer-events-none absolute inset-0 -z-10">
           <div className="absolute inset-0 dark:hidden" style={{ background: 'linear-gradient(180deg, #f4f7fb 0%, #e9eef6 52%, #e3e9f3 100%)' }} />
           <div
@@ -179,8 +179,7 @@ export default function AppLayout() {
                 'radial-gradient(120% 60% at 50% 0%, rgba(255,255,255,0.98), transparent 60%), radial-gradient(120% 60% at 50% 24%, rgba(203,213,225,0.42), transparent 61%), radial-gradient(120% 60% at 50% 50%, rgba(148,163,184,0.33), transparent 62%), radial-gradient(120% 60% at 50% 76%, rgba(148,163,184,0.24), transparent 62%)',
             }}
           />
-
-          <div className="absolute inset-0 hidden dark:block dark:bg-[#050505]" />
+          <div className="absolute inset-0 hidden dark:block" style={{ background: 'linear-gradient(180deg, #0b0b0c 0%, #050505 100%)' }} />
           <div
             className="absolute inset-[-20%] hidden dark:block blur-[34px]"
             style={{
@@ -197,8 +196,50 @@ export default function AppLayout() {
           />
         </div>
 
-        <header className="sticky top-0 z-40 shrink-0 border-b border-border/60 bg-transparent">
-          <div className="flex min-h-14 items-center gap-2 px-3 sm:px-4">
+        <header className="sticky top-0 z-50 shrink-0 overflow-hidden border-b border-border/60">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-0 dark:hidden"
+            style={{ background: 'linear-gradient(180deg, #f4f7fb 0%, #e9eef6 52%, #e3e9f3 100%)' }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-[-20%] z-0 dark:hidden blur-[24px]"
+            style={{
+              background:
+                'radial-gradient(circle at 20% 18%, rgba(71,85,105,0.20), transparent 30%), radial-gradient(circle at 78% 26%, rgba(59,130,246,0.16), transparent 33%), linear-gradient(180deg, #f8fbff, #e9eef6)',
+            }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-0 dark:hidden opacity-90 blur-[5px]"
+            style={{
+              background:
+                'radial-gradient(120% 60% at 50% 0%, rgba(255,255,255,0.98), transparent 60%), radial-gradient(120% 60% at 50% 24%, rgba(203,213,225,0.42), transparent 61%), radial-gradient(120% 60% at 50% 50%, rgba(148,163,184,0.33), transparent 62%), radial-gradient(120% 60% at 50% 76%, rgba(148,163,184,0.24), transparent 62%)',
+            }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-0 hidden dark:block"
+            style={{ background: 'linear-gradient(180deg, #0b0b0c 0%, #050505 100%)' }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-[-20%] z-0 hidden dark:block blur-[34px]"
+            style={{
+              background:
+                'radial-gradient(circle at 20% 20%, rgba(255,255,255,0.08), transparent 25%), radial-gradient(circle at 80% 30%, rgba(255,255,255,0.05), transparent 30%), linear-gradient(180deg, #0b0b0c, #050505)',
+            }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-0 hidden dark:block opacity-95 blur-[8px]"
+            style={{
+              background:
+                'radial-gradient(120% 60% at 50% 0%, rgba(255,255,255,0.08), transparent 60%), radial-gradient(120% 60% at 50% 25%, rgba(255,255,255,0.05), transparent 60%), radial-gradient(120% 60% at 50% 50%, rgba(255,255,255,0.06), transparent 60%), radial-gradient(120% 60% at 50% 75%, rgba(255,255,255,0.04), transparent 60%)',
+            }}
+          />
+          <div className="relative z-10 flex min-h-14 items-center gap-2 px-3 sm:px-4">
             <SidebarTrigger className="-ml-1" />
             {topTabs.length > 0 ? (
               <Tabs value={location.pathname} className="flex-1">
@@ -285,7 +326,7 @@ export default function AppLayout() {
           </div>
         </header>
 
-        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pt-2 sm:pt-3">
           <Outlet />
         </main>
       </SidebarInset>

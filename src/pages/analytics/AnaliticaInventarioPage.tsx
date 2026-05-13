@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { PieChart as PieChartIcon, Warehouse } from 'lucide-react'
+import { LineChart as LineChartIcon, PackagePlus, PieChart as PieChartIcon, Warehouse } from 'lucide-react'
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -21,9 +23,18 @@ import {
   getDistribucionStockAnalitica,
   getInventarioAnalitica,
   getMetaAnalitica,
+  getProductosCreadosAnalitica,
   getStockPorCategoriaAnalitica,
+  getStockRecibidoAnalitica,
 } from '@/api/analitica'
-import type { AnaliticaMeta, InventorySummaryRow, StockByCategoryRow, StockDistributionRow } from '@/types/analitica'
+import type {
+  AnaliticaMeta,
+  InventorySummaryRow,
+  ProductCreationRow,
+  StockByCategoryRow,
+  StockDistributionRow,
+  StockReceiptRow,
+} from '@/types/analitica'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import {
@@ -64,6 +75,30 @@ const categoryStockChartConfig = {
   },
 } satisfies ChartConfig
 
+const productCreationChartConfig = {
+  productsCreated: {
+    label: 'Productos creados',
+    color: '#8b5cf6',
+  },
+} satisfies ChartConfig
+
+const stockReceiptsChartConfig = {
+  unitsReceived: {
+    label: 'Unidades recibidas',
+    color: '#0ea5e9',
+  },
+  valueReceived: {
+    label: 'Valor recibido',
+    color: '#22c55e',
+  },
+} satisfies ChartConfig
+
+const formatShortDate = (iso: string) => {
+  const date = new Date(`${iso}T00:00:00`)
+  if (Number.isNaN(date.getTime())) return iso
+  return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`
+}
+
 const PAGE_SIZE = 20
 
 export default function AnaliticaInventarioPage() {
@@ -75,6 +110,8 @@ export default function AnaliticaInventarioPage() {
   const [inventario, setInventario] = useState<InventorySummaryRow[]>([])
   const [distribucionStock, setDistribucionStock] = useState<StockDistributionRow[]>([])
   const [stockPorCategoria, setStockPorCategoria] = useState<StockByCategoryRow[]>([])
+  const [productosCreados, setProductosCreados] = useState<ProductCreationRow[]>([])
+  const [stockRecibido, setStockRecibido] = useState<StockReceiptRow[]>([])
   const [offset, setOffset] = useState(0)
 
   useEffect(() => {
@@ -82,16 +119,20 @@ export default function AnaliticaInventarioPage() {
       setLoading(true)
       setLoadState('loading')
       try {
-        const [inv, dist, byCat, meta] = await Promise.all([
+        const [inv, dist, byCat, creados, recibido, meta] = await Promise.all([
           getInventarioAnalitica(),
           getDistribucionStockAnalitica(),
           getStockPorCategoriaAnalitica(),
+          getProductosCreadosAnalitica(selectedDays),
+          getStockRecibidoAnalitica(selectedDays),
           getMetaAnalitica(selectedDays),
         ])
 
         setInventario(inv)
         setDistribucionStock(dist)
         setStockPorCategoria(byCat)
+        setProductosCreados(creados)
+        setStockRecibido(recibido)
         setMetadata(meta)
         setLastUpdatedAt(new Date())
         setLoadState('ready')
@@ -136,6 +177,27 @@ export default function AnaliticaInventarioPage() {
     [distribucionStock],
   )
 
+  const productCreationData = useMemo(
+    () =>
+      productosCreados.map((row) => ({
+        date: row.creationDate,
+        label: formatShortDate(row.creationDate),
+        productsCreated: row.productsCreated,
+      })),
+    [productosCreados],
+  )
+
+  const stockReceiptsData = useMemo(
+    () =>
+      stockRecibido.map((row) => ({
+        date: row.receiptDate,
+        label: formatShortDate(row.receiptDate),
+        unitsReceived: row.unitsReceived,
+        valueReceived: row.valueReceived,
+      })),
+    [stockRecibido],
+  )
+
   const categoryStockData = useMemo(
     () =>
       stockPorCategoria.map((row) => ({
@@ -174,15 +236,15 @@ export default function AnaliticaInventarioPage() {
       hideHeader
     >
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-lg bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Productos totales</p>
           <p className="mt-2 text-xl font-semibold text-foreground">{formatCompact(kpis.productsCount)}</p>
         </article>
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-lg bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Valor total stock</p>
           <p className="mt-2 text-xl font-semibold text-indigo-700">{formatCurrency(kpis.stockValue)}</p>
         </article>
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-lg bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Stock bajo / sin stock</p>
           <p className="mt-2 text-xl font-semibold text-red-700">
             {formatCompact(kpis.lowStockCount + kpis.outOfStockCount)}
@@ -191,7 +253,7 @@ export default function AnaliticaInventarioPage() {
             {formatCompact(kpis.lowStockCount)} bajo · {formatCompact(kpis.outOfStockCount)} sin stock
           </p>
         </article>
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-lg bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Óptimo / Sobrestock</p>
           <p className="mt-2 text-xl font-semibold text-emerald-700">
             {formatCompact(kpis.optimalCount + kpis.overStockCount)}
@@ -203,7 +265,7 @@ export default function AnaliticaInventarioPage() {
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-lg bg-card p-4">
           <h2 className="text-sm font-semibold text-foreground">Distribución de estado de stock</h2>
           <div className="mt-3 h-72">
             {loading ? (
@@ -229,7 +291,7 @@ export default function AnaliticaInventarioPage() {
           </div>
         </article>
 
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-lg bg-card p-4">
           <h2 className="text-sm font-semibold text-foreground">Valor de stock por categoría</h2>
           <div className="mt-3 h-72">
             {loading ? (
@@ -250,6 +312,98 @@ export default function AnaliticaInventarioPage() {
                   />
                   <Bar dataKey="value" fill="var(--color-value)" radius={[4, 4, 0, 0]} name="value" />
                 </BarChart>
+              </ChartContainer>
+            )}
+          </div>
+        </article>
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <article className="rounded-lg bg-card p-4">
+          <h2 className="text-sm font-semibold text-foreground">Productos creados en el tiempo</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Productos nuevos por día según su fecha de alta.
+          </p>
+          <div className="mt-3 h-72">
+            {loading ? (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
+            ) : productCreationData.length === 0 ? (
+              <EmptyChartPlaceholder
+                icon={LineChartIcon}
+                message="Aún no hay productos creados en este rango de tiempo."
+              />
+            ) : (
+              <ChartContainer config={productCreationChartConfig} className="h-full w-full">
+                <AreaChart data={productCreationData} margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="label" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
+                  <YAxis allowDecimals={false} />
+                  <ChartTooltip
+                    content={<ChartTooltipContent formatter={(value) => formatCompact(Number(value))} />}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="productsCreated"
+                    stroke="var(--color-productsCreated)"
+                    fill="var(--color-productsCreated)"
+                    fillOpacity={0.25}
+                    name="productsCreated"
+                  />
+                </AreaChart>
+              </ChartContainer>
+            )}
+          </div>
+        </article>
+
+        <article className="rounded-lg bg-card p-4">
+          <h2 className="text-sm font-semibold text-foreground">Stock recibido en el tiempo</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Unidades y valor de compra recibidos por día (movimientos PURCHASE).
+          </p>
+          <div className="mt-3 h-72">
+            {loading ? (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
+            ) : stockReceiptsData.length === 0 ? (
+              <EmptyChartPlaceholder
+                icon={PackagePlus}
+                message="No hay recepciones de stock registradas en este rango."
+              />
+            ) : (
+              <ChartContainer config={stockReceiptsChartConfig} className="h-full w-full">
+                <AreaChart data={stockReceiptsData} margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="label" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
+                  <YAxis yAxisId="units" allowDecimals={false} />
+                  <YAxis yAxisId="value" orientation="right" tickFormatter={(value) => formatCompact(Number(value))} />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        formatter={(value, name) =>
+                          name === 'valueReceived' ? formatCurrency(Number(value)) : formatCompact(Number(value))
+                        }
+                      />
+                    }
+                  />
+                  <ChartLegend content={<ChartLegendContent />} />
+                  <Area
+                    yAxisId="units"
+                    type="monotone"
+                    dataKey="unitsReceived"
+                    stroke="var(--color-unitsReceived)"
+                    fill="var(--color-unitsReceived)"
+                    fillOpacity={0.25}
+                    name="unitsReceived"
+                  />
+                  <Area
+                    yAxisId="value"
+                    type="monotone"
+                    dataKey="valueReceived"
+                    stroke="var(--color-valueReceived)"
+                    fill="var(--color-valueReceived)"
+                    fillOpacity={0.15}
+                    name="valueReceived"
+                  />
+                </AreaChart>
               </ChartContainer>
             )}
           </div>

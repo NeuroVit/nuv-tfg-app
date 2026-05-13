@@ -196,7 +196,7 @@ export function RevealDataSection({
 
   return (
     <section className="space-y-3">
-      <Button variant="outline" onClick={toggleVisibility}>
+      <Button variant="ghost" onClick={toggleVisibility}>
         {isVisible ? hideLabel : showLabel}
       </Button>
       {isVisible ? <div className={className}>{children}</div> : null}

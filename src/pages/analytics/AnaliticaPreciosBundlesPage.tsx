@@ -56,8 +56,8 @@ export default function AnaliticaPreciosBundlesPage() {
       setLoadState('loading')
       try {
         const [pri, bun, meta] = await Promise.all([
-          getPreciosAnalitica(),
-          getBundleCandidatosAnalitica(),
+          getPreciosAnalitica(120, selectedDays),
+          getBundleCandidatosAnalitica(120, selectedDays),
           getMetaAnalitica(selectedDays),
         ])
 
@@ -127,26 +127,26 @@ export default function AnaliticaPreciosBundlesPage() {
       hideHeader
     >
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-lg bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Cambios de precio</p>
           <p className="mt-2 text-xl font-semibold text-foreground">{formatCompact(kpis.priceUpdates)}</p>
         </article>
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-lg bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Candidatos bundle</p>
           <p className="mt-2 text-xl font-semibold text-violet-700">{formatCompact(kpis.bundleCandidates)}</p>
         </article>
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-lg bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Mayor cambio absoluto</p>
           <p className="mt-2 text-xl font-semibold text-blue-700">{formatCurrency(kpis.maxAbsDelta)}</p>
         </article>
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-lg bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Variación media %</p>
           <p className="mt-2 text-xl font-semibold text-indigo-700">{kpis.avgPctChange.toFixed(2)}%</p>
         </article>
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-lg bg-card p-4">
           <h2 className="text-sm font-semibold text-foreground">Tendencia de cambios de precio recientes</h2>
           <div className="mt-3 h-72">
             {loading ? (
@@ -179,7 +179,7 @@ export default function AnaliticaPreciosBundlesPage() {
           </div>
         </article>
 
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-lg bg-card p-4">
           <h2 className="text-sm font-semibold text-foreground">Top combinaciones por co-ocurrencia</h2>
           <div className="mt-3 h-72">
             {loading ? (

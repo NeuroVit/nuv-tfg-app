@@ -215,8 +215,8 @@ export default function AnaliticaPage() {
         const [inv, vel, pri, bun, velRes, topVel, dist, byCat, fin, rent, meta] = await Promise.all([
           getInventarioAnalitica(),
           getVelocidadAnalitica(120, selectedDays),
-          getPreciosAnalitica(),
-          getBundleCandidatosAnalitica(),
+          getPreciosAnalitica(120, selectedDays),
+          getBundleCandidatosAnalitica(120, selectedDays),
           getVelocidadResumenAnalitica(selectedDays),
           getTopProductosVelocidadAnalitica(selectedDays, 10),
           getDistribucionStockAnalitica(),
