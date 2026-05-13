@@ -200,7 +200,35 @@ export default function LoginPage() {
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-4">
       <div className="pointer-events-none absolute inset-0 z-0">
         <div className="absolute inset-0 dark:hidden" style={{ background: 'linear-gradient(180deg, #f4f7fb 0%, #e9eef6 52%, #e3e9f3 100%)' }} />
+        <div
+          className="absolute inset-[-20%] dark:hidden blur-[24px]"
+          style={{
+            background:
+              'radial-gradient(circle at 20% 18%, rgba(71,85,105,0.20), transparent 30%), radial-gradient(circle at 78% 26%, rgba(59,130,246,0.16), transparent 33%), linear-gradient(180deg, #f8fbff, #e9eef6)',
+          }}
+        />
+        <div
+          className="absolute inset-0 dark:hidden opacity-90 blur-[5px]"
+          style={{
+            background:
+              'radial-gradient(120% 60% at 50% 0%, rgba(255,255,255,0.98), transparent 60%), radial-gradient(120% 60% at 50% 24%, rgba(203,213,225,0.42), transparent 61%), radial-gradient(120% 60% at 50% 50%, rgba(148,163,184,0.33), transparent 62%), radial-gradient(120% 60% at 50% 76%, rgba(148,163,184,0.24), transparent 62%)',
+          }}
+        />
         <div className="absolute inset-0 hidden dark:block" style={{ background: 'linear-gradient(180deg, #0b0b0c 0%, #050505 100%)' }} />
+        <div
+          className="absolute inset-[-20%] hidden dark:block blur-[34px]"
+          style={{
+            background:
+              'radial-gradient(circle at 20% 20%, rgba(255,255,255,0.08), transparent 25%), radial-gradient(circle at 80% 30%, rgba(255,255,255,0.05), transparent 30%), linear-gradient(180deg, #0b0b0c, #050505)',
+          }}
+        />
+        <div
+          className="absolute inset-0 hidden dark:block opacity-95 blur-[8px]"
+          style={{
+            background:
+              'radial-gradient(120% 60% at 50% 0%, rgba(255,255,255,0.08), transparent 60%), radial-gradient(120% 60% at 50% 25%, rgba(255,255,255,0.05), transparent 60%), radial-gradient(120% 60% at 50% 50%, rgba(255,255,255,0.06), transparent 60%), radial-gradient(120% 60% at 50% 75%, rgba(255,255,255,0.04), transparent 60%)',
+          }}
+        />
       </div>
 
       <div className="relative z-10 w-full max-w-sm space-y-4 p-4 sm:p-6">
@@ -237,9 +265,9 @@ export default function LoginPage() {
                 name="username"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Usuario</FormLabel>
+                    <FormLabel>Usuario o email</FormLabel>
                     <FormControl>
-                      <Input placeholder="tu_usuario" {...field} />
+                      <Input placeholder="tu_usuario o correo@dominio.com" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -270,9 +298,6 @@ export default function LoginPage() {
                 )}
                 Iniciar sesión
               </Button>
-              <p className="text-center text-xs text-muted-foreground">
-                Usa tu usuario y contraseña. No inicia el flujo de Google.
-              </p>
             </form>
           </Form>
 
@@ -306,9 +331,6 @@ export default function LoginPage() {
                 disabled={isGoogleSubmitting || form.formState.isSubmitting}
               />
             )}
-            <p className="text-center text-xs text-muted-foreground">
-              Inicia autenticación con tu cuenta de Google.
-            </p>
           </>
 
           <p className="text-center text-sm text-muted-foreground">

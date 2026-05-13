@@ -3,8 +3,6 @@ import { toast } from 'sonner'
 import { LineChart as LineChartIcon } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
-  Area,
-  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -263,14 +261,22 @@ export default function AnaliticaResumenPage() {
   )
 
   const alertChartConfig = useMemo(
-    () =>
-      alertTypes.reduce((acc, alertType, index) => {
+    () => {
+      const base = alertTypes.reduce((acc, alertType, index) => {
         acc[alertType] = {
           label: `${alertType} creadas`,
           color: alertPalette[index % alertPalette.length]!,
         }
         return acc
-      }, {} as ChartConfig),
+      }, {} as ChartConfig)
+
+      base.resolvedCount = {
+        label: 'Resueltas',
+        color: '#111827',
+      }
+
+      return base
+    },
     [alertTypes],
   )
 
@@ -486,31 +492,28 @@ export default function AnaliticaResumenPage() {
             />
           ) : (
             <ChartContainer config={alertChartConfig} className="h-full w-full">
-              <AreaChart data={alertSeriesChartData} margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
+              <BarChart data={alertSeriesChartData} margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="bucketDate" minTickGap={12} />
                 <YAxis />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 {alertTypes.map((alertType) => (
-                  <Area
+                  <Bar
                     key={alertType}
-                    type="monotone"
                     dataKey={alertType}
                     stackId="created"
-                    stroke={`var(--color-${alertType})`}
                     fill={`var(--color-${alertType})`}
-                    fillOpacity={0.3}
+                    radius={[2, 2, 0, 0]}
                   />
                 ))}
-                <Area
-                  type="monotone"
+                <Bar
                   dataKey="resolvedCount"
                   name="Resueltas"
-                  stroke="#111827"
                   fill="#111827"
-                  fillOpacity={0.1}
+                  stackId="resolved"
+                  radius={[2, 2, 0, 0]}
                 />
-              </AreaChart>
+              </BarChart>
             </ChartContainer>
           )}
         </div>

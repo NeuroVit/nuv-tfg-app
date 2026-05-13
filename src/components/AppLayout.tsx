@@ -259,76 +259,86 @@ export default function AppLayout() {
             }}
           />
           <div className="relative z-10 flex min-h-14 items-center gap-2 px-3 sm:px-4">
-            <SidebarTrigger className="-ml-1" />
+            <SidebarTrigger className="-ml-1 shrink-0" />
             {topTabs.length > 0 ? (
-              <Tabs value={location.pathname} className="flex-1">
-                <TabsList variant="line" className="h-auto w-auto justify-start gap-0 rounded-none bg-transparent">
-                  {topTabs.map((tab) => (
-                    <TabsTrigger
-                      key={tab.to}
-                      value={tab.to}
-                      onClick={() => {
-                        const shouldKeepSearch = location.pathname.startsWith('/analitica')
-                        navigate({ pathname: tab.to, search: shouldKeepSearch ? location.search : '' })
-                      }}
-                      className="flex-none rounded-none px-3 py-2 text-sm"
-                    >
-                      {tab.label}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
+              <Tabs value={location.pathname} className="min-w-0 flex-1 pr-12 sm:pr-14">
+                <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <TabsList
+                    variant="line"
+                    className="h-auto min-w-max justify-start gap-0 rounded-none bg-transparent"
+                  >
+                    {topTabs.map((tab) => (
+                      <TabsTrigger
+                        key={tab.to}
+                        value={tab.to}
+                        onClick={() => {
+                          const shouldKeepSearch = location.pathname.startsWith('/analitica')
+                          navigate({ pathname: tab.to, search: shouldKeepSearch ? location.search : '' })
+                        }}
+                        className="flex-none rounded-none px-3 py-2 text-sm"
+                      >
+                        {tab.label}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </div>
               </Tabs>
             ) : (
-              <>
+              <div className="flex flex-1 items-center pr-12 sm:pr-14">
                 {sectionLabel && <span className="ml-1 text-sm font-medium text-foreground">{sectionLabel}</span>}
                 <div className="flex-1" />
-              </>
+              </div>
             )}
 
-            <Sheet open={alertsDrawerOpen} onOpenChange={setAlertsDrawerOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative h-8 w-8" aria-label="Notificaciones de alertas">
-                  <Bell className="h-4 w-4" />
-                  {openAlertsCount > 0 ? (
-                    <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold leading-none text-white">
-                      {openAlertsCount > 99 ? '99+' : openAlertsCount}
-                    </span>
-                  ) : null}
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-full sm:max-w-md">
-                <SheetHeader className="pb-2">
-                  <SheetTitle>Notificaciones</SheetTitle>
-                  <SheetDescription>Alertas abiertas ({openAlertsCount})</SheetDescription>
-                </SheetHeader>
-                <div className="flex-1 space-y-2 overflow-y-auto px-6 pb-4">
-                  {recentOpenAlerts.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No hay alertas abiertas.</p>
-                  ) : (
-                    recentOpenAlerts.map((alert) => (
-                      <button
-                        key={alert.id}
-                        type="button"
-                        className="w-full rounded-md bg-secondary/55 p-3 text-left transition-colors hover:bg-muted"
-                        onClick={() => {
-                          setAlertsDrawerOpen(false)
-                          navigate('/alertas')
-                        }}
-                      >
-                        <p className="text-sm font-medium">{alert.productoNombre} - {alert.tipo}</p>
-                        <p className="truncate text-xs text-muted-foreground">{alert.mensaje}</p>
-                      </button>
-                    ))
-                  )}
-                </div>
-              </SheetContent>
-            </Sheet>
+            <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-2 sm:right-4">
+              <Sheet open={alertsDrawerOpen} onOpenChange={setAlertsDrawerOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon" className="relative h-8 w-8" aria-label="Notificaciones de alertas">
+                    <Bell className="h-4 w-4" />
+                    {openAlertsCount > 0 ? (
+                      <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold leading-none text-white">
+                        {openAlertsCount > 99 ? '99+' : openAlertsCount}
+                      </span>
+                    ) : null}
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-full sm:max-w-md">
+                  <SheetHeader className="pb-2">
+                    <SheetTitle>Notificaciones</SheetTitle>
+                    <SheetDescription>Alertas abiertas ({openAlertsCount})</SheetDescription>
+                  </SheetHeader>
+                  <div className="flex-1 space-y-2 overflow-y-auto px-6 pb-4">
+                    {recentOpenAlerts.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No hay alertas abiertas.</p>
+                    ) : (
+                      recentOpenAlerts.map((alert) => (
+                        <button
+                          key={alert.id}
+                          type="button"
+                          className="w-full rounded-md bg-secondary/55 p-3 text-left transition-colors hover:bg-muted"
+                          onClick={() => {
+                            setAlertsDrawerOpen(false)
+                            navigate('/alertas')
+                          }}
+                        >
+                          <p className="text-sm font-medium">{alert.productoNombre} - {alert.tipo}</p>
+                          <p className="truncate text-xs text-muted-foreground">{alert.mensaje}</p>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </SheetContent>
+              </Sheet>
 
-            {dataModeLabel ? (
-              <Badge variant={dataModeLabel === 'Modo de datos de prueba' ? 'outline' : 'secondary'} className="mr-1">
-                {dataModeLabel}
-              </Badge>
-            ) : null}
+              {dataModeLabel ? (
+                <Badge
+                  variant={dataModeLabel === 'Modo de datos de prueba' ? 'outline' : 'secondary'}
+                  className="mr-1 hidden lg:inline-flex"
+                >
+                  {dataModeLabel}
+                </Badge>
+              ) : null}
+            </div>
           </div>
         </header>
 
