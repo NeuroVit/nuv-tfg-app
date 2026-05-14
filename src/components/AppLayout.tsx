@@ -1,22 +1,41 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
-import { Outlet, useLocation, useNavigate } from 'react-router'
-import { AlertTriangle, Bell, X } from 'lucide-react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
+import { Activity, AlertTriangle, BarChart3, Bell, LayoutDashboard, LogOut, Moon, Package, ReceiptText, Settings, Sun, Truck, UserSquare2, X } from 'lucide-react'
 
 import { getMetaAnalitica } from '@/api/analitica'
 import { getAlertas } from '@/api/alerta'
-import { getMe, updateMe } from '@/api/auth'
+import { getMe, logout as logoutRequest, updateMe } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
-import { useProfileStore } from '@/store/profileStore'
+import { useDisplayName, useProfileStore } from '@/store/profileStore'
 import type { AnaliticaMeta } from '@/types/analitica'
 import type { AlertaStock } from '@/types/alerta'
 import { AppSidebar } from '@/components/AppSidebar'
+import { useIsMobile } from '@/hooks/use-mobile'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { normalizeAvatarUrl } from '@/lib/googleAvatar'
+import { toast } from 'sonner'
+import { useTheme } from 'next-themes'
 
 type TopTab = { to: string; label: string }
+type MobileNavItem = {
+  to: string
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  isActive: (pathname: string) => boolean
+}
 
 const productosTabs: TopTab[] = [
   { to: '/productos', label: 'Productos' },
@@ -37,14 +56,58 @@ const analiticaTabs: TopTab[] = [
   { to: '/analitica/proveedores', label: 'Proveedores' },
 ]
 
+const settingsTabs: TopTab[] = [
+  { to: '/settings/profile', label: 'Perfil' },
+  { to: '/settings/organization', label: 'OrganizaciÃƒÆ’Ã‚Â³n' },
+  { to: '/settings/users', label: 'Usuarios' },
+  { to: '/settings/general', label: 'General' },
+  { to: '/settings/security', label: 'Seguridad' },
+]
+
+const mobileNavItems: MobileNavItem[] = [
+  {
+    to: '/productos',
+    label: 'Productos',
+    icon: Package,
+    isActive: (pathname) => inRouteGroup(pathname, ['/productos', '/categorias', '/bundles']),
+  },
+  {
+    to: '/proveedores',
+    label: 'Proveedores',
+    icon: Truck,
+    isActive: (pathname) => inRouteGroup(pathname, ['/proveedores', '/pedidos']),
+  },
+  {
+    to: '/dashboard',
+    label: 'Inicio',
+    icon: LayoutDashboard,
+    isActive: (pathname) => pathname === '/' || pathname === '/inicio' || pathname === '/dashboard',
+  },
+  {
+    to: '/clientes',
+    label: 'Clientes',
+    icon: UserSquare2,
+    isActive: (pathname) => pathname.startsWith('/clientes'),
+  },
+  {
+    to: '/ventas',
+    label: 'Ventas',
+    icon: ReceiptText,
+    isActive: (pathname) => pathname.startsWith('/ventas'),
+  },
+]
+
 const inRouteGroup = (pathname: string, routes: string[]) =>
   routes.some((route) => pathname === route || pathname.startsWith(`${route}/`))
 
 export default function AppLayout() {
-  const { user } = useAuthStore()
+  const { user, logout: clearSession } = useAuthStore()
   const setProfile = useProfileStore((s) => s.setProfile)
+  const displayName = useDisplayName()
+  const profileAvatarUrl = useProfileStore((s) => s.profile?.avatarUrl)
   const navigate = useNavigate()
   const location = useLocation()
+  const { theme, resolvedTheme, setTheme } = useTheme()
 
   const isSettingsRoute = location.pathname.startsWith('/settings')
   const [analyticsMeta, setAnalyticsMeta] = useState<AnaliticaMeta | null>(null)
@@ -52,9 +115,22 @@ export default function AppLayout() {
   const [openAlerts, setOpenAlerts] = useState<AlertaStock[]>([])
   const [alertsDrawerOpen, setAlertsDrawerOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const isMobile = useIsMobile()
+  const activeTheme = theme === 'system' ? resolvedTheme : theme
+  const isDarkTheme = activeTheme === 'dark'
+  const accountLabel = displayName || user?.username || 'Usuario'
+  const roleLabel = (user?.role ?? 'ROLE_VIEWER').replace('ROLE_', '')
+  const initials = accountLabel
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]!.toUpperCase())
+    .join('')
+    .slice(0, 2) || 'U'
+  const effectiveAvatarUrl = normalizeAvatarUrl(profileAvatarUrl)
 
   const topTabs = useMemo(() => {
-    if (isSettingsRoute) return []
+    if (isSettingsRoute) return settingsTabs
     if (inRouteGroup(location.pathname, ['/productos', '/categorias', '/bundles'])) return productosTabs
     if (inRouteGroup(location.pathname, ['/proveedores', '/pedidos'])) return proveedoresTabs
     if (inRouteGroup(location.pathname, ['/analitica'])) return analiticaTabs
@@ -178,9 +254,20 @@ export default function AppLayout() {
     return isMockMode ? 'Modo de datos de prueba' : 'API real'
   }, [analyticsMeta])
 
+  const handleLogout = async () => {
+    try {
+      await logoutRequest()
+      toast.success('SesiÃƒÆ’Ã‚Â³n cerrada correctamente.')
+    } catch {
+      toast.error('No se pudo cerrar sesiÃƒÆ’Ã‚Â³n en el servidor. Se cerrarÃƒÆ’Ã‚Â¡ localmente.')
+    }
+    clearSession()
+    navigate('/login')
+  }
+
   return (
     <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
-      <AppSidebar isSettingsRoute={isSettingsRoute} collapsible="offcanvas" />
+      {!isMobile ? <AppSidebar isSettingsRoute={isSettingsRoute} collapsible="offcanvas" /> : null}
       <SidebarInset className="relative h-dvh min-h-0 min-w-0 overflow-hidden bg-transparent">
         <div className="pointer-events-none absolute inset-0 -z-10">
           <div className="absolute inset-0 dark:hidden" style={{ background: 'linear-gradient(180deg, #f4f7fb 0%, #e9eef6 52%, #e3e9f3 100%)' }} />
@@ -215,7 +302,10 @@ export default function AppLayout() {
           />
         </div>
 
-        <header className="sticky top-0 z-50 shrink-0 overflow-hidden border-b border-border/60">
+        <header
+          className="sticky top-0 z-50 shrink-0 overflow-hidden border-b border-border/60"
+          style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+        >
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0 z-0 dark:hidden"
@@ -259,9 +349,9 @@ export default function AppLayout() {
             }}
           />
           <div className="relative z-10 flex min-h-14 items-center gap-2 px-3 sm:px-4">
-            <SidebarTrigger className="-ml-1 shrink-0" />
+            {!isMobile ? <SidebarTrigger className="-ml-1 shrink-0" /> : null}
             {topTabs.length > 0 ? (
-              <Tabs value={location.pathname} className="min-w-0 flex-1 pr-12 sm:pr-14">
+              <Tabs value={location.pathname} className="min-w-0 flex-1 pr-20 sm:pr-24">
                 <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   <TabsList
                     variant="line"
@@ -284,109 +374,153 @@ export default function AppLayout() {
                 </div>
               </Tabs>
             ) : (
-              <div className="flex flex-1 items-center pr-12 sm:pr-14">
+              <div className="flex flex-1 items-center pr-20 sm:pr-24">
                 {sectionLabel && <span className="ml-1 text-sm font-medium text-foreground">{sectionLabel}</span>}
                 <div className="flex-1" />
               </div>
             )}
 
-            <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-2 sm:right-4">
-            <Sheet open={alertsDrawerOpen} onOpenChange={setAlertsDrawerOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative h-8 w-8" aria-label="Notificaciones de alertas">
-                  <Bell className="h-4 w-4" />
-                  {openAlertsCount > 0 ? (
-                    <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold leading-none text-white">
-                      {openAlertsCount > 99 ? '99+' : openAlertsCount}
-                    </span>
-                  ) : null}
-                </Button>
-              </SheetTrigger>
-              <SheetContent
-                side="right"
-                showCloseButton={false}
-                className="w-full overflow-hidden border-l border-border/70 bg-transparent p-0 sm:max-w-md"
-              >
-                <div
-                  aria-hidden
-                  className="pointer-events-none absolute inset-0 z-0 dark:hidden"
-                  style={{
-                    background:
-                      'linear-gradient(180deg, rgba(248,250,252,0.98) 0%, rgba(241,245,249,0.95) 55%, rgba(226,232,240,0.92) 100%)',
-                  }}
-                />
-                <div
-                  aria-hidden
-                  className="pointer-events-none absolute inset-0 z-0 hidden dark:block"
-                  style={{
-                    backgroundImage:
-                      "linear-gradient(180deg, rgba(5,5,5,0.92) 0%, rgba(5,5,5,0.74) 45%, rgba(5,5,5,0.38) 100%), url('/moon-texture-registrar.jpg')",
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    backgroundRepeat: 'no-repeat',
-                    opacity: 0.95,
-                  }}
-                />
-                <div className="relative z-10 flex h-full flex-col">
-                <div className="flex justify-end px-4 pt-4">
-                  <SheetClose asChild>
-                    <Button variant="ghost" size="icon-sm" className="text-foreground hover:bg-black/5 dark:text-white dark:hover:bg-white/10">
-                      <X className="h-4 w-4" />
-                      <span className="sr-only">Cerrar</span>
-                    </Button>
-                  </SheetClose>
-                </div>
-                <SheetHeader className="pb-2">
-                  <SheetTitle>Notificaciones</SheetTitle>
-                  <SheetDescription>Alertas abiertas ({openAlertsCount})</SheetDescription>
-                </SheetHeader>
-                <div className="flex-1 space-y-2 overflow-y-auto px-6 pb-4">
-                  {openAlerts.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No hay alertas abiertas.</p>
-                  ) : (
-                    openAlerts.slice(0, 12).map((alert) => (
-                      <button
-                        key={alert.id}
-                        type="button"
-                        className="w-full rounded-lg border border-slate-300/70 bg-white/65 p-3 text-left transition-colors hover:bg-white dark:border-white/10 dark:bg-black/20 dark:hover:bg-white/5"
+            <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-1 sm:right-4 sm:gap-2">
+              <Sheet open={alertsDrawerOpen} onOpenChange={setAlertsDrawerOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon" className="relative h-8 w-8" aria-label="Notificaciones de alertas">
+                    <Bell className="h-4 w-4" />
+                    {openAlertsCount > 0 ? (
+                      <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold leading-none text-white">
+                        {openAlertsCount > 99 ? '99+' : openAlertsCount}
+                      </span>
+                    ) : null}
+                  </Button>
+                </SheetTrigger>
+                <SheetContent
+                  side="right"
+                  showCloseButton={false}
+                  className="w-full overflow-hidden border-l border-border/70 bg-transparent p-0 sm:max-w-md"
+                >
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 z-0 dark:hidden"
+                    style={{
+                      background:
+                        'linear-gradient(180deg, rgba(248,250,252,0.98) 0%, rgba(241,245,249,0.95) 55%, rgba(226,232,240,0.92) 100%)',
+                    }}
+                  />
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 z-0 hidden dark:block"
+                    style={{
+                      backgroundImage:
+                        "linear-gradient(180deg, rgba(5,5,5,0.92) 0%, rgba(5,5,5,0.74) 45%, rgba(5,5,5,0.38) 100%), url('/moon-texture-registrar.jpg')",
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      backgroundRepeat: 'no-repeat',
+                      opacity: 0.95,
+                    }}
+                  />
+                  <div className="relative z-10 flex h-full flex-col">
+                    <div className="flex justify-end px-4 pt-4">
+                      <SheetClose asChild>
+                        <Button variant="ghost" size="icon-sm" className="text-foreground hover:bg-black/5 dark:text-white dark:hover:bg-white/10">
+                          <X className="h-4 w-4" />
+                          <span className="sr-only">Cerrar</span>
+                        </Button>
+                      </SheetClose>
+                    </div>
+                    <SheetHeader className="pb-2">
+                      <SheetTitle>Notificaciones</SheetTitle>
+                      <SheetDescription>Alertas abiertas ({openAlertsCount})</SheetDescription>
+                    </SheetHeader>
+                    <div className="flex-1 space-y-2 overflow-y-auto px-6 pb-4">
+                      {openAlerts.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No hay alertas abiertas.</p>
+                      ) : (
+                        openAlerts.slice(0, 12).map((alert) => (
+                          <button
+                            key={alert.id}
+                            type="button"
+                            className="w-full rounded-lg border border-slate-300/70 bg-white/65 p-3 text-left transition-colors hover:bg-white dark:border-white/10 dark:bg-black/20 dark:hover:bg-white/5"
+                            onClick={() => {
+                              setAlertsDrawerOpen(false)
+                              navigate('/alertas')
+                            }}
+                          >
+                            <p className="text-sm font-medium text-slate-900 dark:text-white">{alert.productoNombre} - {alert.tipo}</p>
+                            <p className="truncate text-xs text-slate-600 dark:text-slate-300">{alert.mensaje}</p>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                    <div className="px-6 pb-4">
+                      <div className="rounded-xl border border-slate-300/70 bg-white/65 p-4 text-center dark:border-white/10 dark:bg-black/20">
+                        <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 text-primary">
+                          <AlertTriangle className="h-5 w-5" />
+                        </div>
+                        <p className="text-sm font-semibold text-slate-900 dark:text-white">Mantente al día con NeuralStock</p>
+                        <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                          Te avisaremos cuando aparezcan alertas críticas o cambios importantes en inventario.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="border-t p-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full border-slate-300 bg-white/80 text-slate-900 hover:bg-white dark:border-white/20 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
                         onClick={() => {
                           setAlertsDrawerOpen(false)
                           navigate('/alertas')
                         }}
                       >
-                        <p className="text-sm font-medium text-slate-900 dark:text-white">{alert.productoNombre} - {alert.tipo}</p>
-                        <p className="truncate text-xs text-slate-600 dark:text-slate-300">{alert.mensaje}</p>
-                      </button>
-                    ))
-                  )}
-                </div>
-                <div className="px-6 pb-4">
-                  <div className="rounded-xl border border-slate-300/70 bg-white/65 p-4 text-center dark:border-white/10 dark:bg-black/20">
-                    <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 text-primary">
-                      <AlertTriangle className="h-5 w-5" />
+                        Ver alertas
+                      </Button>
                     </div>
-                    <p className="text-sm font-semibold text-slate-900 dark:text-white">Mantente al día con NeuralStock</p>
-                    <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
-                      Te avisaremos cuando aparezcan alertas críticas o cambios importantes en inventario.
-                    </p>
                   </div>
-                </div>
-                <div className="border-t p-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full border-slate-300 bg-white/80 text-slate-900 hover:bg-white dark:border-white/20 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
-                    onClick={() => {
-                      setAlertsDrawerOpen(false)
-                      navigate('/alertas')
-                    }}
-                  >
-                    Ver alertas
-                  </Button>
-                </div>
-                </div>
               </SheetContent>
             </Sheet>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" aria-label="Perfil">
+                    <Avatar className="h-7 w-7 rounded-full">
+                      {effectiveAvatarUrl ? <img src={effectiveAvatarUrl} alt={accountLabel} referrerPolicy="no-referrer" className="aspect-square size-full rounded-full object-cover" /> : null}
+                      <AvatarFallback className="rounded-full bg-muted text-[10px] text-muted-foreground">{initials}</AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" sideOffset={6} className="min-w-52">
+                  <DropdownMenuLabel className="py-2">
+                    <div className="truncate text-sm font-medium text-foreground">{accountLabel}</div>
+                    <div className="truncate text-xs text-muted-foreground">{roleLabel}</div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => setTheme(isDarkTheme ? 'light' : 'dark')}>
+                    {isDarkTheme ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                    {isDarkTheme ? 'Modo claro' : 'Modo oscuro'}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => navigate('/movimientos')}>
+                    <Activity className="h-4 w-4" />
+                    Movimientos
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => navigate('/alertas')}>
+                    <AlertTriangle className="h-4 w-4" />
+                    Alertas
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => navigate('/analitica/resumen')}>
+                    <BarChart3 className="h-4 w-4" />
+                    AnalÃƒÆ’Ã‚Â­tica
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => navigate('/settings/general')}>
+                    <Settings className="h-4 w-4" />
+                    Ajustes
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem variant="destructive" onSelect={() => { void handleLogout() }}>
+                    <LogOut className="h-4 w-4" />
+                    Cerrar sesiÃƒÆ’Ã‚Â³n
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               {dataModeLabel ? (
                 <Badge
@@ -400,9 +534,36 @@ export default function AppLayout() {
           </div>
         </header>
 
-        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pt-2 sm:pt-3">
+        <main className={`min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pt-2 sm:pt-3 ${isMobile ? 'pb-24' : ''}`}>
           <Outlet />
         </main>
+
+        {isMobile ? (
+          <nav
+            className="fixed inset-x-0 bottom-0 z-50 border-t border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 md:hidden"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1px)' }}
+          >
+            <div className="grid grid-cols-5 gap-1 px-2 pt-2">
+              {mobileNavItems.map((item) => {
+                const active = item.isActive(location.pathname)
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-md px-1 text-[11px] leading-none transition-colors ${
+                      active
+                        ? 'bg-secondary/70 text-foreground'
+                        : 'text-muted-foreground hover:bg-secondary/45 hover:text-foreground'
+                    }`}
+                  >
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                  </NavLink>
+                )
+              })}
+            </div>
+          </nav>
+        ) : null}
       </SidebarInset>
     </SidebarProvider>
   )
