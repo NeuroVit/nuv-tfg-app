@@ -215,7 +215,10 @@ export default function AppLayout() {
           />
         </div>
 
-        <header className="sticky top-0 z-50 shrink-0 overflow-hidden border-b border-border/60">
+        <header
+          className="sticky top-0 z-50 shrink-0 overflow-hidden border-b border-border/60"
+          style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+        >
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0 z-0 dark:hidden"

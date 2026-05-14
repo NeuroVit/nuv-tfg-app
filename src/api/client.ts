@@ -18,14 +18,14 @@ const resolveConfiguredBaseUrl = () => {
     return explicitBaseUrl
   }
 
-  const localBaseUrl = (import.meta.env.VITE_API_URL_LOCAL ?? 'http://localhost:8080/api').toString().trim()
+  const localBaseUrl = (import.meta.env.VITE_API_URL_LOCAL ?? '').toString().trim()
   const railwayBaseUrl = (import.meta.env.VITE_API_URL_RAILWAY ?? '').toString().trim()
   const mode = resolveBackendMode()
 
-  if (mode === 'local') return localBaseUrl
-  if (mode === 'railway') return railwayBaseUrl || localBaseUrl
-  if (import.meta.env.DEV) return localBaseUrl
-  return railwayBaseUrl || localBaseUrl
+  if (mode === 'local') return localBaseUrl || '/api'
+  if (mode === 'railway') return railwayBaseUrl || '/api'
+  if (import.meta.env.DEV) return localBaseUrl || railwayBaseUrl || '/api'
+  return railwayBaseUrl || localBaseUrl || '/api'
 }
 
 const configuredBaseUrl = resolveConfiguredBaseUrl()
