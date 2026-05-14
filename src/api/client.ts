@@ -4,6 +4,13 @@ import { useAuthStore } from '../store/authStore'
 
 type BackendMode = 'auto' | 'local' | 'railway'
 
+const isTauriMobileRuntime = () => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false
+  const isTauriRuntime = '__TAURI_INTERNALS__' in window
+  const isMobileUa = /android|iphone|ipad|ipod/i.test(navigator.userAgent)
+  return isTauriRuntime && isMobileUa
+}
+
 const resolveBackendMode = (): BackendMode => {
   const rawMode = (import.meta.env.VITE_BACKEND_MODE ?? 'auto').toString().trim().toLowerCase()
   if (rawMode === 'local' || rawMode === 'railway' || rawMode === 'auto') {
@@ -13,6 +20,23 @@ const resolveBackendMode = (): BackendMode => {
 }
 
 const resolveConfiguredBaseUrl = () => {
+  if (isTauriMobileRuntime()) {
+    const explicitMobileBaseUrl = (import.meta.env.VITE_MOBILE_API_URL ?? '').toString().trim()
+    if (explicitMobileBaseUrl) return explicitMobileBaseUrl
+
+    const mobileMode = (import.meta.env.VITE_MOBILE_BACKEND_MODE ?? import.meta.env.VITE_BACKEND_MODE ?? 'auto')
+      .toString()
+      .trim()
+      .toLowerCase()
+    const localMobileBaseUrl = (import.meta.env.VITE_MOBILE_API_URL_LOCAL ?? '').toString().trim()
+    const railwayMobileBaseUrl = (import.meta.env.VITE_MOBILE_API_URL_RAILWAY ?? '').toString().trim()
+
+    if (mobileMode === 'local') return localMobileBaseUrl || '/api'
+    if (mobileMode === 'railway') return railwayMobileBaseUrl || '/api'
+    if (import.meta.env.DEV) return localMobileBaseUrl || railwayMobileBaseUrl || '/api'
+    return railwayMobileBaseUrl || localMobileBaseUrl || '/api'
+  }
+
   const explicitBaseUrl = (import.meta.env.VITE_API_URL ?? import.meta.env.VITE_API_BASE_URL ?? '').toString().trim()
   if (explicitBaseUrl) {
     return explicitBaseUrl
@@ -29,11 +53,23 @@ const resolveConfiguredBaseUrl = () => {
 }
 
 const configuredBaseUrl = resolveConfiguredBaseUrl()
-const normalizedBaseUrl = configuredBaseUrl
+let normalizedBaseUrl = configuredBaseUrl
   ? configuredBaseUrl.endsWith('/api')
     ? configuredBaseUrl
     : `${configuredBaseUrl.replace(/\/+$/, '')}/api`
   : '/api'
+
+if (isTauriMobileRuntime() && /android/i.test(navigator.userAgent)) {
+  try {
+    const resolved = new URL(normalizedBaseUrl, window.location.origin)
+    if (resolved.hostname === 'localhost' || resolved.hostname === '127.0.0.1') {
+      resolved.hostname = '10.0.2.2'
+      normalizedBaseUrl = resolved.toString().replace(/\/+$/, '')
+    }
+  } catch {
+    // keep normalizedBaseUrl as-is when URL parsing fails
+  }
+}
 
 export const getApiBaseUrl = () => normalizedBaseUrl
 
