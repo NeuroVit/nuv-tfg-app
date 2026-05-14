@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router'
-import { Bell } from 'lucide-react'
+import { AlertTriangle, Bell, X } from 'lucide-react'
 
 import { getMetaAnalitica } from '@/api/analitica'
 import { getAlertas } from '@/api/alerta'
@@ -12,7 +12,7 @@ import type { AlertaStock } from '@/types/alerta'
 import { AppSidebar } from '@/components/AppSidebar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
@@ -48,8 +48,9 @@ export default function AppLayout() {
   const isSettingsRoute = location.pathname.startsWith('/settings')
   const [analyticsMeta, setAnalyticsMeta] = useState<AnaliticaMeta | null>(null)
   const [openAlertsCount, setOpenAlertsCount] = useState(0)
-  const [recentOpenAlerts, setRecentOpenAlerts] = useState<AlertaStock[]>([])
+  const [openAlerts, setOpenAlerts] = useState<AlertaStock[]>([])
   const [alertsDrawerOpen, setAlertsDrawerOpen] = useState(false)
+  const [alertsFilter, setAlertsFilter] = useState<'all' | 'critical' | 'warning'>('all')
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   const topTabs = useMemo(() => {
@@ -142,19 +143,19 @@ export default function AppLayout() {
       if (!user?.token) {
         if (isMounted) {
           setOpenAlertsCount(0)
-          setRecentOpenAlerts([])
+          setOpenAlerts([])
         }
         return
       }
       try {
-        const openAlerts = await getAlertas(false)
+        const openAlertsData = await getAlertas(false)
         if (!isMounted) return
-        setOpenAlertsCount(openAlerts.length)
-        setRecentOpenAlerts(openAlerts.slice(0, 5))
+        setOpenAlertsCount(openAlertsData.length)
+        setOpenAlerts(openAlertsData)
       } catch {
         if (!isMounted) return
         setOpenAlertsCount(0)
-        setRecentOpenAlerts([])
+        setOpenAlerts([])
       }
     }
 
@@ -168,6 +169,20 @@ export default function AppLayout() {
       window.clearInterval(timer)
     }
   }, [user?.token])
+
+  const criticalAlerts = useMemo(
+    () => openAlerts.filter((alert) => alert.tipo === 'OUT_OF_STOCK'),
+    [openAlerts]
+  )
+  const warningAlerts = useMemo(
+    () => openAlerts.filter((alert) => alert.tipo !== 'OUT_OF_STOCK'),
+    [openAlerts]
+  )
+  const filteredAlerts = useMemo(() => {
+    if (alertsFilter === 'critical') return criticalAlerts
+    if (alertsFilter === 'warning') return warningAlerts
+    return openAlerts
+  }, [alertsFilter, criticalAlerts, warningAlerts, openAlerts])
 
   const dataModeLabel = useMemo(() => {
     if (!analyticsMeta) return null
@@ -295,36 +310,109 @@ export default function AppLayout() {
                   ) : null}
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-full sm:max-w-md">
+              <SheetContent
+                side="right"
+                showCloseButton={false}
+                className="w-full overflow-hidden border-l border-white/10 bg-transparent p-0 sm:max-w-md"
+              >
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 z-0"
+                  style={{
+                    backgroundImage:
+                      "linear-gradient(180deg, rgba(5,5,5,0.92) 0%, rgba(5,5,5,0.74) 45%, rgba(5,5,5,0.38) 100%), url('/moon-texture-registrar.jpg')",
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat',
+                    opacity: 0.95,
+                  }}
+                />
+                <div className="relative z-10 flex h-full flex-col">
+                <div className="flex justify-end px-4 pt-4">
+                  <SheetClose asChild>
+                    <Button variant="ghost" size="icon-sm" className="text-white hover:bg-white/10">
+                      <X className="h-4 w-4" />
+                      <span className="sr-only">Cerrar</span>
+                    </Button>
+                  </SheetClose>
+                </div>
                 <SheetHeader className="pb-2">
                   <SheetTitle>Notificaciones</SheetTitle>
                   <SheetDescription>Alertas abiertas ({openAlertsCount})</SheetDescription>
                 </SheetHeader>
+                <div className="px-6 pb-4">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setAlertsFilter('all')}
+                      className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                        alertsFilter === 'all'
+                          ? 'bg-primary/25 text-primary-foreground ring-1 ring-primary/50'
+                          : 'bg-white/5 text-muted-foreground hover:bg-white/10'
+                      }`}
+                    >
+                      Todas ({openAlerts.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAlertsFilter('critical')}
+                      className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                        alertsFilter === 'critical'
+                          ? 'bg-red-500/20 text-red-200 ring-1 ring-red-400/50'
+                          : 'bg-white/5 text-muted-foreground hover:bg-white/10'
+                      }`}
+                    >
+                      Críticas ({criticalAlerts.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAlertsFilter('warning')}
+                      className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                        alertsFilter === 'warning'
+                          ? 'bg-amber-500/20 text-amber-200 ring-1 ring-amber-400/50'
+                          : 'bg-white/5 text-muted-foreground hover:bg-white/10'
+                      }`}
+                    >
+                      Advertencias ({warningAlerts.length})
+                    </button>
+                  </div>
+                </div>
                 <div className="flex-1 space-y-2 overflow-y-auto px-6 pb-4">
-                  {recentOpenAlerts.length === 0 ? (
+                  {filteredAlerts.length === 0 ? (
                     <p className="text-sm text-muted-foreground">No hay alertas abiertas.</p>
                   ) : (
-                    recentOpenAlerts.map((alert) => (
+                    filteredAlerts.slice(0, 12).map((alert) => (
                       <button
                         key={alert.id}
                         type="button"
-                        className="w-full rounded-md border p-3 text-left transition-colors hover:bg-muted"
+                        className="w-full rounded-lg border border-white/10 bg-black/20 p-3 text-left transition-colors hover:bg-white/5"
                         onClick={() => {
                           setAlertsDrawerOpen(false)
                           navigate('/alertas')
                         }}
                       >
-                        <p className="text-sm font-medium">{alert.productoNombre} - {alert.tipo}</p>
-                        <p className="truncate text-xs text-muted-foreground">{alert.mensaje}</p>
+                        <p className="text-sm font-medium text-white">{alert.productoNombre} - {alert.tipo}</p>
+                        <p className="truncate text-xs text-slate-300">{alert.mensaje}</p>
                       </button>
                     ))
                   )}
+                </div>
+                <div className="px-6 pb-4">
+                  <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-center">
+                    <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 text-primary">
+                      <AlertTriangle className="h-5 w-5" />
+                    </div>
+                    <p className="text-sm font-semibold text-white">Mantente al día con NeuralStock</p>
+                    <p className="mt-1 text-xs text-slate-300">
+                      Te avisaremos cuando aparezcan alertas críticas o cambios importantes en inventario.
+                    </p>
+                  </div>
                 </div>
                 <div className="border-t p-4">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full"
+                    className="w-full border-white/20 bg-white/5 text-white hover:bg-white/10"
                     onClick={() => {
                       setAlertsDrawerOpen(false)
                       navigate('/alertas')
@@ -332,6 +420,7 @@ export default function AppLayout() {
                   >
                     Ver alertas
                   </Button>
+                </div>
                 </div>
               </SheetContent>
             </Sheet>
