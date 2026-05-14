@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router'
 import { AlertTriangle, Bell, X } from 'lucide-react'
 
@@ -34,6 +34,7 @@ const analiticaTabs: TopTab[] = [
   { to: '/analitica/ventas-rentabilidad', label: 'Ventas y Rentabilidad' },
   { to: '/analitica/inventario', label: 'Inventario' },
   { to: '/analitica/precios-bundles', label: 'Precios y Bundles' },
+  { to: '/analitica/proveedores', label: 'Proveedores' },
 ]
 
 const inRouteGroup = (pathname: string, routes: string[]) =>
@@ -50,7 +51,6 @@ export default function AppLayout() {
   const [openAlertsCount, setOpenAlertsCount] = useState(0)
   const [openAlerts, setOpenAlerts] = useState<AlertaStock[]>([])
   const [alertsDrawerOpen, setAlertsDrawerOpen] = useState(false)
-  const [alertsFilter, setAlertsFilter] = useState<'all' | 'critical' | 'warning'>('all')
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   const topTabs = useMemo(() => {
@@ -170,20 +170,6 @@ export default function AppLayout() {
     }
   }, [user?.token])
 
-  const criticalAlerts = useMemo(
-    () => openAlerts.filter((alert) => alert.tipo === 'OUT_OF_STOCK'),
-    [openAlerts]
-  )
-  const warningAlerts = useMemo(
-    () => openAlerts.filter((alert) => alert.tipo !== 'OUT_OF_STOCK'),
-    [openAlerts]
-  )
-  const filteredAlerts = useMemo(() => {
-    if (alertsFilter === 'critical') return criticalAlerts
-    if (alertsFilter === 'warning') return warningAlerts
-    return openAlerts
-  }, [alertsFilter, criticalAlerts, warningAlerts, openAlerts])
-
   const dataModeLabel = useMemo(() => {
     if (!analyticsMeta) return null
     const isMockMode =
@@ -273,32 +259,38 @@ export default function AppLayout() {
             }}
           />
           <div className="relative z-10 flex min-h-14 items-center gap-2 px-3 sm:px-4">
-            <SidebarTrigger className="-ml-1" />
+            <SidebarTrigger className="-ml-1 shrink-0" />
             {topTabs.length > 0 ? (
-              <Tabs value={location.pathname} className="flex-1">
-                <TabsList variant="line" className="h-auto w-auto justify-start gap-0 rounded-none bg-transparent">
-                  {topTabs.map((tab) => (
-                    <TabsTrigger
-                      key={tab.to}
-                      value={tab.to}
-                      onClick={() => {
-                        const shouldKeepSearch = location.pathname.startsWith('/analitica')
-                        navigate({ pathname: tab.to, search: shouldKeepSearch ? location.search : '' })
-                      }}
-                      className="flex-none rounded-none px-3 py-2 text-sm"
-                    >
-                      {tab.label}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
+              <Tabs value={location.pathname} className="min-w-0 flex-1 pr-12 sm:pr-14">
+                <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <TabsList
+                    variant="line"
+                    className="h-auto min-w-max justify-start gap-0 rounded-none bg-transparent"
+                  >
+                    {topTabs.map((tab) => (
+                      <TabsTrigger
+                        key={tab.to}
+                        value={tab.to}
+                        onClick={() => {
+                          const shouldKeepSearch = location.pathname.startsWith('/analitica')
+                          navigate({ pathname: tab.to, search: shouldKeepSearch ? location.search : '' })
+                        }}
+                        className="flex-none rounded-none px-3 py-2 text-sm"
+                      >
+                        {tab.label}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </div>
               </Tabs>
             ) : (
-              <>
+              <div className="flex flex-1 items-center pr-12 sm:pr-14">
                 {sectionLabel && <span className="ml-1 text-sm font-medium text-foreground">{sectionLabel}</span>}
                 <div className="flex-1" />
-              </>
+              </div>
             )}
 
+            <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-2 sm:right-4">
             <Sheet open={alertsDrawerOpen} onOpenChange={setAlertsDrawerOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="relative h-8 w-8" aria-label="Notificaciones de alertas">
@@ -313,11 +305,19 @@ export default function AppLayout() {
               <SheetContent
                 side="right"
                 showCloseButton={false}
-                className="w-full overflow-hidden border-l border-white/10 bg-transparent p-0 sm:max-w-md"
+                className="w-full overflow-hidden border-l border-border/70 bg-transparent p-0 sm:max-w-md"
               >
                 <div
                   aria-hidden
-                  className="pointer-events-none absolute inset-0 z-0"
+                  className="pointer-events-none absolute inset-0 z-0 dark:hidden"
+                  style={{
+                    background:
+                      'linear-gradient(180deg, rgba(248,250,252,0.98) 0%, rgba(241,245,249,0.95) 55%, rgba(226,232,240,0.92) 100%)',
+                  }}
+                />
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 z-0 hidden dark:block"
                   style={{
                     backgroundImage:
                       "linear-gradient(180deg, rgba(5,5,5,0.92) 0%, rgba(5,5,5,0.74) 45%, rgba(5,5,5,0.38) 100%), url('/moon-texture-registrar.jpg')",
@@ -330,7 +330,7 @@ export default function AppLayout() {
                 <div className="relative z-10 flex h-full flex-col">
                 <div className="flex justify-end px-4 pt-4">
                   <SheetClose asChild>
-                    <Button variant="ghost" size="icon-sm" className="text-white hover:bg-white/10">
+                    <Button variant="ghost" size="icon-sm" className="text-foreground hover:bg-black/5 dark:text-white dark:hover:bg-white/10">
                       <X className="h-4 w-4" />
                       <span className="sr-only">Cerrar</span>
                     </Button>
@@ -340,70 +340,33 @@ export default function AppLayout() {
                   <SheetTitle>Notificaciones</SheetTitle>
                   <SheetDescription>Alertas abiertas ({openAlertsCount})</SheetDescription>
                 </SheetHeader>
-                <div className="px-6 pb-4">
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setAlertsFilter('all')}
-                      className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                        alertsFilter === 'all'
-                          ? 'bg-primary/25 text-primary-foreground ring-1 ring-primary/50'
-                          : 'bg-white/5 text-muted-foreground hover:bg-white/10'
-                      }`}
-                    >
-                      Todas ({openAlerts.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAlertsFilter('critical')}
-                      className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                        alertsFilter === 'critical'
-                          ? 'bg-red-500/20 text-red-200 ring-1 ring-red-400/50'
-                          : 'bg-white/5 text-muted-foreground hover:bg-white/10'
-                      }`}
-                    >
-                      Críticas ({criticalAlerts.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAlertsFilter('warning')}
-                      className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                        alertsFilter === 'warning'
-                          ? 'bg-amber-500/20 text-amber-200 ring-1 ring-amber-400/50'
-                          : 'bg-white/5 text-muted-foreground hover:bg-white/10'
-                      }`}
-                    >
-                      Advertencias ({warningAlerts.length})
-                    </button>
-                  </div>
-                </div>
                 <div className="flex-1 space-y-2 overflow-y-auto px-6 pb-4">
-                  {filteredAlerts.length === 0 ? (
+                  {openAlerts.length === 0 ? (
                     <p className="text-sm text-muted-foreground">No hay alertas abiertas.</p>
                   ) : (
-                    filteredAlerts.slice(0, 12).map((alert) => (
+                    openAlerts.slice(0, 12).map((alert) => (
                       <button
                         key={alert.id}
                         type="button"
-                        className="w-full rounded-lg border border-white/10 bg-black/20 p-3 text-left transition-colors hover:bg-white/5"
+                        className="w-full rounded-lg border border-slate-300/70 bg-white/65 p-3 text-left transition-colors hover:bg-white dark:border-white/10 dark:bg-black/20 dark:hover:bg-white/5"
                         onClick={() => {
                           setAlertsDrawerOpen(false)
                           navigate('/alertas')
                         }}
                       >
-                        <p className="text-sm font-medium text-white">{alert.productoNombre} - {alert.tipo}</p>
-                        <p className="truncate text-xs text-slate-300">{alert.mensaje}</p>
+                        <p className="text-sm font-medium text-slate-900 dark:text-white">{alert.productoNombre} - {alert.tipo}</p>
+                        <p className="truncate text-xs text-slate-600 dark:text-slate-300">{alert.mensaje}</p>
                       </button>
                     ))
                   )}
                 </div>
                 <div className="px-6 pb-4">
-                  <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-center">
+                  <div className="rounded-xl border border-slate-300/70 bg-white/65 p-4 text-center dark:border-white/10 dark:bg-black/20">
                     <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 text-primary">
                       <AlertTriangle className="h-5 w-5" />
                     </div>
-                    <p className="text-sm font-semibold text-white">Mantente al día con NeuralStock</p>
-                    <p className="mt-1 text-xs text-slate-300">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">Mantente al día con NeuralStock</p>
+                    <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
                       Te avisaremos cuando aparezcan alertas críticas o cambios importantes en inventario.
                     </p>
                   </div>
@@ -412,7 +375,7 @@ export default function AppLayout() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full border-white/20 bg-white/5 text-white hover:bg-white/10"
+                    className="w-full border-slate-300 bg-white/80 text-slate-900 hover:bg-white dark:border-white/20 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
                     onClick={() => {
                       setAlertsDrawerOpen(false)
                       navigate('/alertas')
@@ -425,11 +388,15 @@ export default function AppLayout() {
               </SheetContent>
             </Sheet>
 
-            {dataModeLabel ? (
-              <Badge variant={dataModeLabel === 'Modo de datos de prueba' ? 'outline' : 'secondary'} className="mr-1">
-                {dataModeLabel}
-              </Badge>
-            ) : null}
+              {dataModeLabel ? (
+                <Badge
+                  variant={dataModeLabel === 'Modo de datos de prueba' ? 'outline' : 'secondary'}
+                  className="mr-1 hidden lg:inline-flex"
+                >
+                  {dataModeLabel}
+                </Badge>
+              ) : null}
+            </div>
           </div>
         </header>
 

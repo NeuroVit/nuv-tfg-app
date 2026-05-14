@@ -17,6 +17,7 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart'
 import {
+  getAlertasSerie,
   getFinanzasResumenAnalitica,
   getInventarioAnalitica,
   getMetaAnalitica,
@@ -25,6 +26,7 @@ import {
 } from '@/api/analitica'
 import { getBundles } from '@/api/bundle'
 import type {
+  AlertaSerieRow,
   AnaliticaMeta,
   FinanzasResumen,
   InventorySummaryRow,
@@ -40,6 +42,8 @@ import {
   useAnaliticaRange,
   type LoadState,
 } from './shared'
+
+const alertPalette = ['#0ea5e9', '#22c55e', '#f97316', '#ef4444', '#a855f7', '#14b8a6']
 
 const revenueComparisonChartConfig = {
   currentRevenue: {
@@ -115,6 +119,7 @@ export default function AnaliticaResumenPage() {
   const [velocidadResumen, setVelocidadResumen] = useState<VelocitySummaryRow[]>([])
   const [bundlesCount, setBundlesCount] = useState(0)
   const [revenueComparativa, setRevenueComparativa] = useState<RevenueComparativa | null>(null)
+  const [alertasSerie, setAlertasSerie] = useState<AlertaSerieRow[]>([])
 
   useEffect(() => {
     let active = true
@@ -126,13 +131,14 @@ export default function AnaliticaResumenPage() {
       }
 
       try {
-        const [fin, inv, velRes, meta, revComp, bundles] = await Promise.all([
+        const [fin, inv, velRes, meta, revComp, bundles, alertsSeries] = await Promise.all([
           getFinanzasResumenAnalitica(selectedDays),
           getInventarioAnalitica(),
           getVelocidadResumenAnalitica(selectedDays),
           getMetaAnalitica(selectedDays),
           getRevenueComparativaAnalitica(selectedDays),
           getBundles().catch(() => []),
+          getAlertasSerie(selectedDays),
         ])
 
         if (!active) return
@@ -142,6 +148,7 @@ export default function AnaliticaResumenPage() {
         setMetadata(meta)
         setRevenueComparativa(revComp)
         setBundlesCount(bundles.length)
+        setAlertasSerie(alertsSeries)
         setLastUpdatedAt(new Date())
         setLoadState('ready')
       } catch {
@@ -247,6 +254,45 @@ export default function AnaliticaResumenPage() {
       maxBarAbs: maxBarAbs > 0 ? maxBarAbs : 100,
     }
   }, [revenueComparativa])
+
+  const alertTypes = useMemo(
+    () => Array.from(new Set(alertasSerie.map((row) => row.alertType))),
+    [alertasSerie],
+  )
+
+  const alertChartConfig = useMemo(
+    () => {
+      const base = alertTypes.reduce((acc, alertType, index) => {
+        acc[alertType] = {
+          label: `${alertType} creadas`,
+          color: alertPalette[index % alertPalette.length]!,
+        }
+        return acc
+      }, {} as ChartConfig)
+
+      base.resolvedCount = {
+        label: 'Resueltas',
+        color: '#111827',
+      }
+
+      return base
+    },
+    [alertTypes],
+  )
+
+  const alertSeriesChartData = useMemo(() => {
+    const byDate = new Map<string, { bucketDate: string; resolvedCount: number; [key: string]: number | string }>()
+
+    for (const row of alertasSerie) {
+      const key = row.bucketDate
+      const current = byDate.get(key) ?? { bucketDate: key, resolvedCount: 0 }
+      current[row.alertType] = Number(current[row.alertType] ?? 0) + row.createdCount
+      current.resolvedCount = Number(current.resolvedCount ?? 0) + row.resolvedCount
+      byDate.set(key, current)
+    }
+
+    return Array.from(byDate.values()).sort((a, b) => String(a.bucketDate).localeCompare(String(b.bucketDate)))
+  }, [alertasSerie])
 
   return (
     <AnaliticaShell
@@ -432,6 +478,45 @@ export default function AnaliticaResumenPage() {
             </div>
           </div>
         )}
+      </section>
+
+      <section className="rounded-lg bg-card p-4">
+        <h2 className="text-sm font-semibold text-foreground">Alertas creadas y resueltas por dia</h2>
+        <div className="mt-3 h-80">
+          {loading ? (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
+          ) : alertSeriesChartData.length === 0 ? (
+            <EmptyChartPlaceholder
+              icon={LineChartIcon}
+              message="No hay alertas en el rango seleccionado."
+            />
+          ) : (
+            <ChartContainer config={alertChartConfig} className="h-full w-full">
+              <BarChart data={alertSeriesChartData} margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="bucketDate" minTickGap={12} />
+                <YAxis />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                {alertTypes.map((alertType) => (
+                  <Bar
+                    key={alertType}
+                    dataKey={alertType}
+                    stackId="created"
+                    fill={`var(--color-${alertType})`}
+                    radius={[2, 2, 0, 0]}
+                  />
+                ))}
+                <Bar
+                  dataKey="resolvedCount"
+                  name="Resueltas"
+                  fill="#111827"
+                  stackId="resolved"
+                  radius={[2, 2, 0, 0]}
+                />
+              </BarChart>
+            </ChartContainer>
+          )}
+        </div>
       </section>
     </AnaliticaShell>
   )

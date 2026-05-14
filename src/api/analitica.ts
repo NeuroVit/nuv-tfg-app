@@ -1,11 +1,15 @@
 import client from './client'
 import type {
+  AlertaSerieRow,
   AnaliticaMeta,
   BundleCandidateRow,
+  BundlePerformanceRow,
+  ClienteRentabilidadRow,
   FinanzasResumen,
   InventorySummaryRow,
   PriceTrendRow,
   ProductCreationRow,
+  ProveedorPerformanceRow,
   RentabilidadProductoRow,
   RevenueComparativa,
   SalesVelocityRow,
@@ -116,5 +120,38 @@ export const getStockRecibidoAnalitica = async (days = 30): Promise<StockReceipt
 export const getMetaAnalitica = async (days = 30): Promise<AnaliticaMeta> => {
   const params = { days }
   const { data } = await client.get<AnaliticaMeta>('/analitica/meta', { params })
+  return data
+}
+
+export const getBundlesPerformance = async (
+  days = 30,
+  limit = 20,
+): Promise<BundlePerformanceRow[]> => {
+  const params = { days, limit }
+  const { data } = await client.get<BundlePerformanceRow[]>('/analitica/bundles-performance', { params })
+  return data
+}
+
+export const getClientesRentabilidad = async (
+  days = 30,
+  limit = 20,
+): Promise<ClienteRentabilidadRow[]> => {
+  const params = { days, limit }
+  const { data } = await client.get<ClienteRentabilidadRow[]>('/analitica/clientes-rentabilidad', { params })
+  return data
+}
+
+export const getProveedoresPerformance = async (
+  days = 90,
+  limit = 20,
+): Promise<ProveedorPerformanceRow[]> => {
+  const params = { days, limit }
+  const { data } = await client.get<ProveedorPerformanceRow[]>('/analitica/proveedores-performance', { params })
+  return data
+}
+
+export const getAlertasSerie = async (days = 30): Promise<AlertaSerieRow[]> => {
+  const params = { days }
+  const { data } = await client.get<AlertaSerieRow[]>('/analitica/alertas-serie', { params })
   return data
 }

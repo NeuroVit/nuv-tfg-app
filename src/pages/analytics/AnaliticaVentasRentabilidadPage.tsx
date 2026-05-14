@@ -19,6 +19,7 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart'
 import {
+  getClientesRentabilidad,
   getFinanzasResumenAnalitica,
   getMetaAnalitica,
   getRentabilidadProductosAnalitica,
@@ -27,6 +28,7 @@ import {
 } from '@/api/analitica'
 import type {
   AnaliticaMeta,
+  ClienteRentabilidadRow,
   FinanzasResumen,
   RentabilidadProductoRow,
   TopProductVelocityRow,
@@ -75,6 +77,13 @@ const marginChartConfig = {
   },
 } satisfies ChartConfig
 
+const clientRevenueChartConfig = {
+  revenue: {
+    label: 'Ingresos',
+    color: '#0ea5e9',
+  },
+} satisfies ChartConfig
+
 const PAGE_SIZE = 20
 
 function formatDayMonth(date: Date) {
@@ -90,7 +99,7 @@ function formatWeekday(date: Date, tz: string) {
 }
 
 export default function AnaliticaVentasRentabilidadPage() {
-  const { timeZone } = useFormatters()
+  const { timeZone, formatDateTime } = useFormatters()
   const { timeRange, selectedDays, setTimeRange } = useAnaliticaRange()
   const [loading, setLoading] = useState(true)
   const [loadState, setLoadState] = useState<LoadState>('loading')
@@ -100,6 +109,7 @@ export default function AnaliticaVentasRentabilidadPage() {
   const [velocidadResumen, setVelocidadResumen] = useState<VelocitySummaryRow[]>([])
   const [topProductos, setTopProductos] = useState<TopProductVelocityRow[]>([])
   const [rentabilidad, setRentabilidad] = useState<RentabilidadProductoRow[]>([])
+  const [clientesRentabilidad, setClientesRentabilidad] = useState<ClienteRentabilidadRow[]>([])
   const [offset, setOffset] = useState(0)
 
   useEffect(() => {
@@ -107,11 +117,12 @@ export default function AnaliticaVentasRentabilidadPage() {
       setLoading(true)
       setLoadState('loading')
       try {
-        const [fin, velRes, topVel, rent, meta] = await Promise.all([
+        const [fin, velRes, topVel, rent, clientesRent, meta] = await Promise.all([
           getFinanzasResumenAnalitica(selectedDays),
           getVelocidadResumenAnalitica(selectedDays),
           getTopProductosVelocidadAnalitica(selectedDays, 10),
           getRentabilidadProductosAnalitica(selectedDays, 20),
+          getClientesRentabilidad(selectedDays, 20),
           getMetaAnalitica(selectedDays),
         ])
 
@@ -119,6 +130,7 @@ export default function AnaliticaVentasRentabilidadPage() {
         setVelocidadResumen(velRes)
         setTopProductos(topVel)
         setRentabilidad(rent)
+        setClientesRentabilidad(clientesRent)
         setMetadata(meta)
         setLastUpdatedAt(new Date())
         setLoadState('ready')
@@ -283,6 +295,18 @@ export default function AnaliticaVentasRentabilidadPage() {
     [topProductos],
   )
 
+  const clientsChartData = useMemo(
+    () =>
+      clientesRentabilidad
+        .slice(0, 10)
+        .map((row) => ({
+          clientName: row.clientName,
+          revenue: row.revenue,
+        }))
+        .reverse(),
+    [clientesRentabilidad],
+  )
+
   const marginProductsChartData = useMemo(() => {
     const positives = rentabilidad
       .filter((row) => row.margen > 0)
@@ -326,21 +350,15 @@ export default function AnaliticaVentasRentabilidadPage() {
   }, [selectedDays])
   const total = rentabilidad.length
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const currentPage = Math.floor(offset / PAGE_SIZE) + 1
+  const safeOffset =
+    total > 0
+      ? Math.min(offset, Math.max(0, (Math.ceil(total / PAGE_SIZE) - 1) * PAGE_SIZE))
+      : 0
+  const currentPage = Math.floor(safeOffset / PAGE_SIZE) + 1
   const paginatedRentabilidad = useMemo(
-    () => rentabilidad.slice(offset, offset + PAGE_SIZE),
-    [rentabilidad, offset],
+    () => rentabilidad.slice(safeOffset, safeOffset + PAGE_SIZE),
+    [rentabilidad, safeOffset],
   )
-
-  useEffect(() => {
-    setOffset(0)
-  }, [selectedDays])
-
-  useEffect(() => {
-    if (offset >= total && total > 0) {
-      setOffset(Math.max(0, (Math.ceil(total / PAGE_SIZE) - 1) * PAGE_SIZE))
-    }
-  }, [offset, total])
 
   return (
     <AnaliticaShell
@@ -513,6 +531,30 @@ export default function AnaliticaVentasRentabilidadPage() {
           </div>
         </article>
 
+        <article className="rounded-lg bg-card p-4 xl:col-span-2">
+          <h2 className="text-sm font-semibold text-foreground">Rentabilidad por cliente</h2>
+          <div className="mt-3 h-72">
+            {loading ? (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando...</div>
+            ) : clientsChartData.length === 0 ? (
+              <EmptyChartPlaceholder
+                icon={TrendingUp}
+                message="No hay ventas por cliente para este rango."
+              />
+            ) : (
+              <ChartContainer config={clientRevenueChartConfig} className="h-full w-full">
+                <BarChart data={clientsChartData} layout="vertical" margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" />
+                  <YAxis type="category" width={180} dataKey="clientName" tick={{ fontSize: 11 }} />
+                  <ChartTooltip content={<ChartTooltipContent formatter={(value) => formatCurrency(Number(value))} />} />
+                  <Bar dataKey="revenue" fill="var(--color-revenue)" name="revenue" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ChartContainer>
+            )}
+          </div>
+        </article>
+
       </section>
 
       <RevealDataSection>
@@ -582,20 +624,57 @@ export default function AnaliticaVentasRentabilidadPage() {
           </Table>
         </section>
 
+        <section className="rounded-lg border bg-card p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Ventas</TableHead>
+                <TableHead>Unidades</TableHead>
+                <TableHead>Ingresos</TableHead>
+                <TableHead>Coste</TableHead>
+                <TableHead>Margen</TableHead>
+                <TableHead>Margen %</TableHead>
+                <TableHead>Ticket medio</TableHead>
+                <TableHead>Ultima venta</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow><TableCell colSpan={9} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
+              ) : clientesRentabilidad.length === 0 ? (
+                <TableRow><TableCell colSpan={9} className="py-8 text-center text-muted-foreground">Sin rentabilidad por cliente para este rango.</TableCell></TableRow>
+              ) : clientesRentabilidad.map((row) => (
+                <TableRow key={row.clientId}>
+                  <TableCell>{row.clientName}</TableCell>
+                  <TableCell>{formatCompact(row.salesCount)}</TableCell>
+                  <TableCell>{formatCompact(row.unitsSold)}</TableCell>
+                  <TableCell>{formatCurrency(row.revenue)}</TableCell>
+                  <TableCell>{formatCurrency(row.cost)}</TableCell>
+                  <TableCell className={row.profit >= 0 ? 'text-emerald-700' : 'text-red-700'}>{formatCurrency(row.profit)}</TableCell>
+                  <TableCell>{row.margin.toFixed(2)}%</TableCell>
+                  <TableCell>{formatCurrency(row.avgTicket)}</TableCell>
+                  <TableCell>{formatDateTime(row.lastSaleAt)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </section>
+
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages} | {total} registros</p>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               onClick={() => setOffset((prev) => Math.max(0, prev - PAGE_SIZE))}
-              disabled={offset === 0}
+              disabled={safeOffset === 0}
             >
               Anterior
             </Button>
             <Button
               variant="outline"
               onClick={() => setOffset((prev) => (prev + PAGE_SIZE >= total ? prev : prev + PAGE_SIZE))}
-              disabled={offset + PAGE_SIZE >= total}
+              disabled={safeOffset + PAGE_SIZE >= total}
             >
               Siguiente
             </Button>
