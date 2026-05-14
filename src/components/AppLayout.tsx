@@ -2,17 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { Activity, AlertTriangle, BarChart3, Bell, LayoutDashboard, LogOut, Moon, Package, ReceiptText, Settings, Sun, Truck, UserSquare2 } from 'lucide-react'
 
-import { getMetaAnalitica } from '@/api/analitica'
 import { getAlertas } from '@/api/alerta'
 import { getMe, logout as logoutRequest, updateMe } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
 import { useDisplayName, useProfileStore } from '@/store/profileStore'
-import type { AnaliticaMeta } from '@/types/analitica'
 import type { AlertaStock } from '@/types/alerta'
 import { AppSidebar } from '@/components/AppSidebar'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -110,7 +107,6 @@ export default function AppLayout() {
   const { theme, resolvedTheme, setTheme } = useTheme()
 
   const isSettingsRoute = location.pathname.startsWith('/settings')
-  const [analyticsMeta, setAnalyticsMeta] = useState<AnaliticaMeta | null>(null)
   const [openAlertsCount, setOpenAlertsCount] = useState(0)
   const [recentOpenAlerts, setRecentOpenAlerts] = useState<AlertaStock[]>([])
   const [alertsDrawerOpen, setAlertsDrawerOpen] = useState(false)
@@ -128,6 +124,9 @@ export default function AppLayout() {
     .join('')
     .slice(0, 2) || 'U'
   const effectiveAvatarUrl = normalizeAvatarUrl(profileAvatarUrl)
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
+  const [avatarLoaded, setAvatarLoaded] = useState(false)
+  const showAvatarImage = Boolean(effectiveAvatarUrl) && !avatarLoadFailed
 
   const topTabs = useMemo(() => {
     if (isSettingsRoute) return settingsTabs
@@ -192,26 +191,9 @@ export default function AppLayout() {
   }, [user?.token, setProfile])
 
   useEffect(() => {
-    let isMounted = true
-    const loadMeta = async () => {
-      if (!user?.token) {
-        if (isMounted) setAnalyticsMeta(null)
-        return
-      }
-      try {
-        const meta = await getMetaAnalitica(30)
-        if (!isMounted) return
-        setAnalyticsMeta(meta)
-      } catch {
-        if (!isMounted) return
-        setAnalyticsMeta(null)
-      }
-    }
-    void loadMeta()
-    return () => {
-      isMounted = false
-    }
-  }, [user?.token])
+    setAvatarLoadFailed(false)
+    setAvatarLoaded(false)
+  }, [effectiveAvatarUrl])
 
   useEffect(() => {
     let isMounted = true
@@ -245,14 +227,6 @@ export default function AppLayout() {
       window.clearInterval(timer)
     }
   }, [user?.token])
-
-  const dataModeLabel = useMemo(() => {
-    if (!analyticsMeta) return null
-    const isMockMode =
-      analyticsMeta.source === 'API_REAL_LOCAL_SEEDED' ||
-      analyticsMeta.source === 'API_REAL_SEED_PENDING'
-    return isMockMode ? 'Modo de datos de prueba' : 'API real'
-  }, [analyticsMeta])
 
   const handleLogout = async () => {
     try {
@@ -420,57 +394,67 @@ export default function AppLayout() {
                 </SheetContent>
               </Sheet>
 
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" aria-label="Perfil">
-                    <Avatar className="h-7 w-7 rounded-full">
-                      {effectiveAvatarUrl ? <img src={effectiveAvatarUrl} alt={accountLabel} referrerPolicy="no-referrer" className="aspect-square size-full rounded-full object-cover" /> : null}
-                      <AvatarFallback className="rounded-full bg-muted text-[10px] text-muted-foreground">{initials}</AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" sideOffset={6} className="min-w-52">
-                  <DropdownMenuLabel className="py-2">
-                    <div className="truncate text-sm font-medium text-foreground">{accountLabel}</div>
-                    <div className="truncate text-xs text-muted-foreground">{roleLabel}</div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={() => setTheme(isDarkTheme ? 'light' : 'dark')}>
-                    {isDarkTheme ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                    {isDarkTheme ? 'Modo claro' : 'Modo oscuro'}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={() => navigate('/movimientos')}>
-                    <Activity className="h-4 w-4" />
-                    Movimientos
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => navigate('/alertas')}>
-                    <AlertTriangle className="h-4 w-4" />
-                    Alertas
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => navigate('/analitica/resumen')}>
-                    <BarChart3 className="h-4 w-4" />
-                    Analítica
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => navigate('/settings/general')}>
-                    <Settings className="h-4 w-4" />
-                    Ajustes
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem variant="destructive" onSelect={() => { void handleLogout() }}>
-                    <LogOut className="h-4 w-4" />
-                    Cerrar sesión
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {dataModeLabel ? (
-                <Badge
-                  variant={dataModeLabel === 'Modo de datos de prueba' ? 'outline' : 'secondary'}
-                  className="mr-1 hidden lg:inline-flex"
-                >
-                  {dataModeLabel}
-                </Badge>
+              {isMobile ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" aria-label="Perfil">
+                      <Avatar className="h-7 w-7 rounded-full">
+                        {showAvatarImage ? (
+                          <>
+                            {!avatarLoaded ? (
+                              <span
+                                aria-hidden
+                                className="absolute inset-0 animate-pulse rounded-full bg-muted"
+                              />
+                            ) : null}
+                            <img
+                              src={effectiveAvatarUrl!}
+                              alt={accountLabel}
+                              referrerPolicy="no-referrer"
+                              className={`aspect-square size-full rounded-full object-cover transition-opacity duration-200 ${avatarLoaded ? 'opacity-100' : 'opacity-0'}`}
+                              onLoad={() => setAvatarLoaded(true)}
+                              onError={() => setAvatarLoadFailed(true)}
+                            />
+                          </>
+                        ) : null}
+                        <AvatarFallback className={`rounded-full bg-muted text-[10px] text-muted-foreground ${showAvatarImage && avatarLoaded ? 'opacity-0' : 'opacity-100'}`}>{initials}</AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" sideOffset={6} className="min-w-52">
+                    <DropdownMenuLabel className="py-2">
+                      <div className="truncate text-sm font-medium text-foreground">{accountLabel}</div>
+                      <div className="truncate text-xs text-muted-foreground">{roleLabel}</div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={() => setTheme(isDarkTheme ? 'light' : 'dark')}>
+                      {isDarkTheme ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                      {isDarkTheme ? 'Modo claro' : 'Modo oscuro'}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={() => navigate('/movimientos')}>
+                      <Activity className="h-4 w-4" />
+                      Movimientos
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => navigate('/alertas')}>
+                      <AlertTriangle className="h-4 w-4" />
+                      Alertas
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => navigate('/analitica/resumen')}>
+                      <BarChart3 className="h-4 w-4" />
+                      Analítica
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => navigate('/settings/general')}>
+                      <Settings className="h-4 w-4" />
+                      Ajustes
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem variant="destructive" onSelect={() => { void handleLogout() }}>
+                      <LogOut className="h-4 w-4" />
+                      Cerrar sesión
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               ) : null}
             </div>
           </div>
