@@ -112,6 +112,8 @@ export default function AppLayout() {
   const [alertsDrawerOpen, setAlertsDrawerOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const isMobile = useIsMobile()
+  const [isPhoneLikeDevice, setIsPhoneLikeDevice] = useState(false)
+  const [isPortrait, setIsPortrait] = useState(true)
   const activeTheme = theme === 'system' ? resolvedTheme : theme
   const isDarkTheme = activeTheme === 'dark'
   const accountLabel = displayName || user?.username || 'Usuario'
@@ -127,6 +129,7 @@ export default function AppLayout() {
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
   const [avatarLoaded, setAvatarLoaded] = useState(false)
   const showAvatarImage = Boolean(effectiveAvatarUrl) && !avatarLoadFailed
+  const useMobileChrome = isPhoneLikeDevice ? isPortrait : isMobile
 
   const topTabs = useMemo(() => {
     if (isSettingsRoute) return settingsTabs
@@ -191,6 +194,28 @@ export default function AppLayout() {
   }, [user?.token, setProfile])
 
   useEffect(() => {
+    const evaluateViewportMode = () => {
+      const isCoarsePointer = window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(any-pointer: coarse)').matches
+      const shortestScreenSide = Math.min(window.screen.width || window.innerWidth, window.screen.height || window.innerHeight)
+      const portrait = window.matchMedia('(orientation: portrait)').matches || window.innerHeight >= window.innerWidth
+
+      setIsPhoneLikeDevice(isCoarsePointer && shortestScreenSide < 600)
+      setIsPortrait(portrait)
+    }
+
+    evaluateViewportMode()
+    window.addEventListener('resize', evaluateViewportMode)
+    window.addEventListener('orientationchange', evaluateViewportMode)
+    window.visualViewport?.addEventListener('resize', evaluateViewportMode)
+
+    return () => {
+      window.removeEventListener('resize', evaluateViewportMode)
+      window.removeEventListener('orientationchange', evaluateViewportMode)
+      window.visualViewport?.removeEventListener('resize', evaluateViewportMode)
+    }
+  }, [])
+
+  useEffect(() => {
     setAvatarLoadFailed(false)
     setAvatarLoaded(false)
   }, [effectiveAvatarUrl])
@@ -241,7 +266,7 @@ export default function AppLayout() {
 
   return (
     <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
-      {!isMobile ? <AppSidebar isSettingsRoute={isSettingsRoute} collapsible="offcanvas" /> : null}
+      {!useMobileChrome ? <AppSidebar isSettingsRoute={isSettingsRoute} collapsible="offcanvas" /> : null}
       <SidebarInset className="relative h-dvh min-h-0 min-w-0 overflow-hidden bg-transparent">
         <div className="pointer-events-none absolute inset-0 -z-10">
           <div className="absolute inset-0 dark:hidden" style={{ background: 'linear-gradient(180deg, #f4f7fb 0%, #e9eef6 52%, #e3e9f3 100%)' }} />
@@ -323,10 +348,10 @@ export default function AppLayout() {
             }}
           />
           <div className="relative z-10 flex min-h-14 items-center gap-2 px-3 sm:px-4">
-            {!isMobile ? <SidebarTrigger className="-ml-1 shrink-0" /> : null}
+            {!useMobileChrome ? <SidebarTrigger className="-ml-1 shrink-0" /> : null}
             {topTabs.length > 0 ? (
               <Tabs value={location.pathname} className="min-w-0 flex-1 pr-20 sm:pr-24">
-                <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   <TabsList
                     variant="line"
                     className="h-auto min-w-max justify-start gap-0 rounded-none bg-transparent"
@@ -394,7 +419,7 @@ export default function AppLayout() {
                 </SheetContent>
               </Sheet>
 
-              {isMobile ? (
+              {useMobileChrome ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" aria-label="Perfil">
@@ -460,13 +485,13 @@ export default function AppLayout() {
           </div>
         </header>
 
-        <main className={`min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pt-2 sm:pt-3 ${isMobile ? 'pb-24' : ''}`}>
+        <main className={`min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pt-2 sm:pt-3 ${useMobileChrome ? 'pb-24' : ''}`}>
           <Outlet />
         </main>
 
-        {isMobile ? (
+        {useMobileChrome ? (
           <nav
-            className="fixed inset-x-0 bottom-0 z-50 border-t border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 md:hidden"
+            className="fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 md:hidden"
             style={{ paddingBottom: 'max(calc(env(safe-area-inset-bottom, 0px) - 5px), 0px)' }}
           >
             <div className="grid grid-cols-5 gap-1 px-2 pt-2">
