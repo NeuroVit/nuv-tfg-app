@@ -1,22 +1,41 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Outlet, useLocation, useNavigate } from 'react-router'
-import { Bell } from 'lucide-react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
+import { Activity, AlertTriangle, BarChart3, Bell, LayoutDashboard, LogOut, Moon, Package, ReceiptText, Settings, Sun, Truck, UserSquare2 } from 'lucide-react'
 
 import { getMetaAnalitica } from '@/api/analitica'
 import { getAlertas } from '@/api/alerta'
-import { getMe, updateMe } from '@/api/auth'
+import { getMe, logout as logoutRequest, updateMe } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
-import { useProfileStore } from '@/store/profileStore'
+import { useDisplayName, useProfileStore } from '@/store/profileStore'
 import type { AnaliticaMeta } from '@/types/analitica'
 import type { AlertaStock } from '@/types/alerta'
 import { AppSidebar } from '@/components/AppSidebar'
+import { useIsMobile } from '@/hooks/use-mobile'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { normalizeAvatarUrl } from '@/lib/googleAvatar'
+import { toast } from 'sonner'
+import { useTheme } from 'next-themes'
 
 type TopTab = { to: string; label: string }
+type MobileNavItem = {
+  to: string
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  isActive: (pathname: string) => boolean
+}
 
 const productosTabs: TopTab[] = [
   { to: '/productos', label: 'Productos' },
@@ -37,14 +56,58 @@ const analiticaTabs: TopTab[] = [
   { to: '/analitica/proveedores', label: 'Proveedores' },
 ]
 
+const settingsTabs: TopTab[] = [
+  { to: '/settings/profile', label: 'Perfil' },
+  { to: '/settings/organization', label: 'Organización' },
+  { to: '/settings/users', label: 'Usuarios' },
+  { to: '/settings/general', label: 'General' },
+  { to: '/settings/security', label: 'Seguridad' },
+]
+
+const mobileNavItems: MobileNavItem[] = [
+  {
+    to: '/productos',
+    label: 'Productos',
+    icon: Package,
+    isActive: (pathname) => inRouteGroup(pathname, ['/productos', '/categorias', '/bundles']),
+  },
+  {
+    to: '/proveedores',
+    label: 'Proveedores',
+    icon: Truck,
+    isActive: (pathname) => inRouteGroup(pathname, ['/proveedores', '/pedidos']),
+  },
+  {
+    to: '/dashboard',
+    label: 'Inicio',
+    icon: LayoutDashboard,
+    isActive: (pathname) => pathname === '/' || pathname === '/inicio' || pathname === '/dashboard',
+  },
+  {
+    to: '/clientes',
+    label: 'Clientes',
+    icon: UserSquare2,
+    isActive: (pathname) => pathname.startsWith('/clientes'),
+  },
+  {
+    to: '/ventas',
+    label: 'Ventas',
+    icon: ReceiptText,
+    isActive: (pathname) => pathname.startsWith('/ventas'),
+  },
+]
+
 const inRouteGroup = (pathname: string, routes: string[]) =>
   routes.some((route) => pathname === route || pathname.startsWith(`${route}/`))
 
 export default function AppLayout() {
-  const { user } = useAuthStore()
+  const { user, logout: clearSession } = useAuthStore()
   const setProfile = useProfileStore((s) => s.setProfile)
+  const displayName = useDisplayName()
+  const profileAvatarUrl = useProfileStore((s) => s.profile?.avatarUrl)
   const navigate = useNavigate()
   const location = useLocation()
+  const { theme, resolvedTheme, setTheme } = useTheme()
 
   const isSettingsRoute = location.pathname.startsWith('/settings')
   const [analyticsMeta, setAnalyticsMeta] = useState<AnaliticaMeta | null>(null)
@@ -52,9 +115,22 @@ export default function AppLayout() {
   const [recentOpenAlerts, setRecentOpenAlerts] = useState<AlertaStock[]>([])
   const [alertsDrawerOpen, setAlertsDrawerOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const isMobile = useIsMobile()
+  const activeTheme = theme === 'system' ? resolvedTheme : theme
+  const isDarkTheme = activeTheme === 'dark'
+  const accountLabel = displayName || user?.username || 'Usuario'
+  const roleLabel = (user?.role ?? 'ROLE_VIEWER').replace('ROLE_', '')
+  const initials = accountLabel
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]!.toUpperCase())
+    .join('')
+    .slice(0, 2) || 'U'
+  const effectiveAvatarUrl = normalizeAvatarUrl(profileAvatarUrl)
 
   const topTabs = useMemo(() => {
-    if (isSettingsRoute) return []
+    if (isSettingsRoute) return settingsTabs
     if (inRouteGroup(location.pathname, ['/productos', '/categorias', '/bundles'])) return productosTabs
     if (inRouteGroup(location.pathname, ['/proveedores', '/pedidos'])) return proveedoresTabs
     if (inRouteGroup(location.pathname, ['/analitica'])) return analiticaTabs
@@ -178,9 +254,20 @@ export default function AppLayout() {
     return isMockMode ? 'Modo de datos de prueba' : 'API real'
   }, [analyticsMeta])
 
+  const handleLogout = async () => {
+    try {
+      await logoutRequest()
+      toast.success('Sesión cerrada correctamente.')
+    } catch {
+      toast.error('No se pudo cerrar sesión en el servidor. Se cerrará localmente.')
+    }
+    clearSession()
+    navigate('/login')
+  }
+
   return (
     <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
-      <AppSidebar isSettingsRoute={isSettingsRoute} collapsible="offcanvas" />
+      {!isMobile ? <AppSidebar isSettingsRoute={isSettingsRoute} collapsible="offcanvas" /> : null}
       <SidebarInset className="relative h-dvh min-h-0 min-w-0 overflow-hidden bg-transparent">
         <div className="pointer-events-none absolute inset-0 -z-10">
           <div className="absolute inset-0 dark:hidden" style={{ background: 'linear-gradient(180deg, #f4f7fb 0%, #e9eef6 52%, #e3e9f3 100%)' }} />
@@ -262,9 +349,9 @@ export default function AppLayout() {
             }}
           />
           <div className="relative z-10 flex min-h-14 items-center gap-2 px-3 sm:px-4">
-            <SidebarTrigger className="-ml-1 shrink-0" />
+            {!isMobile ? <SidebarTrigger className="-ml-1 shrink-0" /> : null}
             {topTabs.length > 0 ? (
-              <Tabs value={location.pathname} className="min-w-0 flex-1 pr-12 sm:pr-14">
+              <Tabs value={location.pathname} className="min-w-0 flex-1 pr-20 sm:pr-24">
                 <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   <TabsList
                     variant="line"
@@ -287,13 +374,13 @@ export default function AppLayout() {
                 </div>
               </Tabs>
             ) : (
-              <div className="flex flex-1 items-center pr-12 sm:pr-14">
+              <div className="flex flex-1 items-center pr-20 sm:pr-24">
                 {sectionLabel && <span className="ml-1 text-sm font-medium text-foreground">{sectionLabel}</span>}
                 <div className="flex-1" />
               </div>
             )}
 
-            <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-2 sm:right-4">
+            <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-1 sm:right-4 sm:gap-2">
               <Sheet open={alertsDrawerOpen} onOpenChange={setAlertsDrawerOpen}>
                 <SheetTrigger asChild>
                   <Button variant="ghost" size="icon" className="relative h-8 w-8" aria-label="Notificaciones de alertas">
@@ -333,6 +420,50 @@ export default function AppLayout() {
                 </SheetContent>
               </Sheet>
 
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" aria-label="Perfil">
+                    <Avatar className="h-7 w-7 rounded-full">
+                      {effectiveAvatarUrl ? <img src={effectiveAvatarUrl} alt={accountLabel} referrerPolicy="no-referrer" className="aspect-square size-full rounded-full object-cover" /> : null}
+                      <AvatarFallback className="rounded-full bg-muted text-[10px] text-muted-foreground">{initials}</AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" sideOffset={6} className="min-w-52">
+                  <DropdownMenuLabel className="py-2">
+                    <div className="truncate text-sm font-medium text-foreground">{accountLabel}</div>
+                    <div className="truncate text-xs text-muted-foreground">{roleLabel}</div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => setTheme(isDarkTheme ? 'light' : 'dark')}>
+                    {isDarkTheme ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                    {isDarkTheme ? 'Modo claro' : 'Modo oscuro'}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => navigate('/movimientos')}>
+                    <Activity className="h-4 w-4" />
+                    Movimientos
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => navigate('/alertas')}>
+                    <AlertTriangle className="h-4 w-4" />
+                    Alertas
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => navigate('/analitica/resumen')}>
+                    <BarChart3 className="h-4 w-4" />
+                    Analítica
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => navigate('/settings/general')}>
+                    <Settings className="h-4 w-4" />
+                    Ajustes
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem variant="destructive" onSelect={() => { void handleLogout() }}>
+                    <LogOut className="h-4 w-4" />
+                    Cerrar sesión
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
               {dataModeLabel ? (
                 <Badge
                   variant={dataModeLabel === 'Modo de datos de prueba' ? 'outline' : 'secondary'}
@@ -345,9 +476,36 @@ export default function AppLayout() {
           </div>
         </header>
 
-        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pt-2 sm:pt-3">
+        <main className={`min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pt-2 sm:pt-3 ${isMobile ? 'pb-24' : ''}`}>
           <Outlet />
         </main>
+
+        {isMobile ? (
+          <nav
+            className="fixed inset-x-0 bottom-0 z-50 border-t border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 md:hidden"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)' }}
+          >
+            <div className="grid grid-cols-5 gap-1 px-2 pt-2">
+              {mobileNavItems.map((item) => {
+                const active = item.isActive(location.pathname)
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-md px-1 text-[11px] leading-none transition-colors ${
+                      active
+                        ? 'bg-secondary/70 text-foreground'
+                        : 'text-muted-foreground hover:bg-secondary/45 hover:text-foreground'
+                    }`}
+                  >
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                  </NavLink>
+                )
+              })}
+            </div>
+          </nav>
+        ) : null}
       </SidebarInset>
     </SidebarProvider>
   )
