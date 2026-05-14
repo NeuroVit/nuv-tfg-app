@@ -236,7 +236,7 @@ export function AppSidebar({ isSettingsRoute = false, collapsible = 'icon' }: Ap
         </div>
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="pb-[calc(env(safe-area-inset-bottom,0px)+12px)] md:pb-2">
         <div className="relative z-10">
         <SidebarMenu>
           <SidebarMenuItem>
