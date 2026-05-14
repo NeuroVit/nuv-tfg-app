@@ -2,10 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { AlertCircle, ArrowDown, ArrowUp, PackageSearch } from 'lucide-react'
 import { getFinanzasResumenAnalitica, getTopProductosVelocidadAnalitica, getVelocidadResumenAnalitica } from '@/api/analitica'
+import { getMovimientos } from '@/api/movimiento'
 import { useInventarioDashboard } from '@/hooks/useInventarioDashboard'
 import { useDisplayName } from '@/store/profileStore'
 import { useFormatters } from '@/lib/useFormatters'
 import type { TopProductVelocityRow, VelocitySummaryRow } from '@/types/analitica'
+import type { MovimientoStock } from '@/types/movimiento'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -150,6 +152,13 @@ const isInRange = (date: Date, range: RangeBounds) => {
 }
 
 const daysBetween = (start: Date, end: Date) => Math.max(1, Math.ceil((end.getTime() - start.getTime()) / DAY_MS))
+const MOVEMENTS_PAGE_SIZE = 200
+const toInputDate = (date: Date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 
 export default function Inicio() {
   const { timeZone, toUserDayKey, formatShortDate } = useFormatters()
@@ -166,12 +175,14 @@ export default function Inicio() {
   const [criticalStockPrevious, setCriticalStockPrevious] = useState<number | null>(null)
   const [chartInsightsLoading, setChartInsightsLoading] = useState(false)
   const [chartInsightsError, setChartInsightsError] = useState<string | null>(null)
+  const [movimientos, setMovimientos] = useState<MovimientoStock[]>([])
+  const [movimientosLoading, setMovimientosLoading] = useState(false)
+  const [movimientosError, setMovimientosError] = useState<string | null>(null)
   const {
     valorTotal,
     totalProductos,
     productosStockBajo,
     totalCategorias,
-    movimientos,
     loading,
     error,
   } = useInventarioDashboard()
@@ -254,6 +265,79 @@ export default function Inicio() {
     }
     localStorage.setItem(stockSnapshotKey, String(productosStockBajo.length))
   }, [productosStockBajo.length, stockSnapshotKey])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadMovimientos = async () => {
+      setMovimientosLoading(true)
+      setMovimientosError(null)
+      setMovimientos([])
+
+      try {
+        const params: {
+          desde?: string
+          hasta?: string
+          limit: number
+          offset: number
+        } = {
+          limit: MOVEMENTS_PAGE_SIZE,
+          offset: 0,
+        }
+
+        if (activeRange.start && activeRange.end) {
+          params.desde = toInputDate(activeRange.start)
+          const inclusiveEnd = new Date(activeRange.end)
+          inclusiveEnd.setDate(inclusiveEnd.getDate() - 1)
+          params.hasta = toInputDate(inclusiveEnd)
+        }
+
+        let expectedTotal = 0
+        let fetched = 0
+        const allRows: MovimientoStock[] = []
+
+        while (true) {
+          const page = await getMovimientos(params)
+          if (expectedTotal === 0) {
+            expectedTotal = Math.max(0, page.total ?? 0)
+          }
+
+          if (page.content.length === 0) break
+
+          allRows.push(...page.content)
+          fetched += page.content.length
+          params.offset += page.content.length
+
+          if (expectedTotal > 0 && fetched >= expectedTotal) break
+          if (page.content.length < params.limit) break
+        }
+
+        const sorted = allRows
+          .map((movimiento) => ({
+            ...movimiento,
+            cantidad: Math.abs(Number(movimiento.cantidad ?? 0)),
+          }))
+          .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
+
+        if (!cancelled) {
+          setMovimientos(sorted)
+        }
+      } catch {
+        if (!cancelled) {
+          setMovimientosError('No se pudieron cargar todos los movimientos del rango.')
+        }
+      } finally {
+        if (!cancelled) {
+          setMovimientosLoading(false)
+        }
+      }
+    }
+
+    void loadMovimientos()
+    return () => {
+      cancelled = true
+    }
+  }, [activeRange])
 
   useEffect(() => {
     let cancelled = false
@@ -701,43 +785,53 @@ export default function Inicio() {
           </CardHeader>
           <CardContent>
             {selectedChart === 'movements' ? (
-              <ChartContainer config={movementsChartConfig} className="h-[220px] w-full">
-                <AreaChart data={movementsChartData} margin={{ top: 4, right: 12, left: -16, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="fillEntradas" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--color-Entradas)" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="var(--color-Entradas)" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="fillSalidas" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--color-Salidas)" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="var(--color-Salidas)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                  <XAxis dataKey="fecha" tickLine={false} axisLine={false} tickMargin={8} />
-                  <YAxis tickLine={false} axisLine={false} allowDecimals={false} />
-                  <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
-                  <ChartLegend content={<ChartLegendContent />} />
-                  <Area
-                    type="monotone"
-                    dataKey="Entradas"
-                    stroke="var(--color-Entradas)"
-                    strokeWidth={2}
-                    fill="url(#fillEntradas)"
-                    dot={false}
-                    activeDot={{ r: 4 }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="Salidas"
-                    stroke="var(--color-Salidas)"
-                    strokeWidth={2}
-                    fill="url(#fillSalidas)"
-                    dot={false}
-                    activeDot={{ r: 4 }}
-                  />
-                </AreaChart>
-              </ChartContainer>
+              movimientosLoading ? (
+                <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
+                  Cargando gráfica de movimientos...
+                </div>
+              ) : movimientosError ? (
+                <div className="flex h-[220px] items-center justify-center text-sm text-red-600">
+                  {movimientosError}
+                </div>
+              ) : (
+                <ChartContainer config={movementsChartConfig} className="h-[220px] w-full">
+                  <AreaChart data={movementsChartData} margin={{ top: 4, right: 12, left: -16, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="fillEntradas" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="var(--color-Entradas)" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="var(--color-Entradas)" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="fillSalidas" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="var(--color-Salidas)" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="var(--color-Salidas)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                    <XAxis dataKey="fecha" tickLine={false} axisLine={false} tickMargin={8} />
+                    <YAxis tickLine={false} axisLine={false} allowDecimals={false} />
+                    <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
+                    <ChartLegend content={<ChartLegendContent />} />
+                    <Area
+                      type="monotone"
+                      dataKey="Entradas"
+                      stroke="var(--color-Entradas)"
+                      strokeWidth={2}
+                      fill="url(#fillEntradas)"
+                      dot={false}
+                      activeDot={{ r: 4 }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="Salidas"
+                      stroke="var(--color-Salidas)"
+                      strokeWidth={2}
+                      fill="url(#fillSalidas)"
+                      dot={false}
+                      activeDot={{ r: 4 }}
+                    />
+                  </AreaChart>
+                </ChartContainer>
+              )
             ) : chartInsightsLoading ? (
               <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
                 Cargando gráfica...
@@ -818,7 +912,11 @@ export default function Inicio() {
             </CardHeader>
             <CardContent>
               <div className={`space-y-3 ${movimientosInRange.length > 5 ? 'max-h-[360px] overflow-y-auto pr-1' : ''}`}>
-                {movimientosPreview.length === 0 ? (
+                {movimientosLoading ? (
+                  <div className="text-sm text-muted-foreground">Cargando movimientos del rango...</div>
+                ) : movimientosError ? (
+                  <div className="text-sm text-red-600">{movimientosError}</div>
+                ) : movimientosPreview.length === 0 ? (
                   <div className="space-y-2 text-sm text-muted-foreground">
                     <p>No hay movimientos recientes.</p>
                     <Button size="sm" variant="outline" onClick={() => navigate('/movimientos')}>
