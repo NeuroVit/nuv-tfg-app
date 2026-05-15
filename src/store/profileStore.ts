@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { create } from 'zustand'
-import type { UserProfile } from '@/types/auth'
+import type { UserProfile } from '@/features/auth/types/auth'
 import { useAuthStore } from '@/store/authStore'
 
 interface ProfileState {

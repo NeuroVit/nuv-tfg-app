@@ -1,0 +1,277 @@
+import { useEffect, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router'
+import { toast } from 'sonner'
+import { Archive, Eye, MoreHorizontal, Pencil, Plus, RotateCcw, Truck } from 'lucide-react'
+import {
+  archivarProveedor,
+  getProveedoresPaged,
+  restaurarProveedor,
+} from '@/features/proveedores/api/provider'
+import type { Proveedor } from '@/features/proveedores/types/provider'
+import { useAuthStore } from '@/store/authStore'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { parseApiError } from '@/lib/apiError'
+import ProveedorModal from '@/features/proveedores/components/ProveedorModal'
+
+const PAGE_SIZE = 20
+
+export default function ProveedoresPage() {
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const selectedProviderId = Number(searchParams.get('providerId')) || null
+
+  const { hasRole } = useAuthStore()
+  const canEdit = hasRole('ROLE_ADMIN') || hasRole('ROLE_MANAGER')
+
+  const [providers, setProviders] = useState<Proveedor[]>([])
+  const [totalProviders, setTotalProviders] = useState(0)
+  const [loadingProviders, setLoadingProviders] = useState(true)
+
+  const [providerSearch, setProviderSearch] = useState('')
+  const [providerStatusFilter, setProviderStatusFilter] = useState<'all' | 'active' | 'archived'>('active')
+  const [offset, setOffset] = useState(0)
+
+  const [providerDialogOpen, setProviderDialogOpen] = useState(false)
+  const [editingProvider, setEditingProvider] = useState<Proveedor | null>(null)
+
+  const loadProviders = async () => {
+    setLoadingProviders(true)
+    try {
+      const page = await getProveedoresPaged({
+        status: providerStatusFilter,
+        search: providerSearch.trim() || undefined,
+        limit: PAGE_SIZE,
+        offset,
+      })
+      setProviders(page.content)
+      setTotalProviders(page.total)
+    } catch (error: unknown) {
+      toast.error(parseApiError(error, 'No se pudieron cargar los proveedores'))
+    } finally {
+      setLoadingProviders(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadProviders()
+  }, [offset, providerSearch, providerStatusFilter])
+
+  const total = totalProviders
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const currentPage = Math.floor(offset / PAGE_SIZE) + 1
+
+  useEffect(() => {
+    setOffset(0)
+  }, [providerSearch, providerStatusFilter])
+
+  useEffect(() => {
+    if (offset >= total && total > 0) {
+      setOffset(Math.max(0, (Math.ceil(total / PAGE_SIZE) - 1) * PAGE_SIZE))
+    }
+  }, [offset, total])
+
+  const openCreateProvider = () => {
+    setEditingProvider(null)
+    setProviderDialogOpen(true)
+  }
+
+  const openEditProvider = (provider: Proveedor) => {
+    setEditingProvider(provider)
+    setProviderDialogOpen(true)
+  }
+
+  const toggleArchiveProvider = async (provider: Proveedor) => {
+    try {
+      if (provider.activo) {
+        await archivarProveedor(provider.id)
+        toast.success(`Proveedor "${provider.nombre}" archivado.`)
+      } else {
+        await restaurarProveedor(provider.id)
+        toast.success(`Proveedor "${provider.nombre}" restaurado.`)
+      }
+      await loadProviders()
+    } catch (error: unknown) {
+      toast.error(parseApiError(error, 'No se pudo actualizar el estado del proveedor'))
+    }
+  }
+
+  const goToPedidosForProvider = (provider: Proveedor) => {
+    navigate(`/pedidos?providerId=${provider.id}`)
+  }
+
+  const goToProviderDetail = (provider: Proveedor) => {
+    navigate(`/proveedores/${provider.id}`)
+  }
+
+  return (
+    <div className="p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+            <Input
+              placeholder="Buscar proveedor o almacén..."
+              value={providerSearch}
+              onChange={(event) => setProviderSearch(event.target.value)}
+              className="w-full md:w-80"
+            />
+            <Select
+              value={providerStatusFilter}
+              onValueChange={(value) => setProviderStatusFilter(value as 'all' | 'active' | 'archived')}
+            >
+              <SelectTrigger className="w-full md:w-48">
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="active">Activos</SelectItem>
+                <SelectItem value="archived">Archivados</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {canEdit && (
+            <Button className="w-full md:w-auto" onClick={openCreateProvider}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo proveedor
+            </Button>
+          )}
+        </div>
+
+        <div className="overflow-x-auto rounded-lg border bg-card">
+          <Table className="min-w-[900px] table-auto">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="min-w-[220px]">Nombre</TableHead>
+                <TableHead className="min-w-[220px]">Almacén</TableHead>
+                <TableHead className="min-w-[130px] text-center">Entrega (días)</TableHead>
+                <TableHead className="min-w-[110px] text-center">Productos</TableHead>
+                <TableHead className="min-w-[120px]">Estado</TableHead>
+                <TableHead className="min-w-[100px] text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loadingProviders ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                    Cargando proveedores...
+                  </TableCell>
+                </TableRow>
+              ) : providers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                    No hay proveedores para mostrar.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                providers.map((provider) => (
+                  <TableRow
+                    key={provider.id}
+                    className={`cursor-pointer hover:bg-accent ${selectedProviderId === provider.id ? 'bg-muted' : ''}`}
+                    onClick={() => goToProviderDetail(provider)}
+                  >
+                    <TableCell className="font-medium">
+                      <span className="block truncate" title={provider.nombre}>{provider.nombre}</span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="block truncate" title={provider.ubicacionAlmacen}>{provider.ubicacionAlmacen}</span>
+                    </TableCell>
+                    <TableCell className="text-center">{provider.diasEntrega}</TableCell>
+                    <TableCell className="text-center">{provider.cantidadProductos}</TableCell>
+                    <TableCell>
+                      <Badge variant={provider.activo ? 'default' : 'secondary'}>
+                        {provider.activo ? 'Activo' : 'Archivado'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div onClick={(event) => event.stopPropagation()}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" aria-label="Acciones de proveedor">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="min-w-52">
+                            <DropdownMenuItem onSelect={() => goToPedidosForProvider(provider)}>
+                              <Truck className="h-4 w-4" />
+                              Ver pedidos de este proveedor
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => goToProviderDetail(provider)}>
+                              <Eye className="h-4 w-4" />
+                              Ver detalle del proveedor
+                            </DropdownMenuItem>
+                            {canEdit && (
+                              <>
+                                <DropdownMenuItem onSelect={() => openEditProvider(provider)}>
+                                  <Pencil className="h-4 w-4" />
+                                  Editar proveedor
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onSelect={() => {
+                                    void toggleArchiveProvider(provider)
+                                  }}
+                                >
+                                  {provider.activo ? (
+                                    <>
+                                      <Archive className="h-4 w-4" />
+                                      Archivar proveedor
+                                    </>
+                                  ) : (
+                                    <>
+                                      <RotateCcw className="h-4 w-4" />
+                                      Restaurar proveedor
+                                    </>
+                                  )}
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">Página {currentPage} de {totalPages} · {total} registros</p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setOffset((prev) => Math.max(0, prev - PAGE_SIZE))}
+              disabled={offset === 0}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setOffset((prev) => (prev + PAGE_SIZE >= total ? prev : prev + PAGE_SIZE))}
+              disabled={offset + PAGE_SIZE >= total}
+            >
+              Siguiente
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <ProveedorModal
+        open={providerDialogOpen}
+        onClose={() => setProviderDialogOpen(false)}
+        onSaved={() => void loadProviders()}
+        proveedor={editingProvider}
+      />
+    </div>
+  )
+}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import client from '@/api/client'
-import { getInventarioAnalitica } from '@/api/analitica'
+import { getInventarioAnalitica } from '@/features/analitica/api/analitica'
 
 type CategoriaApi = {
   id: number
@@ -76,7 +76,7 @@ export function useInventarioDashboard() {
         )
 
         const productosStockBajo = inventario
-          .filter((producto) => producto.stockStatus === 'LOW_STOCK')
+          .filter((producto) => producto.stockStatus === 'LOW_STOCK' || producto.stockStatus === 'OUT_OF_STOCK')
           .map((producto) => ({
             id: producto.productId,
             nombre: producto.productName,
