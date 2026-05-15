@@ -24,6 +24,7 @@ import ClientesPage from '../pages/ClientesPage'
 import VentasPage from '../pages/VentasPage'
 import ReportesPage from '../pages/ReportesPage'
 import TareasPage from '../pages/TareasPage'
+import BillingPage from '../pages/BillingPage'
 import SettingsProfilePage from '../pages/settings/SettingsProfilePage'
 import SettingsSecurityPage from '../pages/settings/SettingsSecurityPage'
 import SettingsUsersPage from '../pages/settings/SettingsUsersPage'
@@ -70,6 +71,7 @@ export const router = createBrowserRouter([
           { path: '/clientes', element: <ClientesPage /> },
           { path: '/ventas', element: <VentasPage /> },
           { path: '/reportes', element: <ReportesPage /> },
+          { path: '/billing', element: <BillingPage /> },
           { path: '/settings', element: <Navigate to="/settings/general" replace /> },
           { path: '/settings/profile', element: <SettingsProfilePage /> },
           { path: '/settings/organization', element: <SettingsOrganizationPage /> },

@@ -35,6 +35,7 @@ import {
   Building2,
   CheckSquare,
   ChevronsUpDown,
+  CreditCard,
   FileText,
   LayoutDashboard,
   LogOut,
@@ -81,6 +82,12 @@ const navGroups: { label?: string; items: NavItem[] }[] = [
       { to: '/clientes', label: 'Clientes', icon: UserSquare2 },
       { to: '/ventas', label: 'Ventas', icon: ReceiptText },
       { to: '/reportes', label: 'Reportes', icon: FileText },
+    ],
+  },
+  {
+    label: 'Cuenta',
+    items: [
+      { to: '/billing', label: 'Facturación', icon: CreditCard },
     ],
   },
 ]
