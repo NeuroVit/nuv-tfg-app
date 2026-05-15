@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
-import { Activity, AlertTriangle, BarChart3, Bell, LayoutDashboard, LogOut, Moon, Package, ReceiptText, Settings, Sun, Truck, UserSquare2 } from 'lucide-react'
+import { Activity, AlertTriangle, BarChart3, Bell, Check, CheckSquare, FileText, LayoutDashboard, LogOut, Moon, Package, ReceiptText, Settings, Sun, Truck, UserSquare2 } from 'lucide-react'
 
 import { getAlertas } from '@/api/alerta'
 import { getMe, logout as logoutRequest, updateMe } from '@/api/auth'
@@ -107,9 +107,32 @@ export default function AppLayout() {
   const { theme, resolvedTheme, setTheme } = useTheme()
 
   const isSettingsRoute = location.pathname.startsWith('/settings')
-  const [openAlertsCount, setOpenAlertsCount] = useState(0)
-  const [recentOpenAlerts, setRecentOpenAlerts] = useState<AlertaStock[]>([])
+  const [allOpenAlerts, setAllOpenAlerts] = useState<AlertaStock[]>([])
   const [alertsDrawerOpen, setAlertsDrawerOpen] = useState(false)
+  const [dismissedIds, setDismissedIds] = useState<Set<number>>(
+    () => new Set(JSON.parse(localStorage.getItem('dismissed-alert-ids') ?? '[]') as number[])
+  )
+
+  const dismissAlert = (id: number) => {
+    setDismissedIds((prev) => {
+      const next = new Set(prev)
+      next.add(id)
+      localStorage.setItem('dismissed-alert-ids', JSON.stringify([...next]))
+      return next
+    })
+  }
+
+  const dismissAll = () => {
+    setDismissedIds((prev) => {
+      const next = new Set(prev)
+      allOpenAlerts.forEach((a) => next.add(a.id))
+      localStorage.setItem('dismissed-alert-ids', JSON.stringify([...next]))
+      return next
+    })
+  }
+
+  const visibleAlerts = allOpenAlerts.filter((a) => !dismissedIds.has(a.id)).slice(0, 8)
+  const openAlertsCount = allOpenAlerts.filter((a) => !dismissedIds.has(a.id)).length
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const isMobile = useIsMobile()
   const [isPhoneLikeDevice, setIsPhoneLikeDevice] = useState(false)
@@ -146,9 +169,11 @@ export default function AppLayout() {
     if (inRouteGroup(path, ['/proveedores', '/pedidos'])) return 'Proveedores'
     if (path.startsWith('/movimientos')) return 'Movimientos'
     if (path.startsWith('/alertas')) return 'Alertas'
+    if (path.startsWith('/tareas')) return 'Tareas'
     if (path.startsWith('/analitica')) return 'Analitica'
     if (path.startsWith('/clientes')) return 'Clientes'
     if (path.startsWith('/ventas')) return 'Ventas'
+    if (path.startsWith('/reportes')) return 'Reportes'
     if (path.startsWith('/settings')) return 'Ajustes'
     return ''
   }, [location.pathname])
@@ -233,12 +258,10 @@ export default function AppLayout() {
       try {
         const openAlerts = await getAlertas(false)
         if (!isMounted) return
-        setOpenAlertsCount(openAlerts.length)
-        setRecentOpenAlerts(openAlerts.slice(0, 5))
+        setAllOpenAlerts(openAlerts)
       } catch {
         if (!isMounted) return
-        setOpenAlertsCount(0)
-        setRecentOpenAlerts([])
+        setAllOpenAlerts([])
       }
     }
 
@@ -394,26 +417,60 @@ export default function AppLayout() {
                 <SheetContent side="right" className="w-full sm:max-w-md">
                   <SheetHeader className="pb-2">
                     <SheetTitle>Notificaciones</SheetTitle>
-                    <SheetDescription>Alertas abiertas ({openAlertsCount})</SheetDescription>
+                    <SheetDescription>
+                      {openAlertsCount === 0
+                        ? 'Todo al día'
+                        : `${openAlertsCount} alerta${openAlertsCount !== 1 ? 's' : ''} pendiente${openAlertsCount !== 1 ? 's' : ''}`}
+                    </SheetDescription>
                   </SheetHeader>
-                  <div className="flex-1 space-y-2 overflow-y-auto px-6 pb-4">
-                    {recentOpenAlerts.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">No hay alertas abiertas.</p>
+                  <div className="flex-1 overflow-y-auto px-6 pb-4">
+                    {visibleAlerts.length === 0 ? (
+                      <div className="flex flex-col items-center gap-2 py-10 text-center">
+                        <Check className="h-8 w-8 text-green-500" />
+                        <p className="text-sm font-medium text-foreground">Todo al día</p>
+                        <p className="text-xs text-muted-foreground">No hay notificaciones pendientes.</p>
+                      </div>
                     ) : (
-                      recentOpenAlerts.map((alert) => (
-                        <button
-                          key={alert.id}
-                          type="button"
-                          className="w-full rounded-md bg-secondary/55 p-3 text-left transition-colors hover:bg-muted"
-                          onClick={() => {
-                            setAlertsDrawerOpen(false)
-                            navigate('/alertas')
-                          }}
-                        >
-                          <p className="text-sm font-medium">{alert.productoNombre} - {alert.tipo}</p>
-                          <p className="truncate text-xs text-muted-foreground">{alert.mensaje}</p>
-                        </button>
-                      ))
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between py-1">
+                          <span className="text-xs text-muted-foreground">
+                            Mostrando {visibleAlerts.length} de {openAlertsCount}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={dismissAll}
+                            className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline transition"
+                          >
+                            Marcar todas como vistas
+                          </button>
+                        </div>
+                        {visibleAlerts.map((alert) => (
+                          <div
+                            key={alert.id}
+                            className="flex items-start gap-2 rounded-md bg-secondary/55 p-3 transition-colors hover:bg-muted"
+                          >
+                            <button
+                              type="button"
+                              className="w-full flex-1 text-left"
+                              onClick={() => {
+                                setAlertsDrawerOpen(false)
+                                navigate('/alertas')
+                              }}
+                            >
+                              <p className="text-sm font-medium">{alert.productoNombre} — {alert.tipo}</p>
+                              <p className="truncate text-xs text-muted-foreground">{alert.mensaje}</p>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => dismissAlert(alert.id)}
+                              title="Marcar como vista"
+                              className="mt-0.5 shrink-0 rounded-full p-1 text-muted-foreground transition hover:bg-green-100 hover:text-green-600 dark:hover:bg-green-900/30"
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
                 </SheetContent>
@@ -464,6 +521,14 @@ export default function AppLayout() {
                     <DropdownMenuItem onSelect={() => navigate('/alertas')}>
                       <AlertTriangle className="h-4 w-4" />
                       Alertas
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => navigate('/tareas')}>
+                      <CheckSquare className="h-4 w-4" />
+                      Tareas
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => navigate('/reportes')}>
+                      <FileText className="h-4 w-4" />
+                      Reportes
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => navigate('/analitica/resumen')}>
                       <BarChart3 className="h-4 w-4" />
