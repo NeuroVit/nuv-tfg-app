@@ -15,4 +15,6 @@ export interface AlertaResumen {
   stockBajo: number
   anomaliasPrecio: number
   resueltasUltimos7Dias: number
+  criticas?: number
+  anomalias?: number
 }

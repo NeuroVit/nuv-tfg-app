@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { crearTarea } from '@/features/tareas/api/tarea'
-import type { PrioridadTarea } from '@/features/tareas/types/tarea'
+import type { PrioridadTarea, TareaAsignableUsuario } from '@/features/tareas/types/tarea'
 import ModalShell, { ModalSection, RequiredMark } from '@/components/ModalShell'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -15,15 +15,24 @@ import {
 
 interface Props {
   open: boolean
+  asignables: TareaAsignableUsuario[]
+  currentUserId?: number | null
   onClose: () => void
   onSuccess: () => void
 }
 
-const emptyForm = { titulo: '', descripcion: '', prioridad: 'MEDIA' as PrioridadTarea }
+const emptyForm = { titulo: '', descripcion: '', prioridad: 'MEDIA' as PrioridadTarea, asignadoAUserId: '' }
 
-export default function TareaFormModal({ open, onClose, onSuccess }: Props) {
+export default function TareaFormModal({ open, asignables, currentUserId, onClose, onSuccess }: Props) {
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    const defaultAssigneeId = currentUserId ?? asignables[0]?.id ?? null
+    if (!defaultAssigneeId) return
+    setForm((prev) => ({ ...prev, asignadoAUserId: String(defaultAssigneeId) }))
+  }, [open, currentUserId, asignables])
 
   const handleClose = () => {
     setForm(emptyForm)
@@ -35,10 +44,16 @@ export default function TareaFormModal({ open, onClose, onSuccess }: Props) {
 
     setSaving(true)
     try {
+      const parsedAssigneeId = form.asignadoAUserId ? Number(form.asignadoAUserId) : undefined
+      if (parsedAssigneeId !== undefined && Number.isNaN(parsedAssigneeId)) {
+        toast.error('Selecciona un usuario válido')
+        return
+      }
       await crearTarea({
         titulo: form.titulo.trim(),
         descripcion: form.descripcion.trim() || undefined,
         prioridad: form.prioridad,
+        asignadoAUserId: parsedAssigneeId,
       })
       toast.success('Tarea creada correctamente')
       setForm(emptyForm)
@@ -97,6 +112,27 @@ export default function TareaFormModal({ open, onClose, onSuccess }: Props) {
                   <SelectItem value="ALTA">Alta</SelectItem>
                   <SelectItem value="MEDIA">Media</SelectItem>
                   <SelectItem value="BAJA">Baja</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">
+                Asignar a <RequiredMark />
+              </label>
+              <Select
+                value={form.asignadoAUserId}
+                onValueChange={(v) => setForm((p) => ({ ...p, asignadoAUserId: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un usuario" />
+                </SelectTrigger>
+                <SelectContent>
+                  {asignables.map((u) => (
+                    <SelectItem key={u.id} value={String(u.id)}>
+                      {u.nombreCompleto} ({u.username})
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

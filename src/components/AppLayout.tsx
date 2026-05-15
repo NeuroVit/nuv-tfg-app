@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type UIEvent } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { Activity, AlertTriangle, BarChart3, Bell, Check, CheckSquare, CreditCard, FileText, LayoutDashboard, LogOut, Moon, Package, ReceiptText, Settings, Sun, Truck, UserSquare2 } from 'lucide-react'
 
@@ -97,6 +97,9 @@ const mobileNavItems: MobileNavItem[] = [
 const inRouteGroup = (pathname: string, routes: string[]) =>
   routes.some((route) => pathname === route || pathname.startsWith(`${route}/`))
 
+const ALERTS_PAGE_LIMIT = 20
+const ALERTS_SCROLL_LOAD_THRESHOLD = 120
+
 export default function AppLayout() {
   const { user, logout: clearSession } = useAuthStore()
   const setProfile = useProfileStore((s) => s.setProfile)
@@ -109,6 +112,8 @@ export default function AppLayout() {
   const isSettingsRoute = location.pathname.startsWith('/settings')
   const [allOpenAlerts, setAllOpenAlerts] = useState<AlertaStock[]>([])
   const [openAlertsTotal, setOpenAlertsTotal] = useState(0)
+  const [hasMoreOpenAlerts, setHasMoreOpenAlerts] = useState(false)
+  const [isLoadingMoreOpenAlerts, setIsLoadingMoreOpenAlerts] = useState(false)
   const [alertsDrawerOpen, setAlertsDrawerOpen] = useState(false)
   const [dismissedIds, setDismissedIds] = useState<Set<number>>(
     () => new Set(JSON.parse(localStorage.getItem('dismissed-alert-ids') ?? '[]') as number[])
@@ -132,7 +137,7 @@ export default function AppLayout() {
     })
   }
 
-  const visibleAlerts = allOpenAlerts.filter((a) => !dismissedIds.has(a.id)).slice(0, 8)
+  const visibleAlerts = allOpenAlerts.filter((a) => !dismissedIds.has(a.id))
   const dismissedFetchedOpenCount = allOpenAlerts.filter((a) => dismissedIds.has(a.id)).length
   const openAlertsCount = Math.max(0, openAlertsTotal - dismissedFetchedOpenCount)
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -248,12 +253,46 @@ export default function AppLayout() {
     setAvatarLoaded(false)
   }, [effectiveAvatarUrl])
 
+  const loadMoreOpenAlerts = useCallback(async () => {
+    if (!user?.token || isLoadingMoreOpenAlerts || !hasMoreOpenAlerts) return
+
+    setIsLoadingMoreOpenAlerts(true)
+    try {
+      const nextPage = await getAlertasPaged({
+        resueltas: false,
+        limit: ALERTS_PAGE_LIMIT,
+        offset: allOpenAlerts.length,
+      })
+
+      setAllOpenAlerts((prev) => {
+        const existingIds = new Set(prev.map((alert) => alert.id))
+        const uniqueNextAlerts = nextPage.content.filter((alert) => !existingIds.has(alert.id))
+        return [...prev, ...uniqueNextAlerts]
+      })
+      setHasMoreOpenAlerts(nextPage.offset + nextPage.content.length < nextPage.total)
+    } catch {
+      // ignore incremental loading errors and keep existing list
+    } finally {
+      setIsLoadingMoreOpenAlerts(false)
+    }
+  }, [allOpenAlerts.length, hasMoreOpenAlerts, isLoadingMoreOpenAlerts, user?.token])
+
+  const handleAlertsScroll = (event: UIEvent<HTMLDivElement>) => {
+    const remainingScroll =
+      event.currentTarget.scrollHeight - event.currentTarget.scrollTop - event.currentTarget.clientHeight
+    if (remainingScroll <= ALERTS_SCROLL_LOAD_THRESHOLD) {
+      void loadMoreOpenAlerts()
+    }
+  }
+
   useEffect(() => {
     let isMounted = true
     const loadOpenAlerts = async () => {
       if (!user?.token) {
         if (isMounted) {
           setAllOpenAlerts([])
+          setHasMoreOpenAlerts(false)
+          setIsLoadingMoreOpenAlerts(false)
         }
         return
       }
@@ -261,7 +300,7 @@ export default function AppLayout() {
         const [openAlertsPage, alertsSummary] = await Promise.all([
           getAlertasPaged({
             resueltas: false,
-            limit: 50,
+            limit: ALERTS_PAGE_LIMIT,
             offset: 0,
           }),
           getAlertasResumen(),
@@ -269,10 +308,14 @@ export default function AppLayout() {
         if (!isMounted) return
         setAllOpenAlerts(openAlertsPage.content)
         setOpenAlertsTotal(alertsSummary.abiertas)
+        setHasMoreOpenAlerts(openAlertsPage.offset + openAlertsPage.content.length < openAlertsPage.total)
+        setIsLoadingMoreOpenAlerts(false)
       } catch {
         if (!isMounted) return
         setAllOpenAlerts([])
         setOpenAlertsTotal(0)
+        setHasMoreOpenAlerts(false)
+        setIsLoadingMoreOpenAlerts(false)
       }
     }
 
@@ -434,7 +477,7 @@ export default function AppLayout() {
                         : `${openAlertsCount} alerta${openAlertsCount !== 1 ? 's' : ''} pendiente${openAlertsCount !== 1 ? 's' : ''}`}
                     </SheetDescription>
                   </SheetHeader>
-                  <div className="flex-1 overflow-y-auto px-6 pb-4">
+                  <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-4" onScroll={handleAlertsScroll}>
                     {visibleAlerts.length === 0 ? (
                       <div className="flex flex-col items-center gap-2 py-10 text-center">
                         <Check className="h-8 w-8 text-green-500" />
@@ -481,6 +524,9 @@ export default function AppLayout() {
                             </button>
                           </div>
                         ))}
+                        {isLoadingMoreOpenAlerts ? (
+                          <p className="py-2 text-center text-xs text-muted-foreground">Cargando más notificaciones...</p>
+                        ) : null}
                       </div>
                     )}
                   </div>

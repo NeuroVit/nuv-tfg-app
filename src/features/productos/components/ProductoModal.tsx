@@ -23,6 +23,7 @@ type FormState = {
   sku: string
   stockActual: string
   stockMinimo: string
+  stockMaximo: string
   precio: string
   costoUnitario: string
 }
@@ -34,6 +35,7 @@ const initialForm: FormState = {
   sku: '',
   stockActual: '0',
   stockMinimo: '1',
+  stockMaximo: '5',
   precio: '0.01',
   costoUnitario: '0.01',
 }
@@ -92,6 +94,7 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
         sku: producto.sku,
         stockActual: String(producto.cantidadActual ?? 0),
         stockMinimo: String(producto.nivelMinimoStock ?? 1),
+        stockMaximo: String(producto.nivelMaximoStock ?? Math.max((producto.nivelMinimoStock ?? 1) * 5, 1)),
         precio: String(producto.precioUnitario ?? 0.01),
         costoUnitario: String(producto.costoUnitario ?? producto.precioUnitario ?? 0.01),
       })
@@ -108,6 +111,7 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
     const nombre = form.nombre.trim()
     const stockActual = Number(form.stockActual)
     const stockMinimo = Number(form.stockMinimo)
+    const stockMaximo = Number(form.stockMaximo)
     const precio = Number(form.precio)
     const costoUnitario = Number(form.costoUnitario)
 
@@ -117,6 +121,10 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
     if (!form.sku.trim()) errors.sku = 'El SKU es obligatorio.'
     if (!Number.isFinite(stockActual) || stockActual < 0) errors.stockActual = 'Debe ser 0 o mayor.'
     if (!Number.isFinite(stockMinimo) || stockMinimo < 1) errors.stockMinimo = 'Debe ser 1 o mayor.'
+    if (!Number.isFinite(stockMaximo) || stockMaximo < 0) errors.stockMaximo = 'Debe ser 0 o mayor.'
+    if (Number.isFinite(stockMinimo) && Number.isFinite(stockMaximo) && stockMaximo < stockMinimo) {
+      errors.stockMaximo = 'Debe ser mayor o igual que el stock mínimo.'
+    }
     if (!Number.isFinite(precio) || precio < 0.01) errors.precio = 'Debe ser 0.01 o mayor.'
     if (!Number.isFinite(costoUnitario) || costoUnitario < 0.01) errors.costoUnitario = 'Debe ser 0.01 o mayor.'
     return errors
@@ -156,6 +164,7 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
       sku: true,
       stockActual: true,
       stockMinimo: true,
+      stockMaximo: true,
       precio: true,
       costoUnitario: true,
     })
@@ -170,6 +179,7 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
       sku: form.sku.trim(),
       cantidadActual: Number(form.stockActual),
       nivelMinimoStock: Number(form.stockMinimo),
+      nivelMaximoStock: Number(form.stockMaximo),
       precioUnitario: Number(form.precio),
       costoUnitario: Number(form.costoUnitario),
     }
@@ -194,6 +204,7 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
           if (item.field === 'sku') mappedErrors.sku = item.message
           if (item.field === 'cantidadActual' || item.field === 'stockActual') mappedErrors.stockActual = item.message
           if (item.field === 'nivelMinimoStock' || item.field === 'stockMinimo') mappedErrors.stockMinimo = item.message
+          if (item.field === 'nivelMaximoStock' || item.field === 'stockMaximo') mappedErrors.stockMaximo = item.message
           if (item.field === 'precioUnitario' || item.field === 'precio') mappedErrors.precio = item.message
           if (item.field === 'costoUnitario') mappedErrors.costoUnitario = item.message
         }
@@ -343,7 +354,7 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
               </p>
             )}
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-5">
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-foreground">Stock actual <RequiredMark /></label>
                 <input
@@ -372,6 +383,21 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
                   }`}
                 />
                 {touched.stockMinimo && mergedErrors.stockMinimo && <p className="text-xs text-red-600">{mergedErrors.stockMinimo}</p>}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-foreground">Stock máximo <RequiredMark /></label>
+                <input
+                  type="number"
+                  min={0}
+                  value={form.stockMaximo}
+                  onChange={(event) => updateField('stockMaximo', event.target.value)}
+                  onBlur={() => markTouched('stockMaximo')}
+                  className={`w-full rounded-xl border px-3 py-2 text-sm outline-none transition ${
+                    touched.stockMaximo && mergedErrors.stockMaximo ? 'border-red-500 ring-2 ring-red-100' : 'border-input focus:border-ring'
+                  }`}
+                />
+                {touched.stockMaximo && mergedErrors.stockMaximo && <p className="text-xs text-red-600">{mergedErrors.stockMaximo}</p>}
               </div>
 
               <div className="space-y-1.5">

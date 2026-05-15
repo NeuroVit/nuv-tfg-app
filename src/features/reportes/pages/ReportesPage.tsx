@@ -254,7 +254,7 @@ export default function ReportesPage() {
                 return (
                   <div
                     key={p.id}
-                    className={`rounded-lg border bg-card p-4 transition ${p.activo ? '' : 'opacity-60'}`}
+                    className={`rounded-lg bg-card p-4 transition ${p.activo ? '' : 'opacity-60'}`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2">

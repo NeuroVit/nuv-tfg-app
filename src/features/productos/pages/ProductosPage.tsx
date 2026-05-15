@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+﻿import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -6,7 +6,6 @@ import { toast } from 'sonner'
 import {
   useReactTable,
   getCoreRowModel,
-  flexRender,
   type ColumnDef,
 } from '@tanstack/react-table'
 import {
@@ -24,27 +23,6 @@ import { useAuthStore } from '@/store/authStore'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   DropdownMenu,
@@ -52,8 +30,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Label } from '@/components/ui/label'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import ProductoDeleteDialog from '@/features/productos/components/ProductoDeleteDialog'
+import ProductoFormDialog from '@/features/productos/components/ProductoFormDialog'
+import ProductoStockDialog from '@/features/productos/components/ProductoStockDialog'
+import ProductosTableSection from '@/features/productos/components/ProductosTableSection'
 import { AlertTriangle, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { PackageSearchIcon } from '@hugeicons/core-free-icons'
@@ -62,12 +42,15 @@ import { parseApiError } from '@/lib/apiError'
 import {
   defaultProductoValues,
   hasPriceAnomaly,
+  isLowStock,
+  isOutOfStock,
+  isOverstock,
   productoSchema,
   type EstadoFiltro,
   type ProductoFormValues,
 } from '@/features/productos/productoForm'
 
-const PAGE_SIZE = 17
+const PAGE_SIZE = 16
 
 export default function ProductosPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -129,7 +112,7 @@ export default function ProductosPage() {
     }
   }
 
-  const cargarProductos = async () => {
+  const cargarProductos = useCallback(async () => {
     setLoading(true)
     try {
       const page = await getProductosPaged({
@@ -145,7 +128,7 @@ export default function ProductosPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [filtroCategoria, filtroEstado, filtroProveedor, globalFilter, offset])
 
   useEffect(() => {
     void cargarCatalogos()
@@ -153,7 +136,7 @@ export default function ProductosPage() {
 
   useEffect(() => {
     void cargarProductos()
-  }, [globalFilter, filtroCategoria, filtroProveedor, filtroEstado, offset])
+  }, [cargarProductos])
 
   useEffect(() => {
     const search = searchParams.get('search')
@@ -243,6 +226,7 @@ export default function ProductosPage() {
       costoUnitario: Number(producto.costoUnitario ?? producto.precioUnitario),
       cantidadActual: producto.cantidadActual,
       nivelMinimoStock: producto.nivelMinimoStock,
+      nivelMaximoStock: producto.nivelMaximoStock ?? Math.max(producto.nivelMinimoStock * 5, producto.nivelMinimoStock, 1),
       categoriaId: categoriaIdActual ? String(categoriaIdActual) : '',
       providerId: providerIdActual ? String(providerIdActual) : '',
     })
@@ -263,6 +247,7 @@ export default function ProductosPage() {
         costoUnitario: values.costoUnitario,
         cantidadActual: values.cantidadActual,
         nivelMinimoStock: values.nivelMinimoStock,
+        nivelMaximoStock: values.nivelMaximoStock,
         categoriaId: Number(values.categoriaId),
         providerId: Number(values.providerId),
       })
@@ -293,6 +278,7 @@ export default function ProductosPage() {
         costoUnitario: values.costoUnitario,
         cantidadActual: values.cantidadActual,
         nivelMinimoStock: values.nivelMinimoStock,
+        nivelMaximoStock: values.nivelMaximoStock,
         categoriaId: Number(values.categoriaId),
         providerId: Number(values.providerId),
       })
@@ -370,8 +356,7 @@ export default function ProductosPage() {
       header: 'Stock Actual',
       cell: ({ row }) => {
         const actual = row.original.cantidadActual
-        const minimo = row.original.nivelMinimoStock
-        const low = actual <= minimo
+        const low = isLowStock(row.original) || isOutOfStock(row.original)
         return (
           <div className="flex items-center justify-center gap-2">
             <span className={low ? 'text-red-600 font-semibold' : ''}>{actual}</span>
@@ -383,6 +368,10 @@ export default function ProductosPage() {
     {
       accessorKey: 'nivelMinimoStock',
       header: 'Stock Mínimo',
+    },
+    {
+      accessorKey: 'nivelMaximoStock',
+      header: 'Stock Máximo',
     },
     {
       accessorKey: 'precioUnitario',
@@ -401,10 +390,15 @@ export default function ProductosPage() {
       id: 'estado',
       header: 'Estado',
       cell: ({ row }) => {
-        const low = row.original.cantidadActual <= row.original.nivelMinimoStock
+        const critical = isOutOfStock(row.original)
+        const low = isLowStock(row.original)
+        const overstock = isOverstock(row.original)
         const priceAnomaly = hasPriceAnomaly(row.original)
+        if (critical) return <Badge variant="destructive">Crítica</Badge>
+        if (low) return <Badge variant="destructive">Stock bajo</Badge>
+        if (overstock) return <Badge variant="secondary">Sobrestock</Badge>
         if (priceAnomaly) return <Badge variant="secondary">Anomalía en precio</Badge>
-        return <Badge variant={low ? 'destructive' : 'default'}>{low ? 'Stock bajo' : 'Normal'}</Badge>
+        return <Badge variant="default">Normal</Badge>
       },
     },
     {
@@ -449,7 +443,6 @@ export default function ProductosPage() {
     getCoreRowModel: getCoreRowModel(),
   })
 
-  const visibleRows = table.getRowModel().rows
   const total = totalProductos
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1
@@ -527,522 +520,68 @@ export default function ProductosPage() {
           </Button>
         </div>
 
-        <div className="rounded-lg border bg-card">
-          <Table className="min-w-[900px]">
-            <TableHeader>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id} className="text-center">
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="py-12 text-center text-muted-foreground">
-                    Cargando productos...
-                  </TableCell>
-                </TableRow>
-              ) : visibleRows.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="py-12 text-center text-muted-foreground">
-                    No se encontraron productos.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                visibleRows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    className="cursor-pointer hover:bg-accent"
-                    onClick={() => {
-                      setProductoEditar(row.original)
-                      setModalOpen(true)
-                    }}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className="text-center align-middle">
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">Página {currentPage} de {totalPages} · {total} registros</p>
-          <div className="flex items-center justify-center gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setOffset((prev) => Math.max(0, prev - PAGE_SIZE))}
-              disabled={offset === 0}
-            >
-              Anterior
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setOffset((prev) => (prev + PAGE_SIZE >= total ? prev : prev + PAGE_SIZE))}
-              disabled={offset + PAGE_SIZE >= total}
-            >
-              Siguiente
-            </Button>
-          </div>
-        </div>
+        <ProductosTableSection
+          table={table}
+          columnsLength={columns.length}
+          loading={loading}
+          pageSize={PAGE_SIZE}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          total={total}
+          canGoPrev={offset !== 0}
+          canGoNext={offset + PAGE_SIZE < total}
+          onPrev={() => setOffset((prev) => Math.max(0, prev - PAGE_SIZE))}
+          onNext={() => setOffset((prev) => (prev + PAGE_SIZE >= total ? prev : prev + PAGE_SIZE))}
+          onRowClick={(producto) => {
+            setProductoEditar(producto)
+            setModalOpen(true)
+          }}
+        />
       </div>
 
-      <Dialog open={createDialog} onOpenChange={setCreateDialog}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Crear producto</DialogTitle>
-          </DialogHeader>
-          <Form {...createForm}>
-            <form onSubmit={createForm.handleSubmit(handleCreateSubmit)} className="space-y-4">
-              {createForm.formState.errors.root?.message && (
-                <Alert variant="destructive">
-                  <AlertDescription>{createForm.formState.errors.root.message}</AlertDescription>
-                </Alert>
-              )}
+      <ProductoFormDialog
+        open={createDialog}
+        onOpenChange={setCreateDialog}
+        title="Crear producto"
+        form={createForm}
+        categorias={categorias}
+        proveedores={proveedores}
+        submitting={submittingCreate}
+        onSubmit={handleCreateSubmit}
+      />
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <FormField
-                  control={createForm.control}
-                  name="nombre"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nombre</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={createForm.control}
-                  name="sku"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>SKU</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={createForm.control}
-                  name="precioUnitario"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Precio unitario</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.01" min="0" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={createForm.control}
-                  name="costoUnitario"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Coste unitario</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.01" min="0" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={createForm.control}
-                  name="categoriaId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Categoría</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecciona una categoría" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {categorias.map((categoria) => (
-                            <SelectItem key={categoria.id} value={String(categoria.id)}>
-                              {categoria.nombre}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={createForm.control}
-                  name="providerId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Proveedor</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecciona un proveedor" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {proveedores.map((proveedor) => (
-                            <SelectItem key={proveedor.id} value={String(proveedor.id)}>
-                              {proveedor.nombre}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={createForm.control}
-                  name="cantidadActual"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Cantidad actual</FormLabel>
-                      <FormControl>
-                        <Input type="number" min="0" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={createForm.control}
-                  name="nivelMinimoStock"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Stock mínimo</FormLabel>
-                      <FormControl>
-                        <Input type="number" min="0" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={createForm.control}
-                name="descripcion"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Descripción (opcional)</FormLabel>
-                    <FormControl>
-                      <Textarea rows={3} {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <DialogFooter className="flex-row justify-end">
-                <Button type="button" variant="ghost" onClick={() => setCreateDialog(false)}>
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={submittingCreate}>
-                  {submittingCreate ? 'Guardando...' : 'Guardar'}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
+      <ProductoFormDialog
         open={editDialog}
-        onOpenChange={(open) => {
-          setEditDialog(open)
-          if (!open) setProductoEditando(null)
-        }}
-      >
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Editar producto</DialogTitle>
-          </DialogHeader>
-          <Form {...editForm}>
-            <form onSubmit={editForm.handleSubmit(handleEditSubmit)} className="space-y-4">
-              {editForm.formState.errors.root?.message && (
-                <Alert variant="destructive">
-                  <AlertDescription>{editForm.formState.errors.root.message}</AlertDescription>
-                </Alert>
-              )}
+        onOpenChange={setEditDialog}
+        title="Editar producto"
+        form={editForm}
+        categorias={categorias}
+        proveedores={proveedores}
+        submitting={submittingEdit}
+        onSubmit={handleEditSubmit}
+        productoEditando={productoEditando}
+        onClose={() => setProductoEditando(null)}
+      />
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <FormField
-                  control={editForm.control}
-                  name="nombre"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nombre</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+      <ProductoStockDialog
+        open={stockDialog}
+        onOpenChange={setStockDialog}
+        selectedProducto={selectedProducto}
+        stockForm={stockForm}
+        setStockForm={setStockForm}
+        stockError={stockError}
+        submitting={submittingStock}
+        onSubmit={handleUpdateStock}
+      />
 
-                <FormField
-                  control={editForm.control}
-                  name="sku"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>SKU</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={editForm.control}
-                  name="precioUnitario"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Precio unitario</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.01" min="0" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={editForm.control}
-                  name="costoUnitario"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Coste unitario</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.01" min="0" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={editForm.control}
-                  name="categoriaId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Categoría</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecciona una categoría" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {categorias.map((categoria) => (
-                            <SelectItem key={categoria.id} value={String(categoria.id)}>
-                              {categoria.nombre}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={editForm.control}
-                  name="providerId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Proveedor</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecciona un proveedor" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {proveedores.map((proveedor) => (
-                            <SelectItem key={proveedor.id} value={String(proveedor.id)}>
-                              {proveedor.nombre}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={editForm.control}
-                  name="cantidadActual"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Cantidad actual</FormLabel>
-                      <FormControl>
-                        <Input type="number" min="0" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={editForm.control}
-                  name="nivelMinimoStock"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Stock mínimo</FormLabel>
-                      <FormControl>
-                        <Input type="number" min="0" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={editForm.control}
-                name="descripcion"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Descripción (opcional)</FormLabel>
-                    <FormControl>
-                      <Textarea rows={3} {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setEditDialog(false)}>
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={submittingEdit}>
-                  {submittingEdit ? 'Guardando...' : 'Guardar'}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={stockDialog} onOpenChange={setStockDialog}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Actualizar Stock — {selectedProducto?.nombre}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            {stockError && (
-              <Alert variant="destructive">
-                <AlertDescription>{stockError}</AlertDescription>
-              </Alert>
-            )}
-            <div className="space-y-1">
-              <Label>Cantidad a ajustar en el stock</Label>
-              <Input
-                type="number"
-                placeholder="Usa un número positivo si entra stock o negativo si sale stock."
-                value={stockForm.delta}
-                onChange={(event) =>
-                  setStockForm((current) => ({ ...current, delta: Number(event.target.value) }))
-                }
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Razón</Label>
-              <Select
-                value={stockForm.razon}
-                onValueChange={(value) =>
-                  setStockForm((current) => ({
-                    ...current,
-                    razon: value as ActualizarStockRequest['razon'],
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="PURCHASE">Compra</SelectItem>
-                  <SelectItem value="SALE">Venta</SelectItem>
-                  <SelectItem value="ADJUSTMENT">Ajuste</SelectItem>
-                  <SelectItem value="RETURN">Devolución</SelectItem>
-                  <SelectItem value="DAMAGE">Merma</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label>Notas (opcional)</Label>
-              <Input
-                value={stockForm.notas ?? ''}
-                onChange={(event) =>
-                  setStockForm((current) => ({ ...current, notas: event.target.value }))
-                }
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setStockDialog(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleUpdateStock} disabled={submittingStock}>
-              {submittingStock ? 'Guardando...' : 'Guardar'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog
+      <ProductoDeleteDialog
         open={deleteDialog}
-        onOpenChange={(open) => {
-          setDeleteDialog(open)
-          if (!open) {
-            setProductoEliminando(null)
-          }
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Eliminar producto</AlertDialogTitle>
-            <AlertDialogDescription>
-              ¿Seguro que quieres eliminar el producto "{productoEliminando?.nombre}"?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={submittingDelete}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm} disabled={submittingDelete}>
-              {submittingDelete ? 'Eliminando...' : 'Eliminar'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onOpenChange={setDeleteDialog}
+        productoEliminando={productoEliminando}
+        submitting={submittingDelete}
+        onConfirm={handleDeleteConfirm}
+        onClose={() => setProductoEliminando(null)}
+      />
 
       <ProductoModal
         isOpen={modalOpen}

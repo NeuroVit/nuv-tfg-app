@@ -5,6 +5,7 @@ export interface Producto {
   descripcion: string | null
   cantidadActual: number
   nivelMinimoStock: number
+  nivelMaximoStock: number
   precioUnitario: number
   costoUnitario: number | null
   categoriaId: number | null
@@ -24,6 +25,7 @@ export interface CrearProductoRequest {
   costoUnitario?: number
   cantidadActual: number
   nivelMinimoStock: number
+  nivelMaximoStock?: number
   categoriaId: number
   providerId: number
 }
