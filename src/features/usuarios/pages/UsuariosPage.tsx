@@ -66,16 +66,6 @@ export default function UsuariosPage() {
     }
   }, [user?.role])
 
-  if (user?.role !== 'ROLE_ADMIN') {
-    return (
-      <div className="p-4 sm:p-6 lg:p-8">
-        <div className="mx-auto max-w-4xl rounded-lg border bg-card p-6 text-sm text-muted-foreground">
-          Esta sección está disponible solo para administradores.
-        </div>
-      </div>
-    )
-  }
-
   const onInvite = async () => {
     if (!invite.username || !invite.email || !invite.nombre || !invite.apellidos) {
       toast.error('Completa todos los campos de invitación')
@@ -136,7 +126,7 @@ export default function UsuariosPage() {
       const toOk = !auditTo || rowDateOnly <= auditTo
       return textOk && roleOk && fromOk && toOk
     })
-  }, [auditoria, auditFrom, auditRoleFilter, auditSearch, auditTo])
+  }, [auditoria, auditFrom, auditRoleFilter, auditSearch, auditTo, toUserDayKey])
 
   const copyTemporaryPassword = async () => {
     if (!inviteCredential?.temporaryPassword) return
@@ -146,6 +136,16 @@ export default function UsuariosPage() {
     } catch {
       toast.error('No se pudo copiar automáticamente. Cópiala manualmente.')
     }
+  }
+
+  if (user?.role !== 'ROLE_ADMIN') {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8">
+        <div className="mx-auto max-w-4xl rounded-lg border bg-card p-6 text-sm text-muted-foreground">
+          Esta sección está disponible solo para administradores.
+        </div>
+      </div>
+    )
   }
 
   return (
