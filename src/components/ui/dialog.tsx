@@ -60,7 +60,7 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed top-[calc(env(safe-area-inset-top,0px)+1rem)] left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 gap-6 overflow-y-auto rounded-4xl bg-sidebar-active p-6 text-sm text-sidebar-active-foreground ring-1 ring-foreground/5 duration-100 outline-none max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-2rem)] sm:top-1/2 sm:max-w-md sm:-translate-y-1/2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 [&_[data-slot=input]]:bg-transparent [&_[data-slot=textarea]]:bg-transparent [&_[data-slot=select-trigger]]:bg-transparent [&_[data-slot=input-group]]:bg-transparent",
+          "fixed top-[calc(env(safe-area-inset-top,0px)+1rem)] left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 gap-6 overflow-y-auto rounded-4xl bg-sidebar-active p-6 text-sm text-sidebar-active-foreground ring-1 ring-foreground/5 outline-none max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-2rem)] sm:top-1/2 sm:max-w-md sm:-translate-y-1/2 data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-bottom-8 data-open:[animation-duration:250ms] data-open:[animation-timing-function:cubic-bezier(0.16,1,0.3,1)] data-closed:animate-out data-closed:fade-out-0 data-closed:slide-out-to-bottom-4 data-closed:[animation-duration:150ms] [&_[data-slot=input]]:bg-transparent [&_[data-slot=textarea]]:bg-transparent [&_[data-slot=select-trigger]]:bg-transparent [&_[data-slot=input-group]]:bg-transparent",
           className
         )}
         {...props}

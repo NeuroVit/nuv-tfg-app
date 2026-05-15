@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, NavLink } from 'react-router'
+import { NeuralStockMark } from '@/components/NeuralStockMark'
 import { toast } from 'sonner'
 import { logout as logoutRequest } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
@@ -32,7 +33,9 @@ import {
   ArrowLeft,
   BarChart3,
   Building2,
+  CheckSquare,
   ChevronsUpDown,
+  FileText,
   LayoutDashboard,
   LogOut,
   Moon,
@@ -68,6 +71,7 @@ const navGroups: { label?: string; items: NavItem[] }[] = [
     label: 'Control',
     items: [
       { to: '/alertas', label: 'Alertas', icon: AlertTriangle },
+      { to: '/tareas', label: 'Tareas', icon: CheckSquare },
       { to: '/analitica', label: 'Analítica', icon: BarChart3 },
     ],
   },
@@ -76,6 +80,7 @@ const navGroups: { label?: string; items: NavItem[] }[] = [
     items: [
       { to: '/clientes', label: 'Clientes', icon: UserSquare2 },
       { to: '/ventas', label: 'Ventas', icon: ReceiptText },
+      { to: '/reportes', label: 'Reportes', icon: FileText },
     ],
   },
 ]
@@ -174,9 +179,7 @@ export function AppSidebar({ isSettingsRoute = false, collapsible = 'icon' }: Ap
               </NavLink>
             ) : (
               <SidebarMenuButton size="lg" className="cursor-default">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sidebar-primary text-[10px] font-semibold text-sidebar-primary-foreground">
-                  {organizationLabel.slice(0, 2).toUpperCase()}
-                </div>
+                <NeuralStockMark className="h-7 w-7 shrink-0" />
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{organizationLabel}</span>
                   <span className="truncate text-xs text-muted-foreground">NeuralStock</span>

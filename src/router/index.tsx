@@ -22,6 +22,8 @@ import AnaliticaProveedoresPage from '../pages/analytics/AnaliticaProveedoresPag
 import ProveedorDetailPage from '../pages/ProveedorDetailPage'
 import ClientesPage from '../pages/ClientesPage'
 import VentasPage from '../pages/VentasPage'
+import ReportesPage from '../pages/ReportesPage'
+import TareasPage from '../pages/TareasPage'
 import SettingsProfilePage from '../pages/settings/SettingsProfilePage'
 import SettingsSecurityPage from '../pages/settings/SettingsSecurityPage'
 import SettingsUsersPage from '../pages/settings/SettingsUsersPage'
@@ -57,6 +59,7 @@ export const router = createBrowserRouter([
           { path: '/pedidos', element: <PedidosPage /> },
           { path: '/movimientos', element: <MovimientosPage /> },
           { path: '/alertas', element: <AlertasPage /> },
+          { path: '/tareas', element: <TareasPage /> },
           { path: '/analitica', element: <Navigate to="/analitica/resumen" replace /> },
           { path: '/analitica/resumen', element: <AnaliticaResumenPage /> },
           { path: '/analitica/ventas-rentabilidad', element: <AnaliticaVentasRentabilidadPage /> },
@@ -66,6 +69,7 @@ export const router = createBrowserRouter([
           { path: '/usuarios', element: <Navigate to="/settings/users" replace /> },
           { path: '/clientes', element: <ClientesPage /> },
           { path: '/ventas', element: <VentasPage /> },
+          { path: '/reportes', element: <ReportesPage /> },
           { path: '/settings', element: <Navigate to="/settings/general" replace /> },
           { path: '/settings/profile', element: <SettingsProfilePage /> },
           { path: '/settings/organization', element: <SettingsOrganizationPage /> },
