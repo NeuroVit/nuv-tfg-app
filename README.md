@@ -1,4 +1,4 @@
-# Neurovit App (Tauri + React)
+# Aplicación Neurovit (Tauri + React)
 
 Proyecto Tauri v2 con frontend React/Vite.
 

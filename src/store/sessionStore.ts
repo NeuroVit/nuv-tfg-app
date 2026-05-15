@@ -1,7 +1,7 @@
 import { create } from 'zustand'
-import { getSession } from '@/api/auth'
+import { getSession } from '@/features/auth/api/auth'
 import { useAuthStore } from '@/store/authStore'
-import type { SessionContext } from '@/types/auth'
+import type { SessionContext } from '@/features/auth/types/auth'
 
 interface RefreshSessionOptions {
   withLoading?: boolean

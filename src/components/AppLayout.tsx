@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { Activity, AlertTriangle, BarChart3, Bell, Check, CheckSquare, CreditCard, FileText, LayoutDashboard, LogOut, Moon, Package, ReceiptText, Settings, Sun, Truck, UserSquare2 } from 'lucide-react'
 
-import { getAlertas } from '@/api/alerta'
-import { getMe, logout as logoutRequest, updateMe } from '@/api/auth'
+import { getAlertasPaged, getAlertasResumen } from '@/features/alertas/api/alerta'
+import { getMe, logout as logoutRequest, updateMe } from '@/features/auth/api/auth'
 import { useAuthStore } from '@/store/authStore'
 import { useDisplayName, useProfileStore } from '@/store/profileStore'
-import type { AlertaStock } from '@/types/alerta'
+import type { AlertaStock } from '@/features/alertas/types/alerta'
 import { AppSidebar } from '@/components/AppSidebar'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -108,6 +108,7 @@ export default function AppLayout() {
 
   const isSettingsRoute = location.pathname.startsWith('/settings')
   const [allOpenAlerts, setAllOpenAlerts] = useState<AlertaStock[]>([])
+  const [openAlertsTotal, setOpenAlertsTotal] = useState(0)
   const [alertsDrawerOpen, setAlertsDrawerOpen] = useState(false)
   const [dismissedIds, setDismissedIds] = useState<Set<number>>(
     () => new Set(JSON.parse(localStorage.getItem('dismissed-alert-ids') ?? '[]') as number[])
@@ -132,7 +133,8 @@ export default function AppLayout() {
   }
 
   const visibleAlerts = allOpenAlerts.filter((a) => !dismissedIds.has(a.id)).slice(0, 8)
-  const openAlertsCount = allOpenAlerts.filter((a) => !dismissedIds.has(a.id)).length
+  const dismissedFetchedOpenCount = allOpenAlerts.filter((a) => dismissedIds.has(a.id)).length
+  const openAlertsCount = Math.max(0, openAlertsTotal - dismissedFetchedOpenCount)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const isMobile = useIsMobile()
   const [isPhoneLikeDevice, setIsPhoneLikeDevice] = useState(false)
@@ -251,25 +253,33 @@ export default function AppLayout() {
     const loadOpenAlerts = async () => {
       if (!user?.token) {
         if (isMounted) {
-          setOpenAlertsCount(0)
-          setRecentOpenAlerts([])
+          setAllOpenAlerts([])
         }
         return
       }
       try {
-        const openAlerts = await getAlertas(false)
+        const [openAlertsPage, alertsSummary] = await Promise.all([
+          getAlertasPaged({
+            resueltas: false,
+            limit: 50,
+            offset: 0,
+          }),
+          getAlertasResumen(),
+        ])
         if (!isMounted) return
-        setAllOpenAlerts(openAlerts)
+        setAllOpenAlerts(openAlertsPage.content)
+        setOpenAlertsTotal(alertsSummary.abiertas)
       } catch {
         if (!isMounted) return
         setAllOpenAlerts([])
+        setOpenAlertsTotal(0)
       }
     }
 
     void loadOpenAlerts()
     const timer = window.setInterval(() => {
       void loadOpenAlerts()
-    }, 30000)
+    }, 45000)
 
     return () => {
       isMounted = false
