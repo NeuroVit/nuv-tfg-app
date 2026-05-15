@@ -2,36 +2,42 @@ import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Boxes, CheckCircle2, MoreHorizontal, Search, TrendingUp } from 'lucide-react'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
-import { getAlertasPaged, getAlertasResumen, resolverAlerta } from '@/features/alertas/api/alerta'
+import { getAlertasPaged, getAlertasResumen } from '@/features/alertas/api/alerta'
 import type { AlertaResumen, AlertaStock } from '@/features/alertas/types/alerta'
-import { useAuthStore } from '@/store/authStore'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useAuthStore } from '@/store/authStore'
 import { useFormatters } from '@/lib/useFormatters'
 
 const PAGE_SIZE = 7
 const isStockShortageAlert = (alert: AlertaStock) => alert.tipo === 'LOW_STOCK' || alert.tipo === 'OUT_OF_STOCK'
 const isPriceAnomalyAlert = (alert: AlertaStock) => alert.tipo === 'PRICE_ANOMALY'
-const canResolveManually = (alert: AlertaStock) => !isStockShortageAlert(alert) && !isPriceAnomalyAlert(alert)
+const isOverstockAlert = (alert: AlertaStock) => alert.tipo === 'OVERSTOCK'
 
 const typeMeta: Record<string, { label: string; chipClass: string; dotClass: string; rowAccent: string }> = {
   OUT_OF_STOCK: {
-    label: 'OUT OF STOCK',
+    label: 'SIN STOCK',
     chipClass: 'bg-red-500/15 text-red-300',
     dotClass: 'text-red-400',
     rowAccent: 'before:bg-red-500',
   },
   LOW_STOCK: {
-    label: 'LOW STOCK',
+    label: 'STOCK BAJO',
     chipClass: 'bg-amber-500/15 text-amber-300',
     dotClass: 'text-amber-400',
     rowAccent: 'before:bg-amber-500',
   },
+  OVERSTOCK: {
+    label: 'SOBRESTOCK',
+    chipClass: 'bg-orange-500/15 text-orange-300',
+    dotClass: 'text-orange-400',
+    rowAccent: 'before:bg-orange-500',
+  },
   PRICE_ANOMALY: {
-    label: 'PRICE ANOMALY',
+    label: 'ANOMALÍA PRECIO',
     chipClass: 'bg-violet-500/15 text-violet-300',
     dotClass: 'text-violet-400',
     rowAccent: 'before:bg-violet-500',
@@ -41,22 +47,19 @@ const typeMeta: Record<string, { label: string; chipClass: string; dotClass: str
 export default function AlertasPage() {
   const { formatDateTime } = useFormatters()
   const navigate = useNavigate()
-  const { hasRole, user } = useAuthStore()
-  const canResolve = hasRole('ROLE_ADMIN') || hasRole('ROLE_MANAGER')
+  const { user } = useAuthStore()
 
   const [filter, setFilter] = useState<'all' | 'open' | 'resolved'>('open')
   const [alerts, setAlerts] = useState<AlertaStock[]>([])
   const [alertsSummary, setAlertsSummary] = useState<AlertaResumen | null>(null)
   const [loading, setLoading] = useState(true)
-  const [resolving, setResolving] = useState(false)
   const [offset, setOffset] = useState(0)
   const [total, setTotal] = useState(0)
-  const [selectedAlertIds, setSelectedAlertIds] = useState<number[]>([])
   const [search, setSearch] = useState('')
   const [seenAlertIds, setSeenAlertIds] = useState<number[]>([])
   const seenStorageKey = useMemo(
     () => `nuv-alertas-seen:${user?.username ?? 'anon'}`,
-    [user?.username]
+    [user?.username],
   )
 
   useEffect(() => {
@@ -98,7 +101,6 @@ export default function AlertasPage() {
       setAlerts(tableData.content)
       setTotal(tableData.total)
       setAlertsSummary(summaryData)
-      setSelectedAlertIds((current) => current.filter((id) => tableData.content.some((alert) => alert.id === id)))
     } catch {
       toast.error('No se pudieron cargar las alertas')
     } finally {
@@ -111,11 +113,13 @@ export default function AlertasPage() {
     const timer = window.setInterval(() => {
       void loadAlerts()
     }, 45000)
+
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
         void loadAlerts()
       }
     }
+
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('focus', onVisible)
 
@@ -125,41 +129,6 @@ export default function AlertasPage() {
       window.removeEventListener('focus', onVisible)
     }
   }, [filter, offset, search])
-
-  const resolve = async (id: number) => {
-    setResolving(true)
-    try {
-      await resolverAlerta(id)
-      toast.success('Alerta marcada como resuelta')
-      await loadAlerts()
-    } catch {
-      toast.error('No se pudo resolver la alerta')
-    } finally {
-      setResolving(false)
-    }
-  }
-
-  const resolveSelected = async () => {
-    if (selectedAlertIds.length === 0) return
-    const eligibleAlertIds = selectedAlertIds.filter((id) => {
-      const alert = alerts.find((candidate) => candidate.id === id)
-      return alert ? canResolveManually(alert) : false
-    })
-    if (eligibleAlertIds.length === 0) {
-      toast.info('Las alertas de stock se resuelven al reponer y las de precio se corrigen en producto')
-      return
-    }
-    setResolving(true)
-    try {
-      await Promise.all(eligibleAlertIds.map((id) => resolverAlerta(id)))
-      toast.success(`${eligibleAlertIds.length} alertas marcadas como resueltas`)
-      await loadAlerts()
-    } catch {
-      toast.error('No se pudieron resolver todas las alertas seleccionadas')
-    } finally {
-      setResolving(false)
-    }
-  }
 
   const goToPedidosForRestock = (alert: AlertaStock) => {
     toast.info(`Abriendo pedidos para reponer stock de ${alert.productoNombre}`)
@@ -171,7 +140,13 @@ export default function AlertasPage() {
     navigate(`/productos?editProductId=${alert.productoId}&focus=pricing`)
   }
 
+  const goToProductoForOverstockFix = (alert: AlertaStock) => {
+    toast.info(`Abriendo producto para ajustar stock máximo: ${alert.productoNombre}`)
+    navigate(`/productos?editProductId=${alert.productoId}&focus=stock`) 
+  }
+
   const isSeen = (alertId: number) => seenAlertIds.includes(alertId)
+
   const formatDate = (value: string | null) =>
     value
       ? formatDateTime(value, {
@@ -192,22 +167,15 @@ export default function AlertasPage() {
   }
 
   const counters = useMemo(() => {
-    const critical = alertsSummary?.abiertas ?? 0
+    const critical = alertsSummary?.criticas ?? 0
     const low = alertsSummary?.stockBajo ?? 0
-    const anomalies = alertsSummary?.anomaliasPrecio ?? 0
+    const anomalies = alertsSummary?.anomalias ?? alertsSummary?.anomaliasPrecio ?? 0
     const resolvedLast7d = alertsSummary?.resueltasUltimos7Dias ?? 0
     return { critical, low, anomalies, resolvedLast7d }
   }, [alertsSummary])
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1
-  const openAlertsInPage = useMemo(
-    () => alerts.filter((alert) => !alert.resuelta && canResolveManually(alert)),
-    [alerts]
-  )
-  const allOpenSelectedInPage =
-    openAlertsInPage.length > 0 && openAlertsInPage.every((alert) => selectedAlertIds.includes(alert.id))
-  const showSelection = canResolve && filter !== 'resolved'
 
   useEffect(() => {
     setOffset(0)
@@ -228,7 +196,7 @@ export default function AlertasPage() {
               <div className="rounded-full bg-red-500/15 p-2"><AlertTriangle className="h-5 w-5 text-red-500" /></div>
               <div><p className="text-2xl font-bold text-red-600">{counters.critical}</p><p className="text-sm font-medium text-foreground">Críticas</p></div>
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">Requieren atención</p>
+            <p className="mt-2 text-xs text-muted-foreground">Solo productos sin stock</p>
           </article>
 
           <article className="rounded-lg bg-card p-4">
@@ -236,7 +204,7 @@ export default function AlertasPage() {
               <div className="rounded-full bg-amber-500/15 p-2"><Boxes className="h-5 w-5 text-amber-500" /></div>
               <div><p className="text-2xl font-bold text-amber-600">{counters.low}</p><p className="text-sm font-medium text-foreground">Stock bajo</p></div>
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">Monitorea inventario</p>
+            <p className="mt-2 text-xs text-muted-foreground">Debajo del mínimo</p>
           </article>
 
           <article className="rounded-lg bg-card p-4">
@@ -244,7 +212,7 @@ export default function AlertasPage() {
               <div className="rounded-full bg-violet-500/15 p-2"><TrendingUp className="h-5 w-5 text-violet-500" /></div>
               <div><p className="text-2xl font-bold text-violet-600">{counters.anomalies}</p><p className="text-sm font-medium text-foreground">Anomalías</p></div>
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">Cambios detectados</p>
+            <p className="mt-2 text-xs text-muted-foreground">Precio o sobrestock</p>
           </article>
 
           <article className="rounded-lg bg-card p-4">
@@ -278,43 +246,10 @@ export default function AlertasPage() {
                 <SelectItem value="all">Todas</SelectItem>
               </SelectContent>
             </Select>
-
-            {canResolve ? (
-              <Button
-                variant="outline"
-                disabled={selectedAlertIds.length === 0 || resolving}
-                onClick={() => void resolveSelected()}
-              >
-                {resolving ? 'Resolviendo...' : `Resolver seleccionadas (${selectedAlertIds.length})`}
-              </Button>
-            ) : null}
           </div>
 
           <div className="space-y-3">
-            <div className="grid grid-cols-[40px_1fr_140px_80px] items-center gap-3 px-3 text-sm text-muted-foreground">
-              <div className="text-center">
-                {showSelection ? (
-                  <input
-                    type="checkbox"
-                    checked={allOpenSelectedInPage}
-                    disabled={resolving}
-                    onChange={(event) => {
-                      if (event.target.checked) {
-                        setSelectedAlertIds((current) => {
-                          const next = new Set(current)
-                          openAlertsInPage.forEach((alert) => next.add(alert.id))
-                          return Array.from(next)
-                        })
-                      } else {
-                        setSelectedAlertIds((current) =>
-                          current.filter((id) => !openAlertsInPage.some((alert) => alert.id === id))
-                        )
-                      }
-                    }}
-                    aria-label="Seleccionar alertas abiertas de esta página"
-                  />
-                ) : null}
-              </div>
+            <div className="grid grid-cols-[1fr_140px_80px] items-center gap-3 px-3 text-sm text-muted-foreground">
               <div>Alerta</div>
               <div>Detectada</div>
               <div className="text-center">Acciones</div>
@@ -332,31 +267,14 @@ export default function AlertasPage() {
                   dotClass: 'text-slate-300',
                   rowAccent: 'before:bg-slate-500',
                 }
+
                 const seen = isSeen(alert.id)
                 const chipClass = seen ? 'bg-muted text-muted-foreground' : meta.chipClass
                 const dotClass = seen ? 'text-muted-foreground' : meta.dotClass
                 const rowAccent = seen ? 'before:bg-transparent' : meta.rowAccent
 
                 return (
-                  <article key={alert.id} className={`relative grid grid-cols-[40px_1fr_140px_80px] items-center gap-3 rounded-lg bg-secondary/55 p-3 before:absolute before:bottom-3 before:left-0 before:top-3 before:w-1 before:rounded-r-md ${rowAccent}`}>
-                    <div className="text-center">
-                      {!alert.resuelta && canResolveManually(alert) && showSelection ? (
-                        <input
-                          type="checkbox"
-                          checked={selectedAlertIds.includes(alert.id)}
-                          disabled={resolving}
-                          onChange={(event) => {
-                            setSelectedAlertIds((current) =>
-                              event.target.checked
-                                ? [...current, alert.id]
-                                : current.filter((id) => id !== alert.id)
-                            )
-                          }}
-                          aria-label={`Seleccionar alerta ${alert.id}`}
-                        />
-                      ) : null}
-                    </div>
-
+                  <article key={alert.id} className={`relative grid grid-cols-[1fr_140px_80px] items-center gap-3 rounded-lg bg-secondary/55 p-3 before:absolute before:bottom-3 before:left-0 before:top-3 before:w-1 before:rounded-r-md ${rowAccent}`}>
                     <div className="min-w-0">
                       <div className="mb-1 flex items-center gap-2">
                         <Badge className={chipClass}>{meta.label}</Badge>
@@ -377,7 +295,7 @@ export default function AlertasPage() {
                     <div className="text-center">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button size="icon" variant="ghost" disabled={resolving} aria-label="Acciones de alerta">
+                          <Button size="icon" variant="ghost" aria-label="Acciones de alerta">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -391,22 +309,23 @@ export default function AlertasPage() {
                               Marcar como visto
                             </DropdownMenuItem>
                           )}
-                          {!alert.resuelta && canResolve ? (
-                            <>
-                              {canResolveManually(alert) ? (
-                                <DropdownMenuItem onSelect={() => void resolve(alert.id)}>
-                                  Resolver
-                                </DropdownMenuItem>
-                              ) : isPriceAnomalyAlert(alert) ? (
-                                <DropdownMenuItem onSelect={() => goToProductoForPriceFix(alert)}>
-                                  Corregir precio
-                                </DropdownMenuItem>
-                              ) : (
-                                <DropdownMenuItem onSelect={() => goToPedidosForRestock(alert)}>
-                                  Ir a pedidos para reponer
-                                </DropdownMenuItem>
-                              )}
-                            </>
+
+                          {!alert.resuelta && isPriceAnomalyAlert(alert) ? (
+                            <DropdownMenuItem onSelect={() => goToProductoForPriceFix(alert)}>
+                              Corregir precio en producto
+                            </DropdownMenuItem>
+                          ) : null}
+
+                          {!alert.resuelta && isOverstockAlert(alert) ? (
+                            <DropdownMenuItem onSelect={() => goToProductoForOverstockFix(alert)}>
+                              Ajustar stock máximo en producto
+                            </DropdownMenuItem>
+                          ) : null}
+
+                          {!alert.resuelta && isStockShortageAlert(alert) ? (
+                            <DropdownMenuItem onSelect={() => goToPedidosForRestock(alert)}>
+                              Ir a pedidos para reponer
+                            </DropdownMenuItem>
                           ) : null}
                         </DropdownMenuContent>
                       </DropdownMenu>

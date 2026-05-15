@@ -6,6 +6,7 @@ import type { MovimientoStock } from '@/features/inventario/types/movimiento'
 import type { Producto } from '@/features/productos/types/producto'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useFormatters } from '@/lib/useFormatters'
@@ -114,6 +115,12 @@ export default function MovimientosPage() {
   useEffect(() => {
     setOffset(0)
   }, [productId, tipo, razon, desde, hasta])
+
+  useEffect(() => {
+    if (offset >= total && total > 0) {
+      setOffset(Math.max(0, (Math.ceil(total / PAGE_SIZE) - 1) * PAGE_SIZE))
+    }
+  }, [offset, total])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -245,8 +252,8 @@ export default function MovimientosPage() {
           <p className="text-sm text-red-600">El ano debe estar entre 2000 y 2100.</p>
         )}
 
-        <div className="rounded-lg border bg-card">
-          <Table>
+        <div className="overflow-x-auto rounded-lg border bg-card">
+          <Table className="min-w-[900px] table-auto">
             <TableHeader>
               <TableRow>
                 <TableHead>Fecha</TableHead>
@@ -259,9 +266,15 @@ export default function MovimientosPage() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Cargando movimientos...</TableCell>
-                </TableRow>
+                Array.from({ length: PAGE_SIZE }).map((_, index) => (
+                  <TableRow key={`movimientos-skeleton-row-${index}`}>
+                    {Array.from({ length: 6 }).map((__, cellIndex) => (
+                      <TableCell key={`movimientos-skeleton-cell-${index}-${cellIndex}`}>
+                        <Skeleton className="h-4 w-full max-w-[140px]" />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
               ) : movimientos.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">

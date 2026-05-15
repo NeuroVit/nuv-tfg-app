@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { actualizarEstadoTarea, eliminarTarea, getTareasPaged, getTareasResumen } from '@/features/tareas/api/tarea'
-import type { EstadoTarea, Tarea, TareaResumen } from '@/features/tareas/types/tarea'
+import { actualizarAsignadoTarea, actualizarEstadoTarea, eliminarTarea, getTareasAsignables, getTareasPaged, getTareasResumen } from '@/features/tareas/api/tarea'
+import type { EstadoTarea, Tarea, TareaAsignableUsuario, TareaResumen } from '@/features/tareas/types/tarea'
 import { useAuthStore } from '@/store/authStore'
+import { useSessionStore } from '@/store/sessionStore'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -22,6 +23,7 @@ import {
   PlayCircle,
   Plus,
   Trash2,
+  UserRound,
   Wrench,
 } from 'lucide-react'
 
@@ -64,8 +66,11 @@ const CARDS_PER_PAGE = 9
 export default function TareasPage() {
   const { hasRole } = useAuthStore()
   const canDelete = hasRole('ROLE_ADMIN') || hasRole('ROLE_MANAGER')
+  const canAssignByRole = hasRole('ROLE_ADMIN') || hasRole('ROLE_MANAGER')
+  const currentUserId = useSessionStore((s) => s.session?.user.id ?? null)
 
   const [tareas, setTareas] = useState<Tarea[]>([])
+  const [asignables, setAsignables] = useState<TareaAsignableUsuario[]>([])
   const [resumen, setResumen] = useState<TareaResumen | null>(null)
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -96,6 +101,17 @@ export default function TareasPage() {
 
   useEffect(() => { void load() }, [load])
 
+  const loadAsignables = useCallback(async () => {
+    try {
+      const data = await getTareasAsignables()
+      setAsignables(data)
+    } catch {
+      toast.error('No se pudo cargar la lista de usuarios asignables')
+    }
+  }, [])
+
+  useEffect(() => { void loadAsignables() }, [loadAsignables])
+
   const totalPages = Math.max(1, Math.ceil(total / CARDS_PER_PAGE))
   const currentPage = Math.min(page, totalPages)
 
@@ -121,6 +137,16 @@ export default function TareasPage() {
       toast.success('Tarea eliminada')
     } catch {
       toast.error('No se pudo eliminar la tarea')
+    }
+  }
+
+  const handleAsignado = async (id: number, asignadoAUserId: number) => {
+    try {
+      await actualizarAsignadoTarea(id, asignadoAUserId)
+      await load()
+      toast.success('Asignación actualizada')
+    } catch {
+      toast.error('No se pudo actualizar la asignación')
     }
   }
 
@@ -202,7 +228,10 @@ export default function TareasPage() {
                 key={tarea.id}
                 tarea={tarea}
                 canDelete={canDelete}
+                canReassign={canAssignByRole}
+                asignables={asignables}
                 onEstado={handleEstado}
+                onAsignado={handleAsignado}
                 onDelete={handleDelete}
               />
             ))}
@@ -237,6 +266,8 @@ export default function TareasPage() {
 
       <TareaFormModal
         open={formOpen}
+        asignables={asignables}
+        currentUserId={currentUserId}
         onClose={() => setFormOpen(false)}
         onSuccess={() => void load()}
       />
@@ -249,12 +280,18 @@ export default function TareasPage() {
 function TareaCard({
   tarea,
   canDelete,
+  canReassign,
+  asignables,
   onEstado,
+  onAsignado,
   onDelete,
 }: {
   tarea: Tarea
   canDelete: boolean
+  canReassign: boolean
+  asignables: TareaAsignableUsuario[]
   onEstado: (id: number, estado: EstadoTarea) => void
+  onAsignado: (id: number, asignadoAUserId: number) => void
   onDelete: (id: number) => void
 }) {
   const estadoMeta = ESTADO_META[tarea.estado]
@@ -267,7 +304,7 @@ function TareaCard({
   })
 
   return (
-    <div className={`flex flex-col rounded-xl border bg-card transition ${tarea.estado === 'COMPLETADO' ? 'opacity-60' : ''}`}>
+    <div className={`flex flex-col rounded-md bg-card transition ${tarea.estado === 'COMPLETADO' ? 'opacity-60' : ''}`}>
       {/* Card top accent bar by priority */}
       <div className={`h-1 w-full rounded-t-xl ${
         tarea.prioridad === 'ALTA' ? 'bg-red-500' :
@@ -307,6 +344,11 @@ function TareaCard({
           {tarea.descripcion && (
             <p className="text-sm text-muted-foreground line-clamp-2">{tarea.descripcion}</p>
           )}
+          {(tarea.asignadoANombre || tarea.asignadoAUsername) && (
+            <p className="text-xs text-muted-foreground">
+              Asignada a <span className="font-medium text-foreground">{tarea.asignadoANombre ?? tarea.asignadoAUsername}</span>
+            </p>
+          )}
 
           {isAlerta && tarea.productoNombre && (
             <div className="mt-2 flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-xs">
@@ -325,26 +367,48 @@ function TareaCard({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between gap-2 border-t pt-3">
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+        <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
             <Clock className="h-3 w-3" />
-            {fecha}
+            <span className="truncate">{fecha}</span>
           </div>
-          <Select
-            value={tarea.estado}
-            onValueChange={(v) => onEstado(tarea.id, v as EstadoTarea)}
-          >
-            <SelectTrigger className="h-7 w-[130px] text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {ESTADOS_OPCIONES.map((e) => (
-                <SelectItem key={e} value={e} className="text-xs">
-                  {ESTADO_META[e].label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center sm:justify-end">
+            {canReassign && asignables.length > 0 && (
+              <Select
+                value={String(tarea.asignadoAUserId)}
+                onValueChange={(v) => onAsignado(tarea.id, Number(v))}
+              >
+                <SelectTrigger className="h-7 w-full min-w-0 text-xs sm:w-[170px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {asignables.map((u) => (
+                    <SelectItem key={u.id} value={String(u.id)} className="text-xs">
+                      <span className="inline-flex items-center gap-1.5">
+                        <UserRound className="h-3 w-3" />
+                        {u.nombreCompleto}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Select
+              value={tarea.estado}
+              onValueChange={(v) => onEstado(tarea.id, v as EstadoTarea)}
+            >
+              <SelectTrigger className="h-7 w-full min-w-0 text-xs sm:w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ESTADOS_OPCIONES.map((e) => (
+                  <SelectItem key={e} value={e} className="text-xs">
+                    {ESTADO_META[e].label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
     </div>

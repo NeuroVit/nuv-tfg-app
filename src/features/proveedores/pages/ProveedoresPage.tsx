@@ -147,7 +147,7 @@ export default function ProveedoresPage() {
           )}
         </div>
 
-        <div className="rounded-lg border bg-card">
+        <div className="overflow-x-auto rounded-lg border bg-card">
           <Table className="min-w-[900px] table-auto">
             <TableHeader>
               <TableRow>

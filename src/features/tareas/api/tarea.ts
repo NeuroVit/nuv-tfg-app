@@ -1,5 +1,11 @@
 import client from '@/api/client'
-import type { CrearTareaPayload, EstadoTarea, Tarea, TareaResumen } from '@/features/tareas/types/tarea'
+import type {
+  CrearTareaPayload,
+  EstadoTarea,
+  Tarea,
+  TareaAsignableUsuario,
+  TareaResumen,
+} from '@/features/tareas/types/tarea'
 import type { PagedResponse } from '@/types/pagination'
 
 export const getTareas = async (estado?: EstadoTarea): Promise<Tarea[]> => {
@@ -24,6 +30,11 @@ export const getTareasResumen = async (): Promise<TareaResumen> => {
   return res.data
 }
 
+export const getTareasAsignables = async (): Promise<TareaAsignableUsuario[]> => {
+  const res = await client.get<TareaAsignableUsuario[]>('/tareas/asignables')
+  return res.data
+}
+
 export const crearTarea = async (payload: CrearTareaPayload): Promise<Tarea> => {
   const res = await client.post<Tarea>('/tareas', payload)
   return res.data
@@ -31,6 +42,11 @@ export const crearTarea = async (payload: CrearTareaPayload): Promise<Tarea> => 
 
 export const actualizarEstadoTarea = async (id: number, estado: EstadoTarea): Promise<Tarea> => {
   const res = await client.patch<Tarea>(`/tareas/${id}/estado`, { estado })
+  return res.data
+}
+
+export const actualizarAsignadoTarea = async (id: number, asignadoAUserId: number): Promise<Tarea> => {
+  const res = await client.patch<Tarea>(`/tareas/${id}/asignado`, { asignadoAUserId })
   return res.data
 }
 

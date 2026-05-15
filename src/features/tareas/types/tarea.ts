@@ -4,6 +4,7 @@ export type TipoTarea = 'ALERTA_STOCK' | 'MANUAL'
 
 export type Tarea = {
   id: number
+  organizationId: number
   titulo: string
   descripcion: string | null
   tipo: TipoTarea
@@ -14,6 +15,10 @@ export type Tarea = {
   sku: string | null
   alertaTipo: string | null
   creadoPor: string | null
+  creadoPorUserId: number
+  asignadoAUserId: number
+  asignadoAUsername: string | null
+  asignadoANombre: string | null
   createdAt: string
   updatedAt: string
 }
@@ -22,6 +27,14 @@ export type CrearTareaPayload = {
   titulo: string
   descripcion?: string
   prioridad?: PrioridadTarea
+  asignadoAUserId?: number
+}
+
+export type TareaAsignableUsuario = {
+  id: number
+  username: string
+  nombreCompleto: string
+  role: string
 }
 
 export type TareaResumen = {
