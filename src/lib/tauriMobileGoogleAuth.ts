@@ -1,8 +1,8 @@
 import { isAxiosError } from 'axios'
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
-import { buildGoogleMobileStartUrl, consumeGoogleMobileCredential, googleLogin } from '@/api/auth'
-import type { AuthResponse } from '@/types/auth'
+import { buildGoogleMobileStartUrl, consumeGoogleMobileCredential, googleLogin } from '@/features/auth/api/auth'
+import type { AuthResponse } from '@/features/auth/types/auth'
 
 const MOBILE_GOOGLE_STATE_KEY = 'mobile_google_oauth_state'
 const MOBILE_GOOGLE_STATE_KEY_PERSISTENT = 'mobile_google_oauth_state_persistent'

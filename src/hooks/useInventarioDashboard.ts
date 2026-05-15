@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import client from '@/api/client'
-import { getInventarioAnalitica } from '@/api/analitica'
+import { getInventarioAnalitica } from '@/features/analitica/api/analitica'
 
 type CategoriaApi = {
   id: number
