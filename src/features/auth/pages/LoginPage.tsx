@@ -28,7 +28,7 @@ import {
   MOBILE_GOOGLE_DEBUG_ENABLED,
   MOBILE_GOOGLE_DEBUG_EVENT,
   getMobileGoogleDebugTimeline,
-  isTauriMobile,
+  isTauri,
   type MobileGoogleDebugEntry,
   registerTauriMobileGoogleListener,
   startTauriMobileGoogleLogin,
@@ -45,10 +45,10 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const setUser = useAuthStore((s) => s.setUser)
   const isMobile = useIsMobile()
-  const tauriMobile = isTauriMobile()
+  const tauriNative = isTauri()
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false)
   const [mobileGoogleDebug, setMobileGoogleDebug] = useState<MobileGoogleDebugEntry[]>(
-    () => (tauriMobile ? getMobileGoogleDebugTimeline() : [])
+    () => (tauriNative ? getMobileGoogleDebugTimeline() : [])
   )
 
   const form = useForm<FormData>({
@@ -131,7 +131,7 @@ export default function LoginPage() {
   }
 
   useEffect(() => {
-    if (!tauriMobile) return
+    if (!tauriNative) return
 
     let active = true
     let cleanup: (() => void) | undefined
@@ -162,17 +162,17 @@ export default function LoginPage() {
       })
       .catch(() => {
         setIsGoogleSubmitting(false)
-        form.setError('root', { message: 'No se pudo inicializar Google en móvil' })
+        form.setError('root', { message: 'No se pudo inicializar Google en la app de escritorio/móvil' })
       })
 
     return () => {
       active = false
       cleanup?.()
     }
-  }, [form, navigate, setUser, tauriMobile])
+  }, [form, navigate, setUser, tauriNative])
 
   useEffect(() => {
-    if (!tauriMobile || !MOBILE_GOOGLE_DEBUG_ENABLED) return
+    if (!tauriNative || !MOBILE_GOOGLE_DEBUG_ENABLED) return
 
     const syncDebugTimeline = () => {
       setMobileGoogleDebug(getMobileGoogleDebugTimeline())
@@ -184,7 +184,7 @@ export default function LoginPage() {
     return () => {
       window.removeEventListener(MOBILE_GOOGLE_DEBUG_EVENT, syncDebugTimeline)
     }
-  }, [tauriMobile])
+  }, [tauriNative])
 
   const startMobileGoogleLogin = async () => {
     setIsGoogleSubmitting(true)
@@ -192,7 +192,7 @@ export default function LoginPage() {
       await startTauriMobileGoogleLogin()
     } catch {
       setIsGoogleSubmitting(false)
-      form.setError('root', { message: 'No se pudo abrir Google en el navegador' })
+      form.setError('root', { message: 'No se pudo abrir Google en el navegador externo' })
     }
   }
 
@@ -244,9 +244,9 @@ export default function LoginPage() {
             </Alert>
           )}
 
-          {tauriMobile && MOBILE_GOOGLE_DEBUG_ENABLED && mobileGoogleDebug.length > 0 && (
+          {tauriNative && MOBILE_GOOGLE_DEBUG_ENABLED && mobileGoogleDebug.length > 0 && (
             <div className="rounded-md border border-muted p-3 text-xs">
-              <p className="font-medium text-foreground">Debug Google móvil</p>
+              <p className="font-medium text-foreground">Debug Google nativo</p>
               <div className="mt-2 space-y-1 text-muted-foreground">
                 {mobileGoogleDebug.slice(-6).map((entry, index) => (
                   <p key={`${entry.at}-${entry.step}-${index}`}>
@@ -309,7 +309,7 @@ export default function LoginPage() {
               </span>
             </div>
 
-            {tauriMobile ? (
+            {tauriNative ? (
               <Button
                 type="button"
                 className="w-full"
