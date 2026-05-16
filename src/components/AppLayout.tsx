@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type UIEvent } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
-import { Activity, AlertTriangle, BarChart3, Bell, Check, CheckSquare, CreditCard, FileText, LayoutDashboard, LogOut, Moon, Package, ReceiptText, Settings, Sun, Truck, UserSquare2 } from 'lucide-react'
+import { Activity, AlertTriangle, BarChart3, Bell, Check, CheckSquare, FileText, LayoutDashboard, LogOut, Moon, Package, ReceiptText, Settings, Sun, Truck, UserSquare2 } from 'lucide-react'
 
 import { getAlertasPaged, getAlertasResumen } from '@/features/alertas/api/alerta'
 import { getMe, logout as logoutRequest, updateMe } from '@/features/auth/api/auth'
@@ -58,6 +58,7 @@ const settingsTabs: TopTab[] = [
   { to: '/settings/organization', label: 'Organización' },
   { to: '/settings/users', label: 'Usuarios' },
   { to: '/settings/general', label: 'General' },
+  { to: '/settings/billing', label: 'Facturación' },
   { to: '/settings/security', label: 'Seguridad' },
 ]
 
@@ -181,7 +182,6 @@ export default function AppLayout() {
     if (path.startsWith('/clientes')) return 'Clientes'
     if (path.startsWith('/ventas')) return 'Ventas'
     if (path.startsWith('/reportes')) return 'Reportes'
-    if (path.startsWith('/billing')) return 'Facturación'
     if (path.startsWith('/settings')) return 'Ajustes'
     return ''
   }, [location.pathname])
@@ -586,10 +586,6 @@ export default function AppLayout() {
                     <DropdownMenuItem onSelect={() => navigate('/reportes')}>
                       <FileText className="h-4 w-4" />
                       Reportes
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => navigate('/billing')}>
-                      <CreditCard className="h-4 w-4" />
-                      Facturación
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => navigate('/analitica/resumen')}>
                       <BarChart3 className="h-4 w-4" />

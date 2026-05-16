@@ -90,8 +90,8 @@ export default function BillingPage() {
     try {
       const origin = window.location.origin
       const { url } = await createCheckoutSession(
-        `${origin}/billing?success=true`,
-        `${origin}/billing?cancelled=true`
+        `${origin}/settings/billing?success=true`,
+        `${origin}/settings/billing?cancelled=true`
       )
       window.location.href = url
     } catch {
@@ -103,7 +103,7 @@ export default function BillingPage() {
   const handleManage = async () => {
     setActionLoading(true)
     try {
-      const { url } = await createPortalSession(`${window.location.origin}/billing`)
+      const { url } = await createPortalSession(`${window.location.origin}/settings/billing`)
       window.location.href = url
     } catch {
       toast.error('No se pudo abrir el portal de facturación.')
