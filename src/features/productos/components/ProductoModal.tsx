@@ -43,6 +43,12 @@ const initialForm: FormState = {
 type FieldErrors = Partial<Record<keyof FormState, string>>
 type FieldTouched = Partial<Record<keyof FormState, boolean>>
 
+const resolveCategoriaId = (producto: Producto, categorias: Categoria[]): number | null =>
+  producto.categoriaId ?? categorias.find((categoria) => categoria.nombre === producto.categoriaNombre)?.id ?? null
+
+const resolveProviderId = (producto: Producto, proveedores: Proveedor[]): number | null =>
+  producto.providerId ?? proveedores.find((provider) => provider.nombre === producto.providerNombre)?.id ?? null
+
 export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: ProductoModalProps) {
   const [form, setForm] = useState<FormState>(initialForm)
   const [touched, setTouched] = useState<FieldTouched>({})
@@ -87,10 +93,12 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
     if (!isOpen) return
 
     if (producto) {
+      const categoriaIdResolved = resolveCategoriaId(producto, categorias)
+      const providerIdResolved = resolveProviderId(producto, proveedores)
       setForm({
         nombre: producto.nombre,
-        categoriaId: producto.categoriaId ? String(producto.categoriaId) : '',
-        providerId: producto.providerId ? String(producto.providerId) : '',
+        categoriaId: categoriaIdResolved ? String(categoriaIdResolved) : '',
+        providerId: providerIdResolved ? String(providerIdResolved) : '',
         sku: producto.sku,
         stockActual: String(producto.cantidadActual ?? 0),
         stockMinimo: String(producto.nivelMinimoStock ?? 1),
@@ -105,6 +113,24 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
     setServerErrors({})
     setFooterError(null)
   }, [isOpen, producto])
+
+  useEffect(() => {
+    if (!isOpen || !producto) return
+    const categoriaIdResolved = resolveCategoriaId(producto, categorias)
+    const providerIdResolved = resolveProviderId(producto, proveedores)
+    if (!categoriaIdResolved && !providerIdResolved) return
+
+    setForm((current) => {
+      const nextCategoriaId = current.categoriaId || (categoriaIdResolved ? String(categoriaIdResolved) : '')
+      const nextProviderId = current.providerId || (providerIdResolved ? String(providerIdResolved) : '')
+      if (nextCategoriaId === current.categoriaId && nextProviderId === current.providerId) return current
+      return {
+        ...current,
+        categoriaId: nextCategoriaId,
+        providerId: nextProviderId,
+      }
+    })
+  }, [isOpen, producto, categorias, proveedores])
 
   const clientErrors = useMemo(() => {
     const errors: FieldErrors = {}

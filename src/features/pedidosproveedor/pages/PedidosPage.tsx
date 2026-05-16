@@ -60,6 +60,7 @@ export default function PedidosPage() {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
   const [detailOrder, setDetailOrder] = useState<PedidoProveedor | null>(null)
   const [restockFlowHandled, setRestockFlowHandled] = useState(false)
+  const [restockPrefillProductId, setRestockPrefillProductId] = useState<number | null>(null)
 
   const selectedProvider = useMemo(
     () => providers.find((provider) => provider.id === selectedProviderId) ?? null,
@@ -176,6 +177,7 @@ export default function PedidosPage() {
     }
 
     if (canEdit) {
+      setRestockPrefillProductId(productToRestock.id)
       setOrderDialogOpen(true)
       toast.success(`Pedido preparado para reponer ${productToRestock.nombre}`)
     }
@@ -205,6 +207,7 @@ export default function PedidosPage() {
   }
 
   const openCreateOrder = () => {
+    setRestockPrefillProductId(null)
     setOrderDialogOpen(true)
   }
 
@@ -411,10 +414,14 @@ export default function PedidosPage() {
 
       <PedidoFormModal
         open={orderDialogOpen}
-        onClose={() => setOrderDialogOpen(false)}
+        onClose={() => {
+          setOrderDialogOpen(false)
+          setRestockPrefillProductId(null)
+        }}
         onCreated={onOrderCreated}
         provider={selectedProvider}
         providerProducts={providerProducts}
+        prefillProductId={restockPrefillProductId}
       />
 
       <PedidoDetailModal
