@@ -40,7 +40,7 @@ export const defaultProductoValues: ProductoFormValues = {
 }
 
 export const hasPriceAnomaly = (producto: Producto) =>
-  producto.costoUnitario != null && Number(producto.precioUnitario) < Number(producto.costoUnitario)
+  producto.costoUnitario != null && Number(producto.precioUnitario) <= Number(producto.costoUnitario)
 
 export const isOutOfStock = (producto: Producto) => producto.cantidadActual <= 0
 export const isLowStock = (producto: Producto) =>
