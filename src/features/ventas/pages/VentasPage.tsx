@@ -11,6 +11,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useFormatters } from '@/lib/useFormatters'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { DatePicker } from '@/components/ui/date-picker'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import VentaFormModal from '@/features/ventas/components/VentaFormModal'
@@ -160,8 +161,20 @@ export default function VentasPage() {
             placeholder="Buscar por ID o notas"
             className="w-56"
           />
-          <Input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} className="w-44" />
-          <Input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} className="w-44" />
+          <DatePicker
+            value={fromDate}
+            onChange={setFromDate}
+            placeholder="Desde"
+            className="w-44"
+            allowClear
+          />
+          <DatePicker
+            value={toDate}
+            onChange={setToDate}
+            placeholder="Hasta"
+            className="w-44"
+            allowClear
+          />
           <div className="ml-auto flex gap-2">
             {canCreate && <Button onClick={() => setModalOpen(true)}>+ Nueva venta</Button>}
           </div>

@@ -14,6 +14,7 @@ import {
   deleteProducto,
   editarProducto,
   getCategorias,
+  getProductoById,
   getProductosPaged,
 } from '@/features/productos/api/producto'
 import { getProveedores } from '@/features/proveedores/api/provider'
@@ -167,16 +168,34 @@ export default function ProductosPage() {
       return
     }
 
-    const productToEdit = productos.find((product) => product.id === editProductId)
-    if (!productToEdit) return
+    let cancelled = false
 
-    setProductoEditar(productToEdit)
-    setModalOpen(true)
+    const openEditFromQuery = async () => {
+      try {
+        const productToEdit =
+          productos.find((product) => product.id === editProductId) ?? (await getProductoById(editProductId))
+        if (cancelled) return
+        setProductoEditar(productToEdit)
+        setModalOpen(true)
+      } catch {
+        if (!cancelled) {
+          toast.error('No se pudo abrir el producto para edición')
+        }
+      } finally {
+        if (!cancelled) {
+          const next = new URLSearchParams(searchParams)
+          next.delete('editProductId')
+          next.delete('focus')
+          setSearchParams(next, { replace: true })
+        }
+      }
+    }
 
-    const next = new URLSearchParams(searchParams)
-    next.delete('editProductId')
-    next.delete('focus')
-    setSearchParams(next, { replace: true })
+    void openEditFromQuery()
+
+    return () => {
+      cancelled = true
+    }
   }, [productos, searchParams, setSearchParams])
 
   useEffect(() => {

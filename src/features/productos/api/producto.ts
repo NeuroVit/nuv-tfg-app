@@ -16,6 +16,11 @@ export const getProductos = async (): Promise<Producto[]> => {
   return data
 }
 
+export const getProductoById = async (id: number): Promise<Producto> => {
+  const { data } = await client.get<Producto>(`/productos/${id}`)
+  return data
+}
+
 export type GetProductosPagedParams = {
   search?: string
   categoriaId?: number
