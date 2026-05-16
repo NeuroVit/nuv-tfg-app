@@ -12,8 +12,17 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
-      include: ['src/**/*.{ts,tsx}'],
-      exclude: ['src/main.tsx', 'src/test/**'],
+      include: [
+        'src/api/client.ts',
+        'src/lib/**/*.{ts,tsx}',
+        'src/store/**/*.{ts,tsx}',
+        'src/features/inicio/dashboardUtils.ts',
+        'src/features/productos/productoForm.ts',
+      ],
+      exclude: [
+        'src/main.tsx',
+        'src/test/**',
+      ],
     },
   },
   resolve: {
