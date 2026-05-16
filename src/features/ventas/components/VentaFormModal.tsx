@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { isAxiosError } from 'axios'
 import { toast } from 'sonner'
@@ -14,6 +14,11 @@ import ModalShell, { RequiredMark } from '@/components/ModalShell'
 
 type SaleItemForm = {
   productId: string
+  quantity: string
+}
+
+type BundleSelectionForm = {
+  bundleId: string
   quantity: string
 }
 
@@ -97,26 +102,20 @@ const buildSaleErrorToastMessage = (reasons: string[], fallback: string): string
 export default function VentaFormModal({ open, onClose, onCreated, clients, products, canCreate = true }: VentaFormModalProps) {
   const [selectedClientId, setSelectedClientId] = useState('')
   const [notes, setNotes] = useState('')
-  const [items, setItems] = useState<SaleItemForm[]>([{ productId: '', quantity: '1' }])
+  const [items, setItems] = useState<SaleItemForm[]>([])
   const [bundles, setBundles] = useState<BundleSummary[]>([])
-  const [bundleSectionOpen, setBundleSectionOpen] = useState(false)
-  const [selectedBundleId, setSelectedBundleId] = useState('none')
-  const [bundleQuantityInput, setBundleQuantityInput] = useState('1')
+  const [selectedBundles, setSelectedBundles] = useState<BundleSelectionForm[]>([])
   const [bundleProductsById, setBundleProductsById] = useState<Record<string, BundleItem[]>>({})
-  const [loadingBundleProducts, setLoadingBundleProducts] = useState(false)
+  const [loadingBundleProductsById, setLoadingBundleProductsById] = useState<Record<string, boolean>>({})
   const [saving, setSaving] = useState(false)
-  const bundleRequestRef = useRef(0)
 
   const resetFormState = () => {
-    bundleRequestRef.current += 1
     setSelectedClientId('')
     setNotes('')
-    setItems([{ productId: '', quantity: '1' }])
-    setBundleSectionOpen(false)
-    setSelectedBundleId('none')
-    setBundleQuantityInput('1')
+    setItems([])
+    setSelectedBundles([])
     setBundleProductsById({})
-    setLoadingBundleProducts(false)
+    setLoadingBundleProductsById({})
     setSaving(false)
   }
 
@@ -143,57 +142,82 @@ export default function VentaFormModal({ open, onClose, onCreated, clients, prod
     }
   }, [open])
 
-  const handleBundleChange = (value: string) => {
-    setSelectedBundleId(value)
-    const bundleId = Number(value)
-    if (!bundleId || bundleProductsById[value]) {
-      setLoadingBundleProducts(false)
-      return
-    }
+  const loadBundleProducts = (bundleIdValue: string) => {
+    const bundleId = Number(bundleIdValue)
+    if (!bundleId || bundleProductsById[bundleIdValue] || loadingBundleProductsById[bundleIdValue]) return
 
-    const requestId = bundleRequestRef.current + 1
-    bundleRequestRef.current = requestId
-    setLoadingBundleProducts(true)
+    setLoadingBundleProductsById((current) => ({ ...current, [bundleIdValue]: true }))
     getBundleItems(bundleId)
       .then((data) => {
-        if (bundleRequestRef.current !== requestId) return
-        setBundleProductsById((current) => ({ ...current, [value]: data }))
+        setBundleProductsById((current) => ({ ...current, [bundleIdValue]: data }))
       })
       .catch((error: unknown) => {
-        if (bundleRequestRef.current !== requestId) return
         toast.error(parseApiError(error, 'No se pudieron cargar los productos del bundle'))
       })
       .finally(() => {
-        if (bundleRequestRef.current === requestId) {
-          setLoadingBundleProducts(false)
-        }
+        setLoadingBundleProductsById((current) => ({ ...current, [bundleIdValue]: false }))
       })
   }
 
-  const addItem = () => setItems((prev) => [...prev, { productId: '', quantity: '1' }])
+  const addItem = () => {
+    setItems((prev) => [...prev, { productId: '', quantity: '1' }])
+  }
+
+  const addBundle = () => {
+    setSelectedBundles((prev) => [...prev, { bundleId: '', quantity: '1' }])
+  }
 
   const removeItem = (index: number) => {
-    setItems((prev) => {
-      const next = prev.filter((_, idx) => idx !== index)
-      return next.length > 0 ? next : [{ productId: '', quantity: '1' }]
-    })
+    setItems((prev) => prev.filter((_, idx) => idx !== index))
   }
 
   const updateItem = (index: number, patch: Partial<SaleItemForm>) => {
     setItems((prev) => prev.map((item, idx) => (idx === index ? { ...item, ...patch } : item)))
   }
 
+  const removeBundle = (index: number) => {
+    setSelectedBundles((prev) => prev.filter((_, idx) => idx !== index))
+  }
+
+  const updateBundle = (index: number, patch: Partial<BundleSelectionForm>) => {
+    setSelectedBundles((prev) => prev.map((bundle, idx) => (idx === index ? { ...bundle, ...patch } : bundle)))
+  }
+
   const productById = useMemo(() => new Map(products.map((product) => [String(product.id), product])), [products])
   const bundleById = useMemo(() => new Map(bundles.map((bundle) => [String(bundle.id), bundle])), [bundles])
-  const selectedBundle = selectedBundleId === 'none' ? null : bundleById.get(selectedBundleId) ?? null
-  const bundleProducts = useMemo(
-    () => (selectedBundle ? bundleProductsById[selectedBundleId] ?? [] : []),
-    [selectedBundle, bundleProductsById, selectedBundleId],
+
+  const bundleRowSummaries = useMemo(
+    () =>
+      selectedBundles.map((bundleRow) => {
+        const bundle = bundleById.get(bundleRow.bundleId) ?? null
+        const productsInBundle = bundleProductsById[bundleRow.bundleId] ?? []
+        const discountPct = bundle ? Number(bundle.descuentoPct) : 0
+        const safeDiscountPct = Number.isFinite(discountPct) && discountPct >= 0 ? Math.min(100, discountPct) : 0
+        const safeQuantity = Math.max(1, Number(bundleRow.quantity) || 1)
+
+        const subtotal = productsInBundle.reduce((sum, bundleItem) => {
+          const product = productById.get(String(bundleItem.productoId))
+          if (!product) return sum
+          const quantity = Math.max(1, bundleItem.cantidad) * safeQuantity
+          return sum + product.precioUnitario * quantity
+        }, 0)
+
+        const total = subtotal * (1 - safeDiscountPct / 100)
+
+        return {
+          bundle,
+          bundleId: bundleRow.bundleId,
+          quantity: safeQuantity,
+          discountPct: safeDiscountPct,
+          subtotal,
+          total,
+          discountAmount: subtotal - total,
+          productsInBundle,
+          loadingProducts: Boolean(loadingBundleProductsById[bundleRow.bundleId]),
+        }
+      }),
+    [selectedBundles, bundleById, bundleProductsById, productById, loadingBundleProductsById],
   )
-  const bundleDiscountPct = selectedBundle ? Number(selectedBundle.descuentoPct) : 0
-  const safeBundleDiscountPct =
-    Number.isFinite(bundleDiscountPct) && bundleDiscountPct >= 0 ? Math.min(100, bundleDiscountPct) : 0
-  const safeBundleQuantity = Math.max(1, Number(bundleQuantityInput) || 1)
 
   const directItemsTotal = useMemo(
     () =>
@@ -206,24 +230,15 @@ export default function VentaFormModal({ open, onClose, onCreated, clients, prod
   )
 
   const bundleProductsSubtotal = useMemo(
-    () =>
-      bundleProducts.reduce((sum, bundleItem) => {
-        const product = productById.get(String(bundleItem.productoId))
-        if (!product) return sum
-        const quantity = Math.max(1, bundleItem.cantidad) * safeBundleQuantity
-        return sum + product.precioUnitario * quantity
-      }, 0),
-    [bundleProducts, productById, safeBundleQuantity],
+    () => bundleRowSummaries.reduce((sum, summary) => sum + summary.subtotal, 0),
+    [bundleRowSummaries],
   )
 
-  const bundleProductsTotal = useMemo(
-    () => bundleProductsSubtotal * (1 - safeBundleDiscountPct / 100),
-    [bundleProductsSubtotal, safeBundleDiscountPct],
-  )
+  const bundleProductsTotal = useMemo(() => bundleRowSummaries.reduce((sum, summary) => sum + summary.total, 0), [bundleRowSummaries])
 
   const bundleDiscountAmount = useMemo(
-    () => bundleProductsSubtotal - bundleProductsTotal,
-    [bundleProductsSubtotal, bundleProductsTotal],
+    () => bundleRowSummaries.reduce((sum, summary) => sum + summary.discountAmount, 0),
+    [bundleRowSummaries],
   )
 
   const total = useMemo(() => directItemsTotal + bundleProductsTotal, [directItemsTotal, bundleProductsTotal])
@@ -231,14 +246,25 @@ export default function VentaFormModal({ open, onClose, onCreated, clients, prod
   const isFormValid = useMemo(() => {
     if (!canCreate) return false
     if (!Number(selectedClientId)) return false
-    const hasSelectedBundle = Number(selectedBundleId) > 0
+
     const validItems = items
       .map((item) => ({ productId: Number(item.productId), quantity: Number(item.quantity) }))
       .filter((item) => !Number.isNaN(item.productId) && item.productId > 0 && item.quantity > 0)
-    if (validItems.length === 0 && !hasSelectedBundle) return false
-    const ids = validItems.map((item) => item.productId)
-    return new Set(ids).size === ids.length
-  }, [canCreate, selectedClientId, selectedBundleId, items])
+
+    const validBundles = selectedBundles
+      .map((bundle) => ({ bundleId: Number(bundle.bundleId), quantity: Number(bundle.quantity) }))
+      .filter((bundle) => !Number.isNaN(bundle.bundleId) && bundle.bundleId > 0 && bundle.quantity > 0)
+
+    if (validItems.length === 0 && validBundles.length === 0) return false
+
+    const productIds = validItems.map((item) => item.productId)
+    const bundleIds = validBundles.map((bundle) => bundle.bundleId)
+
+    if (new Set(productIds).size !== productIds.length) return false
+    if (new Set(bundleIds).size !== bundleIds.length) return false
+
+    return true
+  }, [canCreate, selectedClientId, items, selectedBundles])
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -252,9 +278,15 @@ export default function VentaFormModal({ open, onClose, onCreated, clients, prod
     const payloadItems = items
       .map((item) => ({ productId: Number(item.productId), quantity: Number(item.quantity) }))
       .filter((item) => !Number.isNaN(item.productId) && item.quantity > 0)
-    const payloadBundleId = Number(selectedBundleId)
 
-    if (payloadItems.length === 0 && !payloadBundleId) {
+    const payloadBundles = selectedBundles
+      .map((bundle) => ({
+        bundleId: Number(bundle.bundleId),
+        quantity: Math.max(1, Number(bundle.quantity) || 1),
+      }))
+      .filter((bundle) => !Number.isNaN(bundle.bundleId) && bundle.bundleId > 0)
+
+    if (payloadItems.length === 0 && payloadBundles.length === 0) {
       toast.error('Añade al menos un producto o un bundle')
       return
     }
@@ -264,20 +296,18 @@ export default function VentaFormModal({ open, onClose, onCreated, clients, prod
       return
     }
 
+    if (new Set(payloadBundles.map((bundle) => bundle.bundleId)).size !== payloadBundles.length) {
+      toast.error('No puedes repetir bundles')
+      return
+    }
+
     setSaving(true)
     try {
       await crearVenta({
         clientId,
         notas: notes.trim() || undefined,
         items: payloadItems.length ? payloadItems : undefined,
-        bundles: payloadBundleId
-          ? [
-              {
-                bundleId: payloadBundleId,
-                quantity: safeBundleQuantity,
-              },
-            ]
-          : undefined,
+        bundles: payloadBundles.length ? payloadBundles : undefined,
       })
       toast.success('Venta creada correctamente')
       handleClose()
@@ -337,23 +367,14 @@ export default function VentaFormModal({ open, onClose, onCreated, clients, prod
             <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Bundle / Combo</h3>
             <button
               type="button"
-              onClick={() => {
-                if (bundleSectionOpen) {
-                  setBundleSectionOpen(false)
-                  setSelectedBundleId('none')
-                  setBundleQuantityInput('1')
-                  setLoadingBundleProducts(false)
-                  return
-                }
-                setBundleSectionOpen(true)
-              }}
+              onClick={addBundle}
               className="h-10 rounded-2xl border border-border px-4 text-sm font-medium text-foreground transition hover:bg-accent"
             >
-              {bundleSectionOpen ? 'Ocultar bundle' : '+ Añadir bundle'}
+              + Añadir bundle
             </button>
           </div>
 
-          {bundleSectionOpen && (
+          {selectedBundles.length > 0 && (
             <>
               <div className="grid grid-cols-[2.2fr_0.72fr_0.95fr_0.95fr_0.72fr] items-end gap-x-4 px-1 pb-2 text-sm text-foreground/85">
                 <p>Bundle</p>
@@ -363,207 +384,218 @@ export default function VentaFormModal({ open, onClose, onCreated, clients, prod
                 <span />
               </div>
 
-              <div className="grid grid-cols-[2.2fr_0.72fr_0.95fr_0.95fr_0.72fr] items-start gap-x-4 border-t pt-3">
-                <div className="space-y-1">
-                  <Select value={selectedBundleId} onValueChange={handleBundleChange}>
-                    <SelectTrigger className="h-6 w-full rounded-2xl border-border px-4 text-base">
-                      <SelectValue placeholder="Selecciona bundle (opcional)" />
-                    </SelectTrigger>
-                    <SelectContent position="popper" sideOffset={6} viewportClassName="max-h-[360px] overflow-y-auto">
-                      <SelectItem value="none">Sin bundle</SelectItem>
-                      {bundles.map((bundle) => (
-                        <SelectItem key={bundle.id} value={String(bundle.id)}>
-                          {bundle.nombre} ({Number(bundle.descuentoPct).toFixed(2)}%)
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-4">
+                {selectedBundles.map((bundleRow, index) => {
+                  const summary = bundleRowSummaries[index]
+                  return (
+                    <div key={index} className="space-y-4 border-t pt-3">
+                      <div className="grid grid-cols-[2.2fr_0.72fr_0.95fr_0.95fr_0.72fr] items-start gap-x-4">
+                        <div className="space-y-1">
+                          <Select
+                            value={bundleRow.bundleId}
+                            onValueChange={(value) => {
+                              updateBundle(index, { bundleId: value })
+                              loadBundleProducts(value)
+                            }}
+                          >
+                            <SelectTrigger className="h-6 w-full rounded-2xl border-border px-4 text-base">
+                              <SelectValue placeholder="Selecciona bundle" />
+                            </SelectTrigger>
+                            <SelectContent position="popper" sideOffset={6} viewportClassName="max-h-[360px] overflow-y-auto">
+                              {bundles.map((bundle) => (
+                                <SelectItem key={bundle.id} value={String(bundle.id)}>
+                                  {bundle.nombre} ({Number(bundle.descuentoPct).toFixed(2)}%)
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
 
-                <Input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={bundleQuantityInput}
-                  onChange={(event) => {
-                    const digitsOnly = event.target.value.replace(/\D/g, '')
-                    setBundleQuantityInput(digitsOnly)
-                  }}
-                  onBlur={() => {
-                    if (!Number.isFinite(Number(bundleQuantityInput)) || Number(bundleQuantityInput) < 1) {
-                      setBundleQuantityInput('1')
-                    }
-                  }}
-                  disabled={selectedBundleId === 'none'}
-                  className="h-9 rounded-2xl border-border px-3 text-base disabled:opacity-50"
-                />
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={bundleRow.quantity}
+                          onChange={(event) => {
+                            const digitsOnly = event.target.value.replace(/\D/g, '')
+                            updateBundle(index, { quantity: digitsOnly })
+                          }}
+                          onBlur={() => {
+                            if (!Number.isFinite(Number(bundleRow.quantity)) || Number(bundleRow.quantity) < 1) {
+                              updateBundle(index, { quantity: '1' })
+                            }
+                          }}
+                          className="h-9 rounded-2xl border-border px-3 text-base"
+                        />
 
-                <p className="pt-3 text-center text-base text-muted-foreground">
-                  {selectedBundle ? `-${safeBundleDiscountPct.toFixed(2)}%` : '–'}
-                </p>
-                <p className="pt-3 text-center text-base">{selectedBundle ? euro(bundleProductsTotal) : '–'}</p>
+                        <p className="pt-3 text-center text-base text-muted-foreground">
+                          {summary.bundle ? `-${summary.discountPct.toFixed(2)}%` : '–'}
+                        </p>
+                        <p className="pt-3 text-center text-base">{summary.bundle ? euro(summary.total) : '–'}</p>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedBundleId('none')
-                    setBundleQuantityInput('1')
-                    setLoadingBundleProducts(false)
-                  }}
-                  disabled={selectedBundleId === 'none'}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
-                  aria-label="Quitar bundle"
-                  title="Quitar bundle"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                        <button
+                          type="button"
+                          onClick={() => removeBundle(index)}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-red-600 transition hover:bg-red-50"
+                          aria-label="Quitar bundle"
+                          title="Quitar bundle"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      <div className="space-y-4 border-t pt-4">
+                        <div className="flex items-center justify-between px-1">
+                          <p className="text-sm font-semibold uppercase tracking-wide text-foreground/80">Productos del bundle</p>
+                          <span className="text-sm text-muted-foreground">{summary.bundle?.nombre ?? 'Bundle'}</span>
+                        </div>
+
+                        <div className="grid grid-cols-[2.2fr_0.72fr_0.95fr_0.95fr_0.72fr] items-end gap-x-4 px-1 pb-2 text-sm text-foreground/85">
+                          <p>Producto</p>
+                          <p>Cantidad</p>
+                          <p>Precio</p>
+                          <p>Subtotal</p>
+                          <p className="text-right">Desc.</p>
+                        </div>
+
+                        {!summary.bundle ? (
+                          <p className="text-sm text-muted-foreground">Selecciona un bundle para ver sus productos.</p>
+                        ) : summary.loadingProducts ? (
+                          <p className="text-sm text-muted-foreground">Cargando productos del bundle...</p>
+                        ) : summary.productsInBundle.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">Este bundle no tiene productos.</p>
+                        ) : (
+                          summary.productsInBundle.map((bundleItem) => {
+                            const product = productById.get(String(bundleItem.productoId))
+                            const quantity = Math.max(1, bundleItem.cantidad) * summary.quantity
+                            const listSubtotal = product ? product.precioUnitario * quantity : null
+                            const discountedSubtotal =
+                              listSubtotal == null ? null : listSubtotal * (1 - summary.discountPct / 100)
+
+                            return (
+                              <div
+                                key={`${bundleRow.bundleId}-${bundleItem.productoId}`}
+                                className="grid grid-cols-[2.2fr_0.72fr_0.95fr_0.95fr_0.72fr] items-start gap-x-4 border-t pt-3"
+                              >
+                                <div className="space-y-1">
+                                  <p className="text-base">{bundleItem.productoNombre}</p>
+                                  <p className="px-1 text-xs text-muted-foreground">
+                                    {product ? `Disponible: ${product.cantidadActual} unidades` : 'Producto no disponible'}
+                                  </p>
+                                </div>
+                                <p className="pt-3 text-base">{quantity}</p>
+                                <p className="pt-3 text-base">{product ? euro(product.precioUnitario) : '–'}</p>
+                                <p className="pt-3 text-base">{discountedSubtotal != null ? euro(discountedSubtotal) : '–'}</p>
+                                <p className="pt-3 text-right text-xs text-muted-foreground">-{summary.discountPct.toFixed(2)}%</p>
+                              </div>
+                            )
+                          })
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
 
-              {selectedBundle && (
-                <div className="space-y-4 border-t pt-4">
-                  <div className="flex items-center justify-between px-1">
-                    <p className="text-sm font-semibold uppercase tracking-wide text-foreground/80">Productos del bundle</p>
-                    <span className="text-sm text-muted-foreground">{selectedBundle.nombre}</span>
-                  </div>
-
-                  <div className="grid grid-cols-[2.2fr_0.72fr_0.95fr_0.95fr_0.72fr] items-end gap-x-4 px-1 pb-2 text-sm text-foreground/85">
-                    <p>Producto</p>
-                    <p>Cantidad</p>
-                    <p>Precio</p>
-                    <p>Subtotal</p>
-                    <p className="text-right">Desc.</p>
-                  </div>
-
-                  {loadingBundleProducts ? (
-                    <p className="text-sm text-muted-foreground">Cargando productos del bundle...</p>
-                  ) : bundleProducts.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Este bundle no tiene productos.</p>
-                  ) : (
-                    bundleProducts.map((bundleItem) => {
-                      const product = productById.get(String(bundleItem.productoId))
-                      const quantity = Math.max(1, bundleItem.cantidad) * safeBundleQuantity
-                      const listSubtotal = product ? product.precioUnitario * quantity : null
-                      const discountedSubtotal =
-                        listSubtotal == null ? null : listSubtotal * (1 - safeBundleDiscountPct / 100)
-
-                      return (
-                        <div
-                          key={bundleItem.productoId}
-                          className="grid grid-cols-[2.2fr_0.72fr_0.95fr_0.95fr_0.72fr] items-start gap-x-4 border-t pt-3"
-                        >
-                          <div className="space-y-1">
-                            <p className="text-base">{bundleItem.productoNombre}</p>
-                            <p className="px-1 text-xs text-muted-foreground">
-                              {product ? `Disponible: ${product.cantidadActual} unidades` : 'Producto no disponible'}
-                            </p>
-                          </div>
-                          <p className="pt-3 text-base">{quantity}</p>
-                          <p className="pt-3 text-base">{product ? euro(product.precioUnitario) : '–'}</p>
-                          <p className="pt-3 text-base">{discountedSubtotal != null ? euro(discountedSubtotal) : '–'}</p>
-                          <p className="pt-3 text-right text-xs text-muted-foreground">
-                            -{safeBundleDiscountPct.toFixed(2)}%
-                          </p>
-                        </div>
-                      )
-                    })
-                  )}
-
-                  <div className="rounded-xl border border-border/70 bg-muted/30 px-4 py-3 text-sm text-foreground/90">
-                    <p>
-                      Descuento del bundle aplicado: <span className="font-semibold">{safeBundleDiscountPct.toFixed(2)}%</span>
-                    </p>
-                    <p>
-                      Ahorro estimado bundle: <span className="font-semibold">{euro(bundleDiscountAmount)}</span>
-                    </p>
-                  </div>
-                </div>
-              )}
+              <div className="rounded-xl border border-border/70 bg-muted/30 px-4 py-3 text-sm text-foreground/90">
+                <p>
+                  Descuento total bundles aplicado: <span className="font-semibold">{euro(bundleDiscountAmount)}</span>
+                </p>
+                <p>
+                  Subtotal bundles sin descuento: <span className="font-semibold">{euro(bundleProductsSubtotal)}</span>
+                </p>
+              </div>
             </>
           )}
         </section>
 
         <section className="space-y-4 border-t pt-6">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Productos</h3>
-
-          <div className="grid grid-cols-[2.2fr_0.72fr_0.95fr_0.95fr_0.72fr] items-end gap-x-4 px-1 pb-2 text-sm text-foreground/85">
-            <p>Producto</p>
-            <p>Cantidad</p>
-            <p>Precio</p>
-            <p>Subtotal</p>
-            <span />
-          </div>
-
-          <div className="space-y-4">
-            {items.map((item, index) => {
-              const product = productById.get(item.productId)
-              const safeQuantity = Math.max(1, Number(item.quantity) || 1)
-              const subtotal = product ? product.precioUnitario * safeQuantity : null
-              return (
-                <div key={index} className="grid grid-cols-[2.2fr_0.72fr_0.95fr_0.95fr_0.72fr] items-start gap-x-4 border-t pt-3">
-                  <div className="space-y-1">
-                    <Select value={item.productId} onValueChange={(value) => updateItem(index, { productId: value })}>
-                      <SelectTrigger className="h-6 w-full rounded-2xl border-border px-4 text-base">
-                        <SelectValue placeholder="Selecciona producto" />
-                      </SelectTrigger>
-                      <SelectContent position="popper" sideOffset={6} viewportClassName="max-h-[360px] overflow-y-auto">
-                        {products.map((productOption) => (
-                          <SelectItem key={productOption.id} value={String(productOption.id)}>
-                            {productOption.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="px-1 text-xs text-muted-foreground">
-                      {product ? `Disponible: ${product.cantidadActual} unidades` : ' '}
-                    </p>
-                  </div>
-
-                  <Input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    value={item.quantity}
-                    onChange={(event) => {
-                      const digitsOnly = event.target.value.replace(/\D/g, '')
-                      updateItem(index, { quantity: digitsOnly })
-                    }}
-                    onFocus={(event) => event.currentTarget.select()}
-                    onClick={(event) => event.currentTarget.select()}
-                    onMouseUp={(event) => event.preventDefault()}
-                    onBlur={() => {
-                      if (!Number.isFinite(Number(item.quantity)) || Number(item.quantity) < 1) {
-                        updateItem(index, { quantity: '1' })
-                      }
-                    }}
-                    className="h-9 rounded-2xl border-border px-3 text-base"
-                  />
-
-                  <p className="pt-3 text-base">{product ? euro(product.precioUnitario) : '–'}</p>
-                  <p className="pt-3 text-base">{subtotal != null ? euro(subtotal) : '–'}</p>
-
-                  <button
-                    type="button"
-                    onClick={() => removeItem(index)}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-red-600 transition hover:bg-red-50"
-                    aria-label="Quitar producto"
-                    title="Quitar producto"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              )
-            })}
-
-          </div>
-
-          <div className="flex items-center justify-between pt-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Productos</h3>
             <button
               type="button"
               onClick={addItem}
-              className="h-11 rounded-2xl border border-border px-5 text-sm font-medium text-foreground transition hover:bg-accent"
+              className="h-10 rounded-2xl border border-border px-4 text-sm font-medium text-foreground transition hover:bg-accent"
             >
               + Añadir producto
             </button>
+          </div>
+
+          {items.length > 0 && (
+            <>
+              <div className="grid grid-cols-[2.2fr_0.72fr_0.95fr_0.95fr_0.72fr] items-end gap-x-4 px-1 pb-2 text-sm text-foreground/85">
+                <p>Producto</p>
+                <p>Cantidad</p>
+                <p>Precio</p>
+                <p>Subtotal</p>
+                <span />
+              </div>
+
+              <div className="space-y-4">
+                {items.map((item, index) => {
+                  const product = productById.get(item.productId)
+                  const safeQuantity = Math.max(1, Number(item.quantity) || 1)
+                  const subtotal = product ? product.precioUnitario * safeQuantity : null
+                  return (
+                    <div key={index} className="grid grid-cols-[2.2fr_0.72fr_0.95fr_0.95fr_0.72fr] items-start gap-x-4 border-t pt-3">
+                      <div className="space-y-1">
+                        <Select value={item.productId} onValueChange={(value) => updateItem(index, { productId: value })}>
+                          <SelectTrigger className="h-6 w-full rounded-2xl border-border px-4 text-base">
+                            <SelectValue placeholder="Selecciona producto" />
+                          </SelectTrigger>
+                          <SelectContent position="popper" sideOffset={6} viewportClassName="max-h-[360px] overflow-y-auto">
+                            {products.map((productOption) => (
+                              <SelectItem key={productOption.id} value={String(productOption.id)}>
+                                {productOption.nombre}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="px-1 text-xs text-muted-foreground">
+                          {product ? `Disponible: ${product.cantidadActual} unidades` : ' '}
+                        </p>
+                      </div>
+
+                      <Input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={item.quantity}
+                        onChange={(event) => {
+                          const digitsOnly = event.target.value.replace(/\D/g, '')
+                          updateItem(index, { quantity: digitsOnly })
+                        }}
+                        onFocus={(event) => event.currentTarget.select()}
+                        onClick={(event) => event.currentTarget.select()}
+                        onMouseUp={(event) => event.preventDefault()}
+                        onBlur={() => {
+                          if (!Number.isFinite(Number(item.quantity)) || Number(item.quantity) < 1) {
+                            updateItem(index, { quantity: '1' })
+                          }
+                        }}
+                        className="h-9 rounded-2xl border-border px-3 text-base"
+                      />
+
+                      <p className="pt-3 text-base">{product ? euro(product.precioUnitario) : '–'}</p>
+                      <p className="pt-3 text-base">{subtotal != null ? euro(subtotal) : '–'}</p>
+
+                      <button
+                        type="button"
+                        onClick={() => removeItem(index)}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-red-600 transition hover:bg-red-50"
+                        aria-label="Quitar producto"
+                        title="Quitar producto"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
+
+          <div className="flex items-center justify-end pt-2">
             <div className="flex items-center gap-6 pr-1">
               <span className="text-2xl text-foreground/90">Total</span>
               <span className="text-4xl font-semibold text-foreground">{euro(total)}</span>

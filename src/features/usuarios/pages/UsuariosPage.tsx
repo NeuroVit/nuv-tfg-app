@@ -11,6 +11,7 @@ import {
 import type { UsuarioAdmin, UsuarioRoleAudit } from '@/features/usuarios/types/usuario'
 import { useAuthStore } from '@/store/authStore'
 import { Button } from '@/components/ui/button'
+import { DatePicker } from '@/components/ui/date-picker'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -249,8 +250,8 @@ export default function UsuariosPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                <Input type="date" value={auditFrom} onChange={(event) => setAuditFrom(event.target.value)} />
-                <Input type="date" value={auditTo} onChange={(event) => setAuditTo(event.target.value)} />
+                <DatePicker value={auditFrom} onChange={setAuditFrom} placeholder="Desde" allowClear />
+                <DatePicker value={auditTo} onChange={setAuditTo} placeholder="Hasta" allowClear />
               </div>
             </div>
 

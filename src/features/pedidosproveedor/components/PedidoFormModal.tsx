@@ -7,6 +7,7 @@ import type { Proveedor } from '@/features/proveedores/types/provider'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { DatePicker, formatDayKey, parseDayKey } from '@/components/ui/date-picker'
 import ModalShell, { ModalFooter, ModalSection, ModalSubmitButton, RequiredMark } from '@/components/ModalShell'
 import { userDayKeyToUtcDateKey } from '@/lib/datetime'
 import { parseApiError } from '@/lib/apiError'
@@ -24,10 +25,27 @@ interface PedidoFormModalProps {
   onCreated: () => void
   provider: Proveedor | null
   providerProducts: Producto[]
+  prefillProductId?: number | null
 }
 
-export default function PedidoFormModal({ open, onClose, onCreated, provider, providerProducts }: PedidoFormModalProps) {
+export default function PedidoFormModal({
+  open,
+  onClose,
+  onCreated,
+  provider,
+  providerProducts,
+  prefillProductId = null,
+}: PedidoFormModalProps) {
   const { timeZone, userTodayKey } = useFormatters()
+  const currencyFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat('es-ES', {
+        style: 'currency',
+        currency: 'EUR',
+        minimumFractionDigits: 2,
+      }),
+    [],
+  )
   const [arrivalDate, setArrivalDate] = useState<string>(userTodayKey())
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState<OrderItemForm[]>([{ productoId: '', cantidad: 1, precioUnitario: 0 }])
@@ -36,18 +54,34 @@ export default function PedidoFormModal({ open, onClose, onCreated, provider, pr
 
   useEffect(() => {
     if (!open) return
+    const prefillProduct =
+      prefillProductId != null
+        ? providerProducts.find((product) => product.id === prefillProductId) ?? null
+        : null
+    const suggestedQuantity = prefillProduct
+      ? Math.max(prefillProduct.nivelMinimoStock - prefillProduct.cantidadActual, 1)
+      : 1
+
     setArrivalDate(userTodayKey())
     setNotes('')
-    setItems([{ productoId: '', cantidad: 1, precioUnitario: 0 }])
+    setItems([
+      prefillProduct
+        ? {
+            productoId: String(prefillProduct.id),
+            cantidad: suggestedQuantity,
+            precioUnitario: prefillProduct.costoUnitario ?? prefillProduct.precioUnitario ?? 0,
+          }
+        : { productoId: '', cantidad: 1, precioUnitario: 0 },
+    ])
     setFooterError(null)
-  }, [open, userTodayKey])
+  }, [open, prefillProductId, providerProducts, userTodayKey])
 
   const recommendedOrderDate = useMemo(() => {
     if (!provider) return null
-    const arrival = new Date(arrivalDate)
-    if (Number.isNaN(arrival.getTime())) return null
+    const arrival = parseDayKey(arrivalDate)
+    if (!arrival) return null
     arrival.setDate(arrival.getDate() - provider.diasEntrega)
-    return arrival.toISOString().slice(0, 10)
+    return formatDayKey(arrival)
   }, [arrivalDate, provider])
 
   const addItem = () => {
@@ -67,7 +101,7 @@ export default function PedidoFormModal({ open, onClose, onCreated, provider, pr
 
   const isFormValid = useMemo(() => {
     if (!provider) return false
-    if (!arrivalDate || Number.isNaN(new Date(arrivalDate).getTime())) return false
+    if (!arrivalDate || !parseDayKey(arrivalDate)) return false
     const selected = items
       .map((item) => ({
         productoId: Number(item.productoId),
@@ -82,6 +116,18 @@ export default function PedidoFormModal({ open, onClose, onCreated, provider, pr
     return new Set(ids).size === ids.length
   }, [provider, arrivalDate, items])
 
+  const totalPedido = useMemo(
+    () =>
+      items.reduce((acc, item) => {
+        const productoId = Number(item.productoId)
+        const cantidad = Number(item.cantidad)
+        const precioUnitario = Number(item.precioUnitario)
+        if (productoId <= 0 || !Number.isFinite(cantidad) || !Number.isFinite(precioUnitario)) return acc
+        return acc + cantidad * precioUnitario
+      }, 0),
+    [items],
+  )
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     setFooterError(null)
@@ -93,7 +139,7 @@ export default function PedidoFormModal({ open, onClose, onCreated, provider, pr
         cantidad: Number(item.cantidad),
         precioUnitario: Number(item.precioUnitario),
       }))
-      .filter((item) => !Number.isNaN(item.productoId))
+      .filter((item) => item.productoId > 0)
 
     if (payloadItems.length === 0) {
       toast.error('Debes seleccionar al menos un producto')
@@ -150,10 +196,10 @@ export default function PedidoFormModal({ open, onClose, onCreated, provider, pr
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">Fecha de llegada deseada <RequiredMark /></label>
-              <Input
-                type="date"
+              <DatePicker
                 value={arrivalDate}
-                onChange={(event) => setArrivalDate(event.target.value)}
+                onChange={setArrivalDate}
+                timeZone={timeZone}
               />
             </div>
             <div className="space-y-1.5">
@@ -179,10 +225,7 @@ export default function PedidoFormModal({ open, onClose, onCreated, provider, pr
             </button>
           </div>
           {items.map((item, index) => (
-            <div
-              key={index}
-              className="grid grid-cols-1 gap-2 rounded-md border p-3 md:grid-cols-[1fr_130px_150px_auto]"
-            >
+            <div key={index} className="grid grid-cols-1 gap-2 rounded-md p-3 md:grid-cols-[minmax(0,1fr)_88px_120px_120px_auto]">
               <Select
                 value={item.productoId}
                 onValueChange={(value) => {
@@ -193,13 +236,13 @@ export default function PedidoFormModal({ open, onClose, onCreated, provider, pr
                   })
                 }}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full min-w-0 [&_[data-slot=select-value]]:min-w-0 [&_[data-slot=select-value]]:truncate">
                   <SelectValue placeholder="Selecciona producto" />
                 </SelectTrigger>
                 <SelectContent>
                   {providerProducts.map((product) => (
                     <SelectItem key={product.id} value={String(product.id)}>
-                      {product.nombre} ({product.sku})
+                      <span className="block max-w-full truncate">{product.nombre} ({product.sku})</span>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -209,15 +252,16 @@ export default function PedidoFormModal({ open, onClose, onCreated, provider, pr
                 min="1"
                 value={item.cantidad}
                 onChange={(event) => updateItem(index, { cantidad: Number(event.target.value) })}
+                className="w-[88px] text-right"
               />
-              <Input
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={item.precioUnitario}
-                onChange={(event) => updateItem(index, { precioUnitario: Number(event.target.value) })}
-                placeholder="Coste unitario (€)"
-              />
+              <div className="flex h-9 items-center px-3 text-sm text-foreground">
+                {item.productoId ? currencyFormatter.format(Number(item.precioUnitario || 0)) : '—'}
+              </div>
+              <div className="flex h-9 items-center px-3 text-sm font-medium text-foreground">
+                {item.productoId
+                  ? currencyFormatter.format(Number(item.cantidad || 0) * Number(item.precioUnitario || 0))
+                  : '—'}
+              </div>
               <button
                 type="button"
                 onClick={() => removeItem(index)}
@@ -230,6 +274,12 @@ export default function PedidoFormModal({ open, onClose, onCreated, provider, pr
               </button>
             </div>
           ))}
+          <div className="flex justify-end pt-3">
+            <p className="text-sm text-muted-foreground">
+              Total pedido:{' '}
+              <span className="font-semibold text-foreground">{currencyFormatter.format(totalPedido)}</span>
+            </p>
+          </div>
         </ModalSection>
 
         <ModalFooter onCancel={onClose} error={footerError}>
