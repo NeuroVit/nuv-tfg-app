@@ -33,6 +33,12 @@ const providerChartConfig = {
   },
 } satisfies ChartConfig
 
+const toSafeFiniteNumber = (value: unknown, fallback = 0) =>
+  typeof value === 'number' && Number.isFinite(value) ? value : fallback
+
+const toNullableFiniteNumber = (value: unknown) =>
+  typeof value === 'number' && Number.isFinite(value) ? value : null
+
 export default function AnaliticaProveedoresPage() {
   const { formatDateTime } = useFormatters()
   const { timeRange, selectedDays, setTimeRange } = useAnaliticaRange()
@@ -70,15 +76,18 @@ export default function AnaliticaProveedoresPage() {
     () =>
       rows
         .slice(0, 10)
-        .map((row) => ({ providerName: row.providerName, totalSpend: row.totalSpend }))
+        .map((row) => ({
+          providerName: row.providerName || 'Sin nombre',
+          totalSpend: toSafeFiniteNumber(row.totalSpend),
+        }))
         .reverse(),
     [rows],
   )
 
   const totals = useMemo(() => ({
     providers: rows.length,
-    orderCount: rows.reduce((sum, row) => sum + row.orderCount, 0),
-    totalSpend: rows.reduce((sum, row) => sum + row.totalSpend, 0),
+    orderCount: rows.reduce((sum, row) => sum + toSafeFiniteNumber(row.orderCount), 0),
+    totalSpend: rows.reduce((sum, row) => sum + toSafeFiniteNumber(row.totalSpend), 0),
   }), [rows])
 
   return (
@@ -146,16 +155,20 @@ export default function AnaliticaProveedoresPage() {
                 <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
               ) : rows.length === 0 ? (
                 <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Sin datos de proveedores para este rango.</TableCell></TableRow>
-              ) : rows.map((row) => (
-                <TableRow key={row.providerId}>
-                  <TableCell>{row.providerName}</TableCell>
-                  <TableCell>{formatCompact(row.orderCount)}</TableCell>
-                  <TableCell>{formatCurrency(row.totalSpend)}</TableCell>
-                  <TableCell>{row.avgLeadTimeDays.toFixed(2)}</TableCell>
-                  <TableCell>{row.onTimePct.toFixed(2)}%</TableCell>
-                  <TableCell>{formatDateTime(row.lastOrderAt)}</TableCell>
-                </TableRow>
-              ))}
+              ) : rows.map((row) => {
+                const avgLeadTimeDays = toNullableFiniteNumber(row.avgLeadTimeDays)
+                const onTimePct = toNullableFiniteNumber(row.onTimePct)
+                return (
+                  <TableRow key={row.providerId}>
+                    <TableCell>{row.providerName || 'Sin nombre'}</TableCell>
+                    <TableCell>{formatCompact(toSafeFiniteNumber(row.orderCount))}</TableCell>
+                    <TableCell>{formatCurrency(toSafeFiniteNumber(row.totalSpend))}</TableCell>
+                    <TableCell>{avgLeadTimeDays !== null ? avgLeadTimeDays.toFixed(2) : 'N/A'}</TableCell>
+                    <TableCell>{onTimePct !== null ? `${onTimePct.toFixed(2)}%` : 'N/A'}</TableCell>
+                    <TableCell>{row.lastOrderAt ? formatDateTime(row.lastOrderAt) : 'Sin datos'}</TableCell>
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
         </section>
