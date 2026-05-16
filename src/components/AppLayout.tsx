@@ -505,7 +505,7 @@ export default function AppLayout() {
                           >
                             <button
                               type="button"
-                              className="w-full flex-1 text-left"
+                              className="min-w-0 flex-1 text-left"
                               onClick={() => {
                                 setAlertsDrawerOpen(false)
                                 navigate('/alertas')
@@ -518,7 +518,7 @@ export default function AppLayout() {
                               type="button"
                               onClick={() => dismissAlert(alert.id)}
                               title="Marcar como vista"
-                              className="mt-0.5 shrink-0 rounded-full p-1 text-muted-foreground transition hover:bg-green-100 hover:text-green-600 dark:hover:bg-green-900/30"
+                              className="mt-0.5 shrink-0 self-start rounded-full p-1 text-muted-foreground transition hover:bg-green-100 hover:text-green-600 dark:hover:bg-green-900/30"
                             >
                               <Check className="h-3.5 w-3.5" />
                             </button>
