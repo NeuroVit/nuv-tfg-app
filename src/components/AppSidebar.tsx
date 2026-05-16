@@ -84,12 +84,6 @@ const navGroups: { label?: string; items: NavItem[] }[] = [
       { to: '/reportes', label: 'Reportes', icon: FileText },
     ],
   },
-  {
-    label: 'Cuenta',
-    items: [
-      { to: '/billing', label: 'Facturación', icon: CreditCard },
-    ],
-  },
 ]
 
 const settingsNavItems: NavItem[] = [
@@ -97,6 +91,7 @@ const settingsNavItems: NavItem[] = [
   { to: '/settings/organization', label: 'Organización', icon: Building2 },
   { to: '/settings/users', label: 'Usuarios', icon: Users },
   { to: '/settings/general', label: 'General', icon: SlidersHorizontal },
+  { to: '/settings/billing', label: 'Facturación', icon: CreditCard },
   { to: '/settings/security', label: 'Seguridad', icon: ShieldCheck },
 ]
 
