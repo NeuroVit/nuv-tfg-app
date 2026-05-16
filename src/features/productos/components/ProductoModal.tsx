@@ -273,8 +273,8 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
-          <section className="space-y-4">
+        <form onSubmit={handleSubmit} className="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-5">
+          <section className="space-y-5">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Información básica</h3>
 
             <div className="space-y-1.5">
@@ -362,7 +362,7 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
                 <button
                   type="button"
                   onClick={autoGenerateSku}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-input px-3 py-2 text-sm font-medium text-foreground transition hover:bg-accent"
+                  className="inline-flex min-w-20 shrink-0 items-center justify-center gap-1 rounded-xl border border-input px-3 py-2 text-sm font-medium text-foreground transition hover:bg-accent"
                 >
                   Auto <RefreshCw className="h-3.5 w-3.5" />
                 </button>
@@ -371,16 +371,10 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
             </div>
           </section>
 
-          <section className="space-y-4 border-t pt-4">
+          <section className="space-y-4 border-t pt-5">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Stock y precio</h3>
 
-            {showStockWarning && (
-              <p className="text-sm text-amber-800">
-                * El stock actual ({form.stockActual}) está por debajo del mínimo ({form.stockMinimo}). Se creará una alerta automáticamente al guardar.
-              </p>
-            )}
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-5">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-foreground">Stock actual <RequiredMark /></label>
                 <input
@@ -425,7 +419,9 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
                 />
                 {touched.stockMaximo && mergedErrors.stockMaximo && <p className="text-xs text-red-600">{mergedErrors.stockMaximo}</p>}
               </div>
+            </div>
 
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-foreground">Precio (€) <RequiredMark /></label>
                 <input
@@ -458,6 +454,12 @@ export default function ProductoModal({ isOpen, onClose, onSuccess, producto }: 
                 {touched.costoUnitario && mergedErrors.costoUnitario && <p className="text-xs text-red-600">{mergedErrors.costoUnitario}</p>}
               </div>
             </div>
+
+            {showStockWarning && (
+              <p className="rounded-xl border px-3 py-2 text-sm text-amber-800">
+                * El stock actual ({form.stockActual}) está por debajo del mínimo ({form.stockMinimo}). Se creará una alerta automáticamente al guardar.
+              </p>
+            )}
           </section>
 
           <div className="border-t pt-4">

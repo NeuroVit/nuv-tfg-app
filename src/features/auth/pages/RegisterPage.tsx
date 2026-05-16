@@ -15,7 +15,7 @@ import { googleLogin, register } from '@/features/auth/api/auth'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { GoogleAuthButton } from '@/features/auth/components/GoogleAuthButton'
 import {
-  isTauriMobile,
+  isTauri,
   registerTauriMobileGoogleListener,
   startTauriMobileGoogleLogin,
 } from '@/lib/tauriMobileGoogleAuth'
@@ -56,7 +56,7 @@ export default function RegisterPage() {
     const [serverError, setServerError] = useState<string | null>(null)
     const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false)
     const isMobile = useIsMobile()
-    const tauriMobile = isTauriMobile()
+    const tauriNative = isTauri()
 
     const form = useForm<RegisterFormData>({
         resolver: zodResolver(registerSchema),
@@ -129,7 +129,7 @@ const handleGoogleSuccess = async (response: CredentialResponse) => {
 }
 
 useEffect(() => {
-    if (!tauriMobile) return
+    if (!tauriNative) return
 
     let active = true
     let cleanup: (() => void) | undefined
@@ -160,14 +160,14 @@ useEffect(() => {
       })
       .catch(() => {
         setIsGoogleSubmitting(false)
-        setServerError('No se pudo inicializar Google en móvil')
+        setServerError('No se pudo inicializar Google en la app de escritorio/móvil')
       })
 
     return () => {
       active = false
       cleanup?.()
     }
-}, [navigate, setUser, tauriMobile])
+}, [navigate, setUser, tauriNative])
 
 const startMobileGoogleLogin = async () => {
     setIsGoogleSubmitting(true)
@@ -175,7 +175,7 @@ const startMobileGoogleLogin = async () => {
       await startTauriMobileGoogleLogin()
     } catch {
       setIsGoogleSubmitting(false)
-      setServerError('No se pudo abrir Google en el navegador')
+      setServerError('No se pudo abrir Google en el navegador externo')
     }
 }
 
@@ -349,7 +349,7 @@ const startMobileGoogleLogin = async () => {
           </Form>
           
           {/* Google */}
-          {tauriMobile ? (
+          {tauriNative ? (
             <Button
               type="button"
               className="w-full"
