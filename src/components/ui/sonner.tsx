@@ -7,11 +7,14 @@ import { CheckmarkCircle02Icon, InformationCircleIcon, Alert02Icon, Multiplicati
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme()
+  const safeTopOffset = "calc(env(safe-area-inset-top, 0px) + 16px)"
 
   return (
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
+      offset={{ top: safeTopOffset, right: "16px", left: "16px", bottom: "16px" }}
+      mobileOffset={{ top: safeTopOffset, right: "12px", left: "12px", bottom: "12px" }}
       icons={{
         success: (
           <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} className="size-4" />

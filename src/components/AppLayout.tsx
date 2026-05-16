@@ -1,18 +1,15 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type UIEvent } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
-import { Activity, AlertTriangle, BarChart3, Bell, LayoutDashboard, LogOut, Moon, Package, ReceiptText, Settings, Sun, Truck, UserSquare2, X } from 'lucide-react'
+import { Activity, AlertTriangle, BarChart3, Bell, Check, CheckSquare, CreditCard, FileText, LayoutDashboard, LogOut, Moon, Package, ReceiptText, Settings, Sun, Truck, UserSquare2 } from 'lucide-react'
 
-import { getMetaAnalitica } from '@/api/analitica'
-import { getAlertas } from '@/api/alerta'
-import { getMe, logout as logoutRequest, updateMe } from '@/api/auth'
+import { getAlertasPaged, getAlertasResumen } from '@/features/alertas/api/alerta'
+import { getMe, logout as logoutRequest, updateMe } from '@/features/auth/api/auth'
 import { useAuthStore } from '@/store/authStore'
 import { useDisplayName, useProfileStore } from '@/store/profileStore'
-import type { AnaliticaMeta } from '@/types/analitica'
-import type { AlertaStock } from '@/types/alerta'
+import type { AlertaStock } from '@/features/alertas/types/alerta'
 import { AppSidebar } from '@/components/AppSidebar'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -22,7 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { normalizeAvatarUrl } from '@/lib/googleAvatar'
@@ -58,7 +55,7 @@ const analiticaTabs: TopTab[] = [
 
 const settingsTabs: TopTab[] = [
   { to: '/settings/profile', label: 'Perfil' },
-  { to: '/settings/organization', label: 'OrganizaciÃƒÆ’Ã‚Â³n' },
+  { to: '/settings/organization', label: 'Organización' },
   { to: '/settings/users', label: 'Usuarios' },
   { to: '/settings/general', label: 'General' },
   { to: '/settings/security', label: 'Seguridad' },
@@ -100,6 +97,9 @@ const mobileNavItems: MobileNavItem[] = [
 const inRouteGroup = (pathname: string, routes: string[]) =>
   routes.some((route) => pathname === route || pathname.startsWith(`${route}/`))
 
+const ALERTS_PAGE_LIMIT = 20
+const ALERTS_SCROLL_LOAD_THRESHOLD = 120
+
 export default function AppLayout() {
   const { user, logout: clearSession } = useAuthStore()
   const setProfile = useProfileStore((s) => s.setProfile)
@@ -110,12 +110,40 @@ export default function AppLayout() {
   const { theme, resolvedTheme, setTheme } = useTheme()
 
   const isSettingsRoute = location.pathname.startsWith('/settings')
-  const [analyticsMeta, setAnalyticsMeta] = useState<AnaliticaMeta | null>(null)
-  const [openAlertsCount, setOpenAlertsCount] = useState(0)
-  const [openAlerts, setOpenAlerts] = useState<AlertaStock[]>([])
+  const [allOpenAlerts, setAllOpenAlerts] = useState<AlertaStock[]>([])
+  const [openAlertsTotal, setOpenAlertsTotal] = useState(0)
+  const [hasMoreOpenAlerts, setHasMoreOpenAlerts] = useState(false)
+  const [isLoadingMoreOpenAlerts, setIsLoadingMoreOpenAlerts] = useState(false)
   const [alertsDrawerOpen, setAlertsDrawerOpen] = useState(false)
+  const [dismissedIds, setDismissedIds] = useState<Set<number>>(
+    () => new Set(JSON.parse(localStorage.getItem('dismissed-alert-ids') ?? '[]') as number[])
+  )
+
+  const dismissAlert = (id: number) => {
+    setDismissedIds((prev) => {
+      const next = new Set(prev)
+      next.add(id)
+      localStorage.setItem('dismissed-alert-ids', JSON.stringify([...next]))
+      return next
+    })
+  }
+
+  const dismissAll = () => {
+    setDismissedIds((prev) => {
+      const next = new Set(prev)
+      allOpenAlerts.forEach((a) => next.add(a.id))
+      localStorage.setItem('dismissed-alert-ids', JSON.stringify([...next]))
+      return next
+    })
+  }
+
+  const visibleAlerts = allOpenAlerts.filter((a) => !dismissedIds.has(a.id))
+  const dismissedFetchedOpenCount = allOpenAlerts.filter((a) => dismissedIds.has(a.id)).length
+  const openAlertsCount = Math.max(0, openAlertsTotal - dismissedFetchedOpenCount)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const isMobile = useIsMobile()
+  const [isPhoneLikeDevice, setIsPhoneLikeDevice] = useState(false)
+  const [isPortrait, setIsPortrait] = useState(true)
   const activeTheme = theme === 'system' ? resolvedTheme : theme
   const isDarkTheme = activeTheme === 'dark'
   const accountLabel = displayName || user?.username || 'Usuario'
@@ -128,6 +156,10 @@ export default function AppLayout() {
     .join('')
     .slice(0, 2) || 'U'
   const effectiveAvatarUrl = normalizeAvatarUrl(profileAvatarUrl)
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
+  const [avatarLoaded, setAvatarLoaded] = useState(false)
+  const showAvatarImage = Boolean(effectiveAvatarUrl) && !avatarLoadFailed
+  const useMobileChrome = isPhoneLikeDevice ? isPortrait : isMobile
 
   const topTabs = useMemo(() => {
     if (isSettingsRoute) return settingsTabs
@@ -144,9 +176,12 @@ export default function AppLayout() {
     if (inRouteGroup(path, ['/proveedores', '/pedidos'])) return 'Proveedores'
     if (path.startsWith('/movimientos')) return 'Movimientos'
     if (path.startsWith('/alertas')) return 'Alertas'
+    if (path.startsWith('/tareas')) return 'Tareas'
     if (path.startsWith('/analitica')) return 'Analitica'
     if (path.startsWith('/clientes')) return 'Clientes'
     if (path.startsWith('/ventas')) return 'Ventas'
+    if (path.startsWith('/reportes')) return 'Reportes'
+    if (path.startsWith('/billing')) return 'Facturación'
     if (path.startsWith('/settings')) return 'Ajustes'
     return ''
   }, [location.pathname])
@@ -192,53 +227,102 @@ export default function AppLayout() {
   }, [user?.token, setProfile])
 
   useEffect(() => {
-    let isMounted = true
-    const loadMeta = async () => {
-      if (!user?.token) {
-        if (isMounted) setAnalyticsMeta(null)
-        return
-      }
-      try {
-        const meta = await getMetaAnalitica(30)
-        if (!isMounted) return
-        setAnalyticsMeta(meta)
-      } catch {
-        if (!isMounted) return
-        setAnalyticsMeta(null)
-      }
+    const evaluateViewportMode = () => {
+      const isCoarsePointer = window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(any-pointer: coarse)').matches
+      const shortestScreenSide = Math.min(window.screen.width || window.innerWidth, window.screen.height || window.innerHeight)
+      const portrait = window.matchMedia('(orientation: portrait)').matches || window.innerHeight >= window.innerWidth
+
+      setIsPhoneLikeDevice(isCoarsePointer && shortestScreenSide < 600)
+      setIsPortrait(portrait)
     }
-    void loadMeta()
+
+    evaluateViewportMode()
+    window.addEventListener('resize', evaluateViewportMode)
+    window.addEventListener('orientationchange', evaluateViewportMode)
+    window.visualViewport?.addEventListener('resize', evaluateViewportMode)
+
     return () => {
-      isMounted = false
+      window.removeEventListener('resize', evaluateViewportMode)
+      window.removeEventListener('orientationchange', evaluateViewportMode)
+      window.visualViewport?.removeEventListener('resize', evaluateViewportMode)
     }
-  }, [user?.token])
+  }, [])
+
+  useEffect(() => {
+    setAvatarLoadFailed(false)
+    setAvatarLoaded(false)
+  }, [effectiveAvatarUrl])
+
+  const loadMoreOpenAlerts = useCallback(async () => {
+    if (!user?.token || isLoadingMoreOpenAlerts || !hasMoreOpenAlerts) return
+
+    setIsLoadingMoreOpenAlerts(true)
+    try {
+      const nextPage = await getAlertasPaged({
+        resueltas: false,
+        limit: ALERTS_PAGE_LIMIT,
+        offset: allOpenAlerts.length,
+      })
+
+      setAllOpenAlerts((prev) => {
+        const existingIds = new Set(prev.map((alert) => alert.id))
+        const uniqueNextAlerts = nextPage.content.filter((alert) => !existingIds.has(alert.id))
+        return [...prev, ...uniqueNextAlerts]
+      })
+      setHasMoreOpenAlerts(nextPage.offset + nextPage.content.length < nextPage.total)
+    } catch {
+      // ignore incremental loading errors and keep existing list
+    } finally {
+      setIsLoadingMoreOpenAlerts(false)
+    }
+  }, [allOpenAlerts.length, hasMoreOpenAlerts, isLoadingMoreOpenAlerts, user?.token])
+
+  const handleAlertsScroll = (event: UIEvent<HTMLDivElement>) => {
+    const remainingScroll =
+      event.currentTarget.scrollHeight - event.currentTarget.scrollTop - event.currentTarget.clientHeight
+    if (remainingScroll <= ALERTS_SCROLL_LOAD_THRESHOLD) {
+      void loadMoreOpenAlerts()
+    }
+  }
 
   useEffect(() => {
     let isMounted = true
     const loadOpenAlerts = async () => {
       if (!user?.token) {
         if (isMounted) {
-          setOpenAlertsCount(0)
-          setOpenAlerts([])
+          setAllOpenAlerts([])
+          setHasMoreOpenAlerts(false)
+          setIsLoadingMoreOpenAlerts(false)
         }
         return
       }
       try {
-        const openAlertsData = await getAlertas(false)
+        const [openAlertsPage, alertsSummary] = await Promise.all([
+          getAlertasPaged({
+            resueltas: false,
+            limit: ALERTS_PAGE_LIMIT,
+            offset: 0,
+          }),
+          getAlertasResumen(),
+        ])
         if (!isMounted) return
-        setOpenAlertsCount(openAlertsData.length)
-        setOpenAlerts(openAlertsData)
+        setAllOpenAlerts(openAlertsPage.content)
+        setOpenAlertsTotal(alertsSummary.abiertas)
+        setHasMoreOpenAlerts(openAlertsPage.offset + openAlertsPage.content.length < openAlertsPage.total)
+        setIsLoadingMoreOpenAlerts(false)
       } catch {
         if (!isMounted) return
-        setOpenAlertsCount(0)
-        setOpenAlerts([])
+        setAllOpenAlerts([])
+        setOpenAlertsTotal(0)
+        setHasMoreOpenAlerts(false)
+        setIsLoadingMoreOpenAlerts(false)
       }
     }
 
     void loadOpenAlerts()
     const timer = window.setInterval(() => {
       void loadOpenAlerts()
-    }, 30000)
+    }, 45000)
 
     return () => {
       isMounted = false
@@ -246,20 +330,12 @@ export default function AppLayout() {
     }
   }, [user?.token])
 
-  const dataModeLabel = useMemo(() => {
-    if (!analyticsMeta) return null
-    const isMockMode =
-      analyticsMeta.source === 'API_REAL_LOCAL_SEEDED' ||
-      analyticsMeta.source === 'API_REAL_SEED_PENDING'
-    return isMockMode ? 'Modo de datos de prueba' : 'API real'
-  }, [analyticsMeta])
-
   const handleLogout = async () => {
     try {
       await logoutRequest()
-      toast.success('SesiÃƒÆ’Ã‚Â³n cerrada correctamente.')
+      toast.success('Sesión cerrada correctamente.')
     } catch {
-      toast.error('No se pudo cerrar sesiÃƒÆ’Ã‚Â³n en el servidor. Se cerrarÃƒÆ’Ã‚Â¡ localmente.')
+      toast.error('No se pudo cerrar sesión en el servidor. Se cerrará localmente.')
     }
     clearSession()
     navigate('/login')
@@ -267,7 +343,7 @@ export default function AppLayout() {
 
   return (
     <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
-      {!isMobile ? <AppSidebar isSettingsRoute={isSettingsRoute} collapsible="offcanvas" /> : null}
+      {!useMobileChrome ? <AppSidebar isSettingsRoute={isSettingsRoute} collapsible="offcanvas" /> : null}
       <SidebarInset className="relative h-dvh min-h-0 min-w-0 overflow-hidden bg-transparent">
         <div className="pointer-events-none absolute inset-0 -z-10">
           <div className="absolute inset-0 dark:hidden" style={{ background: 'linear-gradient(180deg, #f4f7fb 0%, #e9eef6 52%, #e3e9f3 100%)' }} />
@@ -349,10 +425,10 @@ export default function AppLayout() {
             }}
           />
           <div className="relative z-10 flex min-h-14 items-center gap-2 px-3 sm:px-4">
-            {!isMobile ? <SidebarTrigger className="-ml-1 shrink-0" /> : null}
+            {!useMobileChrome ? <SidebarTrigger className="-ml-1 shrink-0" /> : null}
             {topTabs.length > 0 ? (
               <Tabs value={location.pathname} className="min-w-0 flex-1 pr-20 sm:pr-24">
-                <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   <TabsList
                     variant="line"
                     className="h-auto min-w-max justify-start gap-0 rounded-none bg-transparent"
@@ -392,156 +468,157 @@ export default function AppLayout() {
                     ) : null}
                   </Button>
                 </SheetTrigger>
-                <SheetContent
-                  side="right"
-                  showCloseButton={false}
-                  className="w-full overflow-hidden border-l border-border/70 bg-transparent p-0 sm:max-w-md"
-                >
-                  <div
-                    aria-hidden
-                    className="pointer-events-none absolute inset-0 z-0 dark:hidden"
-                    style={{
-                      background:
-                        'linear-gradient(180deg, rgba(248,250,252,0.98) 0%, rgba(241,245,249,0.95) 55%, rgba(226,232,240,0.92) 100%)',
-                    }}
-                  />
-                  <div
-                    aria-hidden
-                    className="pointer-events-none absolute inset-0 z-0 hidden dark:block"
-                    style={{
-                      backgroundImage:
-                        "linear-gradient(180deg, rgba(5,5,5,0.92) 0%, rgba(5,5,5,0.74) 45%, rgba(5,5,5,0.38) 100%), url('/moon-texture-registrar.jpg')",
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                      backgroundRepeat: 'no-repeat',
-                      opacity: 0.95,
-                    }}
-                  />
-                  <div className="relative z-10 flex h-full flex-col">
-                    <div className="flex justify-end px-4 pt-4">
-                      <SheetClose asChild>
-                        <Button variant="ghost" size="icon-sm" className="text-foreground hover:bg-black/5 dark:text-white dark:hover:bg-white/10">
-                          <X className="h-4 w-4" />
-                          <span className="sr-only">Cerrar</span>
-                        </Button>
-                      </SheetClose>
-                    </div>
-                    <SheetHeader className="pb-2">
-                      <SheetTitle>Notificaciones</SheetTitle>
-                      <SheetDescription>Alertas abiertas ({openAlertsCount})</SheetDescription>
-                    </SheetHeader>
-                    <div className="flex-1 space-y-2 overflow-y-auto px-6 pb-4">
-                      {openAlerts.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">No hay alertas abiertas.</p>
-                      ) : (
-                        openAlerts.slice(0, 12).map((alert) => (
-                          <button
-                            key={alert.id}
-                            type="button"
-                            className="w-full rounded-lg border border-slate-300/70 bg-white/65 p-3 text-left transition-colors hover:bg-white dark:border-white/10 dark:bg-black/20 dark:hover:bg-white/5"
-                            onClick={() => {
-                              setAlertsDrawerOpen(false)
-                              navigate('/alertas')
-                            }}
-                          >
-                            <p className="text-sm font-medium text-slate-900 dark:text-white">{alert.productoNombre} - {alert.tipo}</p>
-                            <p className="truncate text-xs text-slate-600 dark:text-slate-300">{alert.mensaje}</p>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                    <div className="px-6 pb-4">
-                      <div className="rounded-xl border border-slate-300/70 bg-white/65 p-4 text-center dark:border-white/10 dark:bg-black/20">
-                        <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 text-primary">
-                          <AlertTriangle className="h-5 w-5" />
-                        </div>
-                        <p className="text-sm font-semibold text-slate-900 dark:text-white">Mantente al día con NeuralStock</p>
-                        <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
-                          Te avisaremos cuando aparezcan alertas críticas o cambios importantes en inventario.
-                        </p>
+                <SheetContent side="right" className="w-full sm:max-w-md">
+                  <SheetHeader className="pb-2">
+                    <SheetTitle>Notificaciones</SheetTitle>
+                    <SheetDescription>
+                      {openAlertsCount === 0
+                        ? 'Todo al día'
+                        : `${openAlertsCount} alerta${openAlertsCount !== 1 ? 's' : ''} pendiente${openAlertsCount !== 1 ? 's' : ''}`}
+                    </SheetDescription>
+                  </SheetHeader>
+                  <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-4" onScroll={handleAlertsScroll}>
+                    {visibleAlerts.length === 0 ? (
+                      <div className="flex flex-col items-center gap-2 py-10 text-center">
+                        <Check className="h-8 w-8 text-green-500" />
+                        <p className="text-sm font-medium text-foreground">Todo al día</p>
+                        <p className="text-xs text-muted-foreground">No hay notificaciones pendientes.</p>
                       </div>
-                    </div>
-                    <div className="border-t p-4">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full border-slate-300 bg-white/80 text-slate-900 hover:bg-white dark:border-white/20 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
-                        onClick={() => {
-                          setAlertsDrawerOpen(false)
-                          navigate('/alertas')
-                        }}
-                      >
-                        Ver alertas
-                      </Button>
-                    </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between py-1">
+                          <span className="text-xs text-muted-foreground">
+                            Mostrando {visibleAlerts.length} de {openAlertsCount}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={dismissAll}
+                            className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline transition"
+                          >
+                            Marcar todas como vistas
+                          </button>
+                        </div>
+                        {visibleAlerts.map((alert) => (
+                          <div
+                            key={alert.id}
+                            className="flex items-start gap-2 rounded-md bg-secondary/55 p-3 transition-colors hover:bg-muted"
+                          >
+                            <button
+                              type="button"
+                              className="w-full flex-1 text-left"
+                              onClick={() => {
+                                setAlertsDrawerOpen(false)
+                                navigate('/alertas')
+                              }}
+                            >
+                              <p className="text-sm font-medium">{alert.productoNombre} — {alert.tipo}</p>
+                              <p className="truncate text-xs text-muted-foreground">{alert.mensaje}</p>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => dismissAlert(alert.id)}
+                              title="Marcar como vista"
+                              className="mt-0.5 shrink-0 rounded-full p-1 text-muted-foreground transition hover:bg-green-100 hover:text-green-600 dark:hover:bg-green-900/30"
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                        {isLoadingMoreOpenAlerts ? (
+                          <p className="py-2 text-center text-xs text-muted-foreground">Cargando más notificaciones...</p>
+                        ) : null}
+                      </div>
+                    )}
                   </div>
-              </SheetContent>
-            </Sheet>
+                </SheetContent>
+              </Sheet>
 
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" aria-label="Perfil">
-                    <Avatar className="h-7 w-7 rounded-full">
-                      {effectiveAvatarUrl ? <img src={effectiveAvatarUrl} alt={accountLabel} referrerPolicy="no-referrer" className="aspect-square size-full rounded-full object-cover" /> : null}
-                      <AvatarFallback className="rounded-full bg-muted text-[10px] text-muted-foreground">{initials}</AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" sideOffset={6} className="min-w-52">
-                  <DropdownMenuLabel className="py-2">
-                    <div className="truncate text-sm font-medium text-foreground">{accountLabel}</div>
-                    <div className="truncate text-xs text-muted-foreground">{roleLabel}</div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={() => setTheme(isDarkTheme ? 'light' : 'dark')}>
-                    {isDarkTheme ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                    {isDarkTheme ? 'Modo claro' : 'Modo oscuro'}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={() => navigate('/movimientos')}>
-                    <Activity className="h-4 w-4" />
-                    Movimientos
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => navigate('/alertas')}>
-                    <AlertTriangle className="h-4 w-4" />
-                    Alertas
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => navigate('/analitica/resumen')}>
-                    <BarChart3 className="h-4 w-4" />
-                    AnalÃƒÆ’Ã‚Â­tica
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => navigate('/settings/general')}>
-                    <Settings className="h-4 w-4" />
-                    Ajustes
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem variant="destructive" onSelect={() => { void handleLogout() }}>
-                    <LogOut className="h-4 w-4" />
-                    Cerrar sesiÃƒÆ’Ã‚Â³n
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {dataModeLabel ? (
-                <Badge
-                  variant={dataModeLabel === 'Modo de datos de prueba' ? 'outline' : 'secondary'}
-                  className="mr-1 hidden lg:inline-flex"
-                >
-                  {dataModeLabel}
-                </Badge>
+              {useMobileChrome ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" aria-label="Perfil">
+                      <Avatar className="h-7 w-7 rounded-full">
+                        {showAvatarImage ? (
+                          <>
+                            {!avatarLoaded ? (
+                              <span
+                                aria-hidden
+                                className="absolute inset-0 animate-pulse rounded-full bg-muted"
+                              />
+                            ) : null}
+                            <img
+                              src={effectiveAvatarUrl!}
+                              alt={accountLabel}
+                              referrerPolicy="no-referrer"
+                              className={`aspect-square size-full rounded-full object-cover transition-opacity duration-200 ${avatarLoaded ? 'opacity-100' : 'opacity-0'}`}
+                              onLoad={() => setAvatarLoaded(true)}
+                              onError={() => setAvatarLoadFailed(true)}
+                            />
+                          </>
+                        ) : null}
+                        <AvatarFallback className={`rounded-full bg-muted text-[10px] text-muted-foreground ${showAvatarImage && avatarLoaded ? 'opacity-0' : 'opacity-100'}`}>{initials}</AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" sideOffset={6} className="min-w-52">
+                    <DropdownMenuLabel className="py-2">
+                      <div className="truncate text-sm font-medium text-foreground">{accountLabel}</div>
+                      <div className="truncate text-xs text-muted-foreground">{roleLabel}</div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={() => setTheme(isDarkTheme ? 'light' : 'dark')}>
+                      {isDarkTheme ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                      {isDarkTheme ? 'Modo claro' : 'Modo oscuro'}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={() => navigate('/movimientos')}>
+                      <Activity className="h-4 w-4" />
+                      Movimientos
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => navigate('/alertas')}>
+                      <AlertTriangle className="h-4 w-4" />
+                      Alertas
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => navigate('/tareas')}>
+                      <CheckSquare className="h-4 w-4" />
+                      Tareas
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => navigate('/reportes')}>
+                      <FileText className="h-4 w-4" />
+                      Reportes
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => navigate('/billing')}>
+                      <CreditCard className="h-4 w-4" />
+                      Facturación
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => navigate('/analitica/resumen')}>
+                      <BarChart3 className="h-4 w-4" />
+                      Analítica
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => navigate('/settings/general')}>
+                      <Settings className="h-4 w-4" />
+                      Ajustes
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem variant="destructive" onSelect={() => { void handleLogout() }}>
+                      <LogOut className="h-4 w-4" />
+                      Cerrar sesión
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               ) : null}
             </div>
           </div>
         </header>
 
-        <main className={`min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pt-2 sm:pt-3 ${isMobile ? 'pb-24' : ''}`}>
+        <main className={`min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pt-2 sm:pt-3 ${useMobileChrome ? 'pb-24' : ''}`}>
           <Outlet />
         </main>
 
-        {isMobile ? (
+        {useMobileChrome ? (
           <nav
-            className="fixed inset-x-0 bottom-0 z-50 border-t border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 md:hidden"
-            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1px)' }}
+            className="fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 md:hidden"
+            style={{ paddingBottom: 'max(calc(env(safe-area-inset-bottom, 0px) - 5px), 0px)' }}
           >
             <div className="grid grid-cols-5 gap-1 px-2 pt-2">
               {mobileNavItems.map((item) => {

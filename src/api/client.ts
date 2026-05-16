@@ -1,5 +1,5 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
-import type { AuthResponse } from '@/types/auth'
+import type { AuthResponse } from '@/features/auth/types/auth'
 import { useAuthStore } from '../store/authStore'
 
 type BackendMode = 'auto' | 'local' | 'railway'
@@ -90,7 +90,56 @@ const AUTH_ENDPOINTS = [
 const isAuthEndpoint = (url?: string) =>
   !!url && AUTH_ENDPOINTS.some((endpoint) => url.includes(endpoint))
 
-client.interceptors.request.use((config) => {
+const decodeJwtPayload = (token: string): Record<string, unknown> | null => {
+  try {
+    const parts = token.split('.')
+    if (parts.length < 2) return null
+    const normalized = parts[1]!.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4)
+    const json = atob(padded)
+    return JSON.parse(json) as Record<string, unknown>
+  } catch {
+    return null
+  }
+}
+
+const extractAccessTokenExp = (token: string): number | null => {
+  const payload = decodeJwtPayload(token)
+  const exp = payload?.exp
+  return typeof exp === 'number' && Number.isFinite(exp) ? exp : null
+}
+
+const isAccessTokenExpiredOrNearExpiry = (token: string, graceSeconds = 20): boolean => {
+  const exp = extractAccessTokenExp(token)
+  if (!exp) return false
+  const nowSeconds = Math.floor(Date.now() / 1000)
+  return nowSeconds >= exp - graceSeconds
+}
+
+let refreshPromise: Promise<string> | null = null
+
+const performTokenRefresh = () => {
+  if (!refreshPromise) {
+    refreshPromise = client
+      .post<AuthResponse>('/auth/refresh')
+      .then((response) => {
+        const refreshedUser = {
+          username: response.data.username,
+          role: response.data.role,
+          token: response.data.token,
+          mustChangePassword: response.data.mustChangePassword,
+        }
+        useAuthStore.getState().setUser(refreshedUser)
+        return response.data.token
+      })
+      .finally(() => {
+        refreshPromise = null
+      })
+  }
+  return refreshPromise
+}
+
+client.interceptors.request.use(async (config) => {
   const path = window.location.pathname
   const isPublicRoute = path === '/login' || path === '/register'
   const isAuthCall = isAuthEndpoint(config.url)
@@ -103,7 +152,21 @@ client.interceptors.request.use((config) => {
   }
 
   const token = useAuthStore.getState().user?.token
-  if (token) {
+  if (!token) return config
+
+  if (!isAuthCall && isAccessTokenExpiredOrNearExpiry(token)) {
+    try {
+      const newToken = await performTokenRefresh()
+      config.headers.Authorization = `Bearer ${newToken}`
+      return config
+    } catch {
+      redirectToLogin()
+      throw new axios.CanceledError('AUTH_REFRESH_FAILED')
+    }
+  }
+
+  // Keep refresh based on secure HTTP-only cookie; don't send stale bearer here.
+  if (!config.url?.includes('/auth/refresh')) {
     config.headers.Authorization = `Bearer ${token}`
   }
   return config
@@ -126,8 +189,6 @@ const isRedirectedApiResponseToLogin = (response: { request?: unknown; config?: 
   if (isAuthEndpoint(requestUrl)) return false
   return responseUrl.endsWith('/login') || responseUrl.includes('/login?')
 }
-
-let refreshPromise: Promise<string> | null = null
 
 client.interceptors.response.use(
   (res) => {
@@ -170,25 +231,7 @@ client.interceptors.response.use(
     originalRequest._retry = true
 
     try {
-      if (!refreshPromise) {
-        refreshPromise = client
-          .post<AuthResponse>('/auth/refresh')
-          .then((response) => {
-            const refreshedUser = {
-              username: response.data.username,
-              role: response.data.role,
-              token: response.data.token,
-              mustChangePassword: response.data.mustChangePassword,
-            }
-            useAuthStore.getState().setUser(refreshedUser)
-            return response.data.token
-          })
-          .finally(() => {
-            refreshPromise = null
-          })
-      }
-
-      const newToken = await refreshPromise
+      const newToken = await performTokenRefresh()
       originalRequest.headers = originalRequest.headers ?? {}
       originalRequest.headers.Authorization = `Bearer ${newToken}`
       return client(originalRequest)
@@ -200,5 +243,12 @@ client.interceptors.response.use(
 )
 
 client.defaults.headers.common['ngrok-skip-browser-warning'] = 'true'
+
+export const __clientTestUtils = {
+  decodeJwtPayload,
+  extractAccessTokenExp,
+  isAccessTokenExpiredOrNearExpiry,
+  isAuthEndpoint,
+}
 
 export default client
