@@ -1,12 +1,20 @@
-import { useCallback, useEffect, useMemo, useState, type UIEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
-import { Activity, AlertTriangle, BarChart3, Bell, Check, CheckSquare, CreditCard, FileText, LayoutDashboard, LogOut, Moon, Package, ReceiptText, Settings, Sun, Truck, UserSquare2 } from 'lucide-react'
+import { Activity, AlertTriangle, BarChart3, Bell, Check, CheckSquare, FileText, LayoutDashboard, LogOut, Moon, Package, ReceiptText, Settings, Sun, Truck, UserSquare2 } from 'lucide-react'
 
-import { getAlertasPaged, getAlertasResumen } from '@/features/alertas/api/alerta'
+import { getAlertasResumen } from '@/features/alertas/api/alerta'
 import { getMe, logout as logoutRequest, updateMe } from '@/features/auth/api/auth'
+import { getMovimientos } from '@/features/inventario/api/movimiento'
+import {
+  getConteoNoLeidas,
+  getNotificacionesPaged,
+  marcarNotificacionLeida,
+  marcarTodasNotificacionesLeidas,
+} from '@/features/notificaciones/api/notificacion'
+import { getTareasResumen } from '@/features/tareas/api/tarea'
+import type { Notificacion } from '@/features/notificaciones/types/notificacion'
 import { useAuthStore } from '@/store/authStore'
 import { useDisplayName, useProfileStore } from '@/store/profileStore'
-import type { AlertaStock } from '@/features/alertas/types/alerta'
 import { AppSidebar } from '@/components/AppSidebar'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -58,6 +66,7 @@ const settingsTabs: TopTab[] = [
   { to: '/settings/organization', label: 'Organización' },
   { to: '/settings/users', label: 'Usuarios' },
   { to: '/settings/general', label: 'General' },
+  { to: '/settings/billing', label: 'Facturación' },
   { to: '/settings/security', label: 'Seguridad' },
 ]
 
@@ -97,8 +106,36 @@ const mobileNavItems: MobileNavItem[] = [
 const inRouteGroup = (pathname: string, routes: string[]) =>
   routes.some((route) => pathname === route || pathname.startsWith(`${route}/`))
 
-const ALERTS_PAGE_LIMIT = 20
-const ALERTS_SCROLL_LOAD_THRESHOLD = 120
+const NOTIFICATION_EVENT_FETCH_LIMIT = 50
+const ONE_WEEK_IN_DAYS = 7
+
+type NotificationEvent = {
+  id: number
+  title: string
+  description: string
+  occurredAt: string
+  targetPath: string
+  read: boolean
+}
+
+const formatNotificationDate = (iso: string) => {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  return new Intl.DateTimeFormat('es-ES', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(date)
+}
+
+const toApiDate = (date: Date) => date.toISOString().slice(0, 10)
+const toNotificationEvent = (notification: Notificacion): NotificationEvent => ({
+  id: notification.id,
+  title: notification.titulo,
+  description: notification.descripcion ?? '',
+  occurredAt: notification.creadaEn,
+  targetPath: notification.targetPath || '/tareas',
+  read: notification.leida,
+})
 
 export default function AppLayout() {
   const { user, logout: clearSession } = useAuthStore()
@@ -110,36 +147,14 @@ export default function AppLayout() {
   const { theme, resolvedTheme, setTheme } = useTheme()
 
   const isSettingsRoute = location.pathname.startsWith('/settings')
-  const [allOpenAlerts, setAllOpenAlerts] = useState<AlertaStock[]>([])
   const [openAlertsTotal, setOpenAlertsTotal] = useState(0)
-  const [hasMoreOpenAlerts, setHasMoreOpenAlerts] = useState(false)
-  const [isLoadingMoreOpenAlerts, setIsLoadingMoreOpenAlerts] = useState(false)
   const [alertsDrawerOpen, setAlertsDrawerOpen] = useState(false)
-  const [dismissedIds, setDismissedIds] = useState<Set<number>>(
-    () => new Set(JSON.parse(localStorage.getItem('dismissed-alert-ids') ?? '[]') as number[])
-  )
-
-  const dismissAlert = (id: number) => {
-    setDismissedIds((prev) => {
-      const next = new Set(prev)
-      next.add(id)
-      localStorage.setItem('dismissed-alert-ids', JSON.stringify([...next]))
-      return next
-    })
-  }
-
-  const dismissAll = () => {
-    setDismissedIds((prev) => {
-      const next = new Set(prev)
-      allOpenAlerts.forEach((a) => next.add(a.id))
-      localStorage.setItem('dismissed-alert-ids', JSON.stringify([...next]))
-      return next
-    })
-  }
-
-  const visibleAlerts = allOpenAlerts.filter((a) => !dismissedIds.has(a.id))
-  const dismissedFetchedOpenCount = allOpenAlerts.filter((a) => dismissedIds.has(a.id)).length
-  const openAlertsCount = Math.max(0, openAlertsTotal - dismissedFetchedOpenCount)
+  const [pendingTasksTotal, setPendingTasksTotal] = useState(0)
+  const [inventoryEntriesLast7dTotal, setInventoryEntriesLast7dTotal] = useState(0)
+  const [notificationEvents, setNotificationEvents] = useState<NotificationEvent[]>([])
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0)
+  const notificationsFetchSeqRef = useRef(0)
+  const locallyReadNotificationIdsRef = useRef<Set<number>>(new Set())
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const isMobile = useIsMobile()
   const [isPhoneLikeDevice, setIsPhoneLikeDevice] = useState(false)
@@ -181,7 +196,6 @@ export default function AppLayout() {
     if (path.startsWith('/clientes')) return 'Clientes'
     if (path.startsWith('/ventas')) return 'Ventas'
     if (path.startsWith('/reportes')) return 'Reportes'
-    if (path.startsWith('/billing')) return 'Facturación'
     if (path.startsWith('/settings')) return 'Ajustes'
     return ''
   }, [location.pathname])
@@ -253,75 +267,102 @@ export default function AppLayout() {
     setAvatarLoaded(false)
   }, [effectiveAvatarUrl])
 
-  const loadMoreOpenAlerts = useCallback(async () => {
-    if (!user?.token || isLoadingMoreOpenAlerts || !hasMoreOpenAlerts) return
-
-    setIsLoadingMoreOpenAlerts(true)
+  const markAllNotificationsAsRead = useCallback(async () => {
+    if (notificationEvents.length === 0) return
     try {
-      const nextPage = await getAlertasPaged({
-        resueltas: false,
-        limit: ALERTS_PAGE_LIMIT,
-        offset: allOpenAlerts.length,
-      })
-
-      setAllOpenAlerts((prev) => {
-        const existingIds = new Set(prev.map((alert) => alert.id))
-        const uniqueNextAlerts = nextPage.content.filter((alert) => !existingIds.has(alert.id))
-        return [...prev, ...uniqueNextAlerts]
-      })
-      setHasMoreOpenAlerts(nextPage.offset + nextPage.content.length < nextPage.total)
+      await marcarTodasNotificacionesLeidas()
+      locallyReadNotificationIdsRef.current = new Set([
+        ...locallyReadNotificationIdsRef.current,
+        ...notificationEvents.map((event) => event.id),
+      ])
+      setNotificationEvents([])
+      setUnreadNotificationsCount(0)
     } catch {
-      // ignore incremental loading errors and keep existing list
-    } finally {
-      setIsLoadingMoreOpenAlerts(false)
+      toast.error('No se pudieron marcar las notificaciones como leídas')
     }
-  }, [allOpenAlerts.length, hasMoreOpenAlerts, isLoadingMoreOpenAlerts, user?.token])
+  }, [notificationEvents.length])
 
-  const handleAlertsScroll = (event: UIEvent<HTMLDivElement>) => {
-    const remainingScroll =
-      event.currentTarget.scrollHeight - event.currentTarget.scrollTop - event.currentTarget.clientHeight
-    if (remainingScroll <= ALERTS_SCROLL_LOAD_THRESHOLD) {
-      void loadMoreOpenAlerts()
+  const markNotificationAsRead = useCallback(async (eventId: number) => {
+    const event = notificationEvents.find((candidate) => candidate.id === eventId)
+    if (!event || event.read) return
+    try {
+      await marcarNotificacionLeida(eventId)
+      locallyReadNotificationIdsRef.current = new Set([
+        ...locallyReadNotificationIdsRef.current,
+        eventId,
+      ])
+      setNotificationEvents((prev) => prev.filter((candidate) => candidate.id !== eventId))
+      setUnreadNotificationsCount((prev) => Math.max(0, prev - 1))
+    } catch {
+      toast.error('No se pudo marcar la notificación como leída')
     }
-  }
+  }, [notificationEvents])
 
   useEffect(() => {
     let isMounted = true
-    const loadOpenAlerts = async () => {
+    const loadNotificationsAndSummary = async () => {
       if (!user?.token) {
         if (isMounted) {
-          setAllOpenAlerts([])
-          setHasMoreOpenAlerts(false)
-          setIsLoadingMoreOpenAlerts(false)
+          setOpenAlertsTotal(0)
+          setPendingTasksTotal(0)
+          setInventoryEntriesLast7dTotal(0)
+          setNotificationEvents([])
+          setUnreadNotificationsCount(0)
+          locallyReadNotificationIdsRef.current = new Set()
         }
         return
       }
+
       try {
-        const [openAlertsPage, alertsSummary] = await Promise.all([
-          getAlertasPaged({
-            resueltas: false,
-            limit: ALERTS_PAGE_LIMIT,
+        const currentFetchSeq = ++notificationsFetchSeqRef.current
+        const today = new Date()
+        const weekAgo = new Date(today.getTime() - ONE_WEEK_IN_DAYS * 24 * 60 * 60 * 1000)
+        const [alertsSummary, tareasResumen, entriesLast7dPage, notificationsPage, unreadCount] = await Promise.all([
+          getAlertasResumen(),
+          getTareasResumen(),
+          getMovimientos({
+            tipo: 'ENTRADA',
+            desde: toApiDate(weekAgo),
+            hasta: toApiDate(today),
+            limit: 1,
             offset: 0,
           }),
-          getAlertasResumen(),
+          getNotificacionesPaged({
+            soloNoLeidas: true,
+            limit: NOTIFICATION_EVENT_FETCH_LIMIT,
+            offset: 0,
+          }),
+          getConteoNoLeidas(),
         ])
-        if (!isMounted) return
-        setAllOpenAlerts(openAlertsPage.content)
+        if (!isMounted || currentFetchSeq !== notificationsFetchSeqRef.current) return
+
+        const fetchedUnreadEvents = notificationsPage.content.map(toNotificationEvent)
+        const fetchedUnreadIds = new Set(fetchedUnreadEvents.map((event) => event.id))
+        locallyReadNotificationIdsRef.current = new Set(
+          [...locallyReadNotificationIdsRef.current].filter((id) => fetchedUnreadIds.has(id)),
+        )
+        const visibleEvents = fetchedUnreadEvents.filter(
+          (event) => !locallyReadNotificationIdsRef.current.has(event.id),
+        )
+
         setOpenAlertsTotal(alertsSummary.abiertas)
-        setHasMoreOpenAlerts(openAlertsPage.offset + openAlertsPage.content.length < openAlertsPage.total)
-        setIsLoadingMoreOpenAlerts(false)
+        setPendingTasksTotal(tareasResumen.pendiente)
+        setInventoryEntriesLast7dTotal(entriesLast7dPage.total)
+        setNotificationEvents(visibleEvents)
+        setUnreadNotificationsCount(Math.max(0, unreadCount.noLeidas - locallyReadNotificationIdsRef.current.size))
       } catch {
         if (!isMounted) return
-        setAllOpenAlerts([])
         setOpenAlertsTotal(0)
-        setHasMoreOpenAlerts(false)
-        setIsLoadingMoreOpenAlerts(false)
+        setPendingTasksTotal(0)
+        setInventoryEntriesLast7dTotal(0)
+        setNotificationEvents([])
+        setUnreadNotificationsCount(0)
       }
     }
 
-    void loadOpenAlerts()
+    void loadNotificationsAndSummary()
     const timer = window.setInterval(() => {
-      void loadOpenAlerts()
+      void loadNotificationsAndSummary()
     }, 45000)
 
     return () => {
@@ -459,11 +500,11 @@ export default function AppLayout() {
             <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-1 sm:right-4 sm:gap-2">
               <Sheet open={alertsDrawerOpen} onOpenChange={setAlertsDrawerOpen}>
                 <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="relative h-8 w-8" aria-label="Notificaciones de alertas">
+                  <Button variant="ghost" size="icon" className="relative h-8 w-8" aria-label="Notificaciones">
                     <Bell className="h-4 w-4" />
-                    {openAlertsCount > 0 ? (
+                    {unreadNotificationsCount > 0 ? (
                       <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold leading-none text-white">
-                        {openAlertsCount > 99 ? '99+' : openAlertsCount}
+                        {unreadNotificationsCount > 99 ? '99+' : unreadNotificationsCount}
                       </span>
                     ) : null}
                   </Button>
@@ -472,63 +513,81 @@ export default function AppLayout() {
                   <SheetHeader className="pb-2">
                     <SheetTitle>Notificaciones</SheetTitle>
                     <SheetDescription>
-                      {openAlertsCount === 0
-                        ? 'Todo al día'
-                        : `${openAlertsCount} alerta${openAlertsCount !== 1 ? 's' : ''} pendiente${openAlertsCount !== 1 ? 's' : ''}`}
+                      {unreadNotificationsCount === 0
+                        ? 'Sin notificaciones nuevas'
+                        : `${unreadNotificationsCount} notificación${unreadNotificationsCount !== 1 ? 'es' : ''} nueva${unreadNotificationsCount !== 1 ? 's' : ''}`}
                     </SheetDescription>
                   </SheetHeader>
-                  <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-4" onScroll={handleAlertsScroll}>
-                    {visibleAlerts.length === 0 ? (
-                      <div className="flex flex-col items-center gap-2 py-10 text-center">
-                        <Check className="h-8 w-8 text-green-500" />
-                        <p className="text-sm font-medium text-foreground">Todo al día</p>
-                        <p className="text-xs text-muted-foreground">No hay notificaciones pendientes.</p>
+                  <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-4">
+                    <div className="grid grid-cols-1 gap-2 py-2">
+                      <div className="rounded-md bg-secondary/45 p-3">
+                        <p className="text-xs text-muted-foreground">Alertas abiertas</p>
+                        <p className="text-sm font-semibold text-foreground">{openAlertsTotal}</p>
                       </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between py-1">
-                          <span className="text-xs text-muted-foreground">
-                            Mostrando {visibleAlerts.length} de {openAlertsCount}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={dismissAll}
-                            className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline transition"
-                          >
-                            Marcar todas como vistas
-                          </button>
+                      <div className="rounded-md bg-secondary/45 p-3">
+                        <p className="text-xs text-muted-foreground">Tareas pendientes</p>
+                        <p className="text-sm font-semibold text-foreground">{pendingTasksTotal}</p>
+                      </div>
+                      <div className="rounded-md bg-secondary/45 p-3">
+                        <p className="text-xs text-muted-foreground">Entradas inventario (7 días)</p>
+                        <p className="text-sm font-semibold text-foreground">{inventoryEntriesLast7dTotal}</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-2 space-y-2">
+                      <div className="flex items-center justify-between py-1">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          Notificaciones
+                        </p>
+                        <button
+                          type="button"
+                          onClick={markAllNotificationsAsRead}
+                          className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline transition"
+                        >
+                          Marcar todas como leídas
+                        </button>
+                      </div>
+                      {notificationEvents.length === 0 ? (
+                        <div className="flex flex-col items-center gap-2 py-8 text-center">
+                          <Check className="h-8 w-8 text-green-500" />
+                          <p className="text-sm font-medium text-foreground">Aún no hay eventos nuevos</p>
+                          <p className="text-xs text-muted-foreground">
+                            Las notificaciones aparecerán cuando se te asigne una tarea.
+                          </p>
                         </div>
-                        {visibleAlerts.map((alert) => (
+                      ) : (
+                        notificationEvents.map((event) => (
                           <div
-                            key={alert.id}
-                            className="flex items-start gap-2 rounded-md bg-secondary/55 p-3 transition-colors hover:bg-muted"
+                            key={event.id}
+                            className="rounded-md border border-border bg-secondary/60 p-3 transition-colors hover:bg-muted"
                           >
-                            <button
-                              type="button"
-                              className="min-w-0 flex-1 text-left"
-                              onClick={() => {
-                                setAlertsDrawerOpen(false)
-                                navigate('/alertas')
-                              }}
-                            >
-                              <p className="text-sm font-medium">{alert.productoNombre} — {alert.tipo}</p>
-                              <p className="truncate text-xs text-muted-foreground">{alert.mensaje}</p>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => dismissAlert(alert.id)}
-                              title="Marcar como vista"
-                              className="mt-0.5 shrink-0 self-start rounded-full p-1 text-muted-foreground transition hover:bg-green-100 hover:text-green-600 dark:hover:bg-green-900/30"
-                            >
-                              <Check className="h-3.5 w-3.5" />
-                            </button>
+                            <div className="flex items-start gap-2">
+                              <button
+                                type="button"
+                                className="min-w-0 flex-1 text-left"
+                                onClick={() => {
+                                  void markNotificationAsRead(event.id)
+                                  setAlertsDrawerOpen(false)
+                                  navigate(event.targetPath)
+                                }}
+                              >
+                                <p className="truncate text-sm font-medium">{event.title}</p>
+                                <p className="truncate text-xs text-muted-foreground">{event.description}</p>
+                                <p className="pt-1 text-[11px] text-muted-foreground">{formatNotificationDate(event.occurredAt)}</p>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { void markNotificationAsRead(event.id) }}
+                                title="Marcar como leída"
+                                className="mt-0.5 shrink-0 self-start rounded-full p-1 text-muted-foreground transition hover:bg-green-100 hover:text-green-600 dark:hover:bg-green-900/30"
+                              >
+                                <Check className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           </div>
-                        ))}
-                        {isLoadingMoreOpenAlerts ? (
-                          <p className="py-2 text-center text-xs text-muted-foreground">Cargando más notificaciones...</p>
-                        ) : null}
-                      </div>
-                    )}
+                        ))
+                      )}
+                    </div>
                   </div>
                 </SheetContent>
               </Sheet>
@@ -586,10 +645,6 @@ export default function AppLayout() {
                     <DropdownMenuItem onSelect={() => navigate('/reportes')}>
                       <FileText className="h-4 w-4" />
                       Reportes
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => navigate('/billing')}>
-                      <CreditCard className="h-4 w-4" />
-                      Facturación
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => navigate('/analitica/resumen')}>
                       <BarChart3 className="h-4 w-4" />

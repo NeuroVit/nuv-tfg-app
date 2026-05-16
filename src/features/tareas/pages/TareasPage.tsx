@@ -298,6 +298,9 @@ function TareaCard({
   const EstadoIcon = estadoMeta.icon
   const prioridadMeta = PRIORIDAD_META[tarea.prioridad]
   const isAlerta = tarea.tipo === 'ALERTA_STOCK'
+  const asignablesDisponibles = isAlerta
+    ? asignables.filter((u) => u.role === 'ROLE_ADMIN' || u.role === 'ROLE_MANAGER')
+    : asignables
 
   const fecha = new Date(tarea.createdAt).toLocaleDateString('es-ES', {
     day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
@@ -373,7 +376,7 @@ function TareaCard({
             <span className="truncate">{fecha}</span>
           </div>
           <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center sm:justify-end">
-            {canReassign && asignables.length > 0 && (
+            {canReassign && asignablesDisponibles.length > 0 && (
               <Select
                 value={String(tarea.asignadoAUserId)}
                 onValueChange={(v) => onAsignado(tarea.id, Number(v))}
@@ -382,7 +385,7 @@ function TareaCard({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {asignables.map((u) => (
+                  {asignablesDisponibles.map((u) => (
                     <SelectItem key={u.id} value={String(u.id)} className="text-xs">
                       <span className="inline-flex items-center gap-1.5">
                         <UserRound className="h-3 w-3" />
