@@ -2,9 +2,9 @@ name: Frontend Quality
 
 on:
   pull_request:
-    branches: [dev, general]
+    branches: [dev, general, javitfg]
   push:
-    branches: [dev, general]
+    branches: [dev, general, javitfg]
 
 jobs:
   quality:
