@@ -3,7 +3,9 @@ import { toast } from 'sonner'
 import { generarReporte } from '@/features/reportes/api/reporte'
 import type { TipoReporte } from '@/features/reportes/types/reporte'
 import ModalShell, { ModalSection, RequiredMark } from '@/components/ModalShell'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Spinner } from '@/components/ui/spinner'
 import {
   Select,
   SelectContent,
@@ -120,14 +122,14 @@ export default function ReporteFormModal({ open, onClose, onSuccess }: Props) {
           >
             Cancelar
           </button>
-          <button
+          <Button
             type="button"
             onClick={() => void handleSubmit()}
             disabled={saving}
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {saving ? 'Generando…' : 'Generar reporte'}
-          </button>
+            {saving ? <Spinner data-icon="inline-start" /> : null}
+            {saving ? 'Generando' : 'Generar reporte'}
+          </Button>
         </div>
       </div>
     </ModalShell>

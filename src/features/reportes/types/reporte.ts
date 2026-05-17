@@ -7,6 +7,11 @@ export type Reporte = {
   tipo: TipoReporte
   descripcion: string | null
   datos: string | null
+  analisisIa?: string | null
+  analisisIaEstado?: 'GENERADO' | 'NO_DISPONIBLE' | 'ERROR' | string | null
+  analisisIaModelo?: string | null
+  analisisIaGeneradoEn?: string | null
+  analisisIaError?: string | null
   generadoPor: string | null
   createdAt: string
 }
