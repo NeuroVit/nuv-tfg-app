@@ -32,6 +32,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   BarChart3,
+  BookOpen,
   Building2,
   CheckSquare,
   ChevronsUpDown,
@@ -93,6 +94,7 @@ const settingsNavItems: NavItem[] = [
   { to: '/settings/general', label: 'General', icon: SlidersHorizontal },
   { to: '/settings/billing', label: 'Facturación', icon: CreditCard },
   { to: '/settings/security', label: 'Seguridad', icon: ShieldCheck },
+  { to: '/settings/docs', label: 'Documentación', icon: BookOpen },
 ]
 
 type AppSidebarProps = {

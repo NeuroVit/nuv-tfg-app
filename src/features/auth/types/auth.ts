@@ -38,6 +38,7 @@ export interface UserProfile {
   avatarUrl: string | null
   mustChangePassword: boolean
   timeZone: string
+  onboardingCompleted: boolean
 }
 
 export interface UpdateProfileRequest {

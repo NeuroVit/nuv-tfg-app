@@ -235,3 +235,5 @@ export const joinOrganization = (payload: JoinOrganizationRequest) =>
 
 export const updateCurrentOrganization = (payload: UpdateOrganizationRequest) =>
   client.put<OrganizationWithMembershipResponse>('/organizations/current', payload).then((r) => r.data)
+
+export const completeOnboarding = () => client.post('/auth/onboarding/complete')
