@@ -9,6 +9,7 @@ import {
 } from '@/features/reportes/api/reporte'
 import type { Reporte, ReporteProgramado, TipoReporte } from '@/features/reportes/types/reporte'
 import { useAuthStore } from '@/store/authStore'
+import { useSessionStore } from '@/store/sessionStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -44,7 +45,10 @@ const FRECUENCIA_LABEL: Record<string, string> = {
 
 export default function ReportesPage() {
   const { hasRole } = useAuthStore()
-  const canCreate = hasRole('ROLE_ADMIN') || hasRole('ROLE_MANAGER')
+  const membershipRole = useSessionStore((s) => (s.session?.role ?? '').trim().toLowerCase())
+  const canCreateByMembership = membershipRole === 'owner' || membershipRole === 'admin'
+  const canCreateByAuthRole = hasRole('ROLE_ADMIN') || hasRole('ROLE_MANAGER')
+  const canCreate = canCreateByMembership || canCreateByAuthRole
 
   const [reportes, setReportes] = useState<Reporte[]>([])
   const [programados, setProgramados] = useState<ReporteProgramado[]>([])

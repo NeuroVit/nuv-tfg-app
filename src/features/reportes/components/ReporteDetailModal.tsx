@@ -28,6 +28,12 @@ const LABEL_MAP: Record<string, string> = {
   clientesActivos:       'Clientes activos',
   clientesArchivados:    'Clientes archivados',
   nuevosUltimos30Dias:   'Nuevos (últimos 30 días)',
+  clientesConComprasHistorico: 'Clientes con compras (histórico)',
+  clientesSinComprasHistorico: 'Clientes sin compras (histórico)',
+  clientesConCompras30Dias: 'Clientes con compras (30 días)',
+  clientesSinCompras30Dias: 'Clientes sin compras (30 días)',
+  ingresosClientes30Dias: 'Ingresos de clientes (30 días)',
+  ticketPromedioClientes30Dias: 'Ticket promedio clientes (30 días)',
   totalMovimientos:      'Total de movimientos',
   entradas:              'Entradas',
   salidas:               'Salidas',
@@ -37,6 +43,8 @@ const LABEL_MAP: Record<string, string> = {
   ventasMes:             'Ventas este mes',
   ingresosMes:           'Ingresos este mes',
   nuevosClientes30Dias:  'Nuevos clientes (30 días)',
+  ultimaCompra:          'Última compra',
+  totalVentasHistoricas: 'Ventas históricas',
 }
 
 const formatValue = (key: string, value: unknown): string => {
@@ -127,6 +135,8 @@ export default function ReporteDetailModal({ open, onClose, reporte }: Props) {
           const sectionTitle =
             key === 'topProductos' ? 'Top productos' :
             key === 'topClientes'  ? 'Mejores clientes' :
+            key === 'topClientes30Dias' ? 'Top clientes (30 días)' :
+            key === 'clientesSinCompraReciente' ? 'Clientes sin compra reciente' :
             key === 'resumenStockBajo' ? 'Productos con stock bajo' :
             key === 'detalle' ? 'Detalle de alertas' :
             key === 'listado' ? 'Listado' :
@@ -161,6 +171,16 @@ export default function ReporteDetailModal({ open, onClose, reporte }: Props) {
             </ModalSection>
           )
         })}
+
+        <ModalSection title="Análisis IA" className="border-t pt-4">
+          {reporte.analisisIaEstado === 'GENERADO' && reporte.analisisIa ? (
+            <p className="text-sm leading-relaxed text-foreground">{reporte.analisisIa}</p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              El análisis IA no estuvo disponible al generar este reporte.
+            </p>
+          )}
+        </ModalSection>
 
         {!parsedDatos && (
           <p className="text-sm text-muted-foreground">No hay datos disponibles para este reporte.</p>
