@@ -21,6 +21,7 @@ describe('profileStore', () => {
       avatarUrl: null,
       mustChangePassword: false,
       timeZone: 'Europe/Madrid',
+      onboardingCompleted: false,
     })
     setOrganizationName('Neural Stock')
 

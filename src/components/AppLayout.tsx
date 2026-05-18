@@ -4,6 +4,7 @@ import { Activity, AlertTriangle, BarChart3, Bell, Check, CheckSquare, FileText,
 
 import { getAlertasResumen } from '@/features/alertas/api/alerta'
 import { getMe, logout as logoutRequest, updateMe } from '@/features/auth/api/auth'
+import { OnboardingChecklist } from '@/components/OnboardingChecklist'
 import { getMovimientos } from '@/features/inventario/api/movimiento'
 import {
   getConteoNoLeidas,
@@ -68,6 +69,7 @@ const settingsTabs: TopTab[] = [
   { to: '/settings/general', label: 'General' },
   { to: '/settings/billing', label: 'Facturación' },
   { to: '/settings/security', label: 'Seguridad' },
+  { to: '/settings/docs', label: 'Documentación' },
 ]
 
 const mobileNavItems: MobileNavItem[] = [
@@ -382,7 +384,13 @@ export default function AppLayout() {
     navigate('/login')
   }
 
+  const profile = useProfileStore((s) => s.profile)
+
   return (
+    <>
+    {profile && !profile.onboardingCompleted ? (
+      <OnboardingChecklist userId={profile.id} />
+    ) : null}
     <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
       {!useMobileChrome ? <AppSidebar isSettingsRoute={isSettingsRoute} collapsible="offcanvas" /> : null}
       <SidebarInset className="relative h-dvh min-h-0 min-w-0 overflow-hidden bg-transparent">
@@ -698,5 +706,6 @@ export default function AppLayout() {
         ) : null}
       </SidebarInset>
     </SidebarProvider>
+    </>
   )
 }

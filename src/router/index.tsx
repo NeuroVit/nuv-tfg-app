@@ -29,6 +29,7 @@ import SettingsProfilePage from '@/features/settings/pages/SettingsProfilePage'
 import SettingsSecurityPage from '@/features/settings/pages/SettingsSecurityPage'
 import SettingsUsersPage from '@/features/settings/pages/SettingsUsersPage'
 import SettingsOrganizationPage from '@/features/settings/pages/SettingsOrganizationPage'
+import DocsPage from '@/features/docs/pages/DocsPage'
 
 export const router = createBrowserRouter([
   {
@@ -79,6 +80,7 @@ export const router = createBrowserRouter([
           { path: '/settings/general', element: <SettingsPage /> },
           { path: '/settings/billing', element: <BillingPage /> },
           { path: '/settings/security', element: <SettingsSecurityPage /> },
+          { path: '/settings/docs', element: <DocsPage /> },
         ],
       },
     ],
