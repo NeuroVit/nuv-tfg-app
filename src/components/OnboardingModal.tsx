@@ -12,17 +12,12 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import {
-  Activity,
   AlertTriangle,
   BarChart3,
-  BookOpen,
   CheckSquare,
-  FileText,
   Package,
-  ReceiptText,
   Rocket,
   Truck,
-  UserSquare2,
 } from 'lucide-react'
 import { completeOnboarding } from '@/features/auth/api/auth'
 import { useProfileStore } from '@/store/profileStore'
