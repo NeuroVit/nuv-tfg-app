@@ -602,7 +602,9 @@ export default function Inicio() {
               <CardDescription>Valor total inventario</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-semibold">{formatCurrency(valorTotal)}</p>
+              <p className={`text-2xl font-semibold ${valorTotal < 0 ? 'text-red-600' : valorTotal > 0 ? 'text-green-600' : ''}`}>
+                {formatCurrency(valorTotal)}
+              </p>
               <p className="mt-1 text-xs text-muted-foreground">{totalProductos} productos</p>
             </CardContent>
           </Card>
